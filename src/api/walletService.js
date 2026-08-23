@@ -50,6 +50,8 @@ export const getUserWallet = async (authId) => {
   };
 };
 
+// @deprecated Replaced by the Scan-Streak retention system (no more reward on app open);
+// keep the RPC/table around for now, but nothing in the app calls this anymore.
 export const claimDailyLoginSparks = async ({ eventReference = null, metadata = {} } = {}) => {
   const { authId } = await getCurrentAuthContext();
 

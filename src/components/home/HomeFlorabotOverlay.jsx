@@ -1,31 +1,30 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { AnimatePresence, motion } from "framer-motion";
+import { motion } from "framer-motion";
 import { Settings2, HeartPulse, Sparkles, Gem, ArrowLeft } from "lucide-react";
 import { useUiTheme } from "@/lib/UiThemeContext";
 import { LockedTooltip } from "@/components/ui/locked-tooltip";
 import FlorabotOverlayShell from "@/components/florabot/FlorabotOverlayShell";
 import ShopFeatureRoot from "@/components/shop/ShopFeatureRoot";
+import ScanStreakRewardTrack from "@/components/home/ScanStreakRewardTrack";
 import { trackAction } from "@/api/analyticsService";
 
-const PLAYFUL_CARE_ANIMATION_KEYS = Object.freeze(["flip", "squash", "orbit"]);
-const PORTAL_CARE_DEBUG_PREFIX = "[PortalCareDebug]";
 const TOOLTIP_COPY = {
   de: {
     sparks: "Funken sind die Ingame-Währung. Du bekommst sie für Teilnahme und aktive Nutzung der App.",
     amber: "Bernstein ist eine kaufbare Premium-Währung für besondere Inhalte und Vorteile.",
     status: "Der Pflanzenstatus ist dein Gesamtzustand aus Energie, Datenqualität und Pflege. Ein hoher Status verbessert Belohnungen und stabilisiert deinen täglichen Fortschritt.",
-    watering: "Gießen startet Pflegeaktionen. Tippe mich an, um mit mir zu interagieren. Wer mag das nicht?",
+    careInteraction: "Tippe mich an - ab und zu erscheint eine Pflege-Blase. Antippen erhöht deine Pflege, solange dir heute noch Interaktionen zur Verfügung stehen.",
     stat: {
       energy: "Energie bekommst du vor allem durch gelaufene Scan-Distanz. Mehr Energie vergrößert deine Zone und verbessert den täglichen Energiegewinn.",
       "data-quality": "Datenqualität bekommst du durch Scans innerhalb aktiver Zonen. Mehr Datenqualität erhöht die Anzahl deiner täglichen Zonen.",
-      care: "Pflege bekommst du durch Gießen und den ersten Scan des Tages, sowie erhaltene Likes. Mehr Pflege erhöht den Samen-Multiplikator und gewährt zusätzliche Zone-Rerolls.",
+      care: "Pflege bekommst du durch deinen täglichen Scan-Streak sowie erhaltene Likes. Mehr Pflege erhöht den Samen-Multiplikator und gewährt zusätzliche Zone-Rerolls.",
     },
     aria: {
       sparks: "Funken Info",
       amber: "Bernstein Info",
       status: "Pflanzenstatus Info",
-      watering: "Gießen Info",
+      careInteraction: "Pflege-Interaktion Info",
       stat: "Statuswert Info",
     },
   },
@@ -33,17 +32,17 @@ const TOOLTIP_COPY = {
     sparks: "Sparks are the in-game currency. You earn them through participation and active app usage.",
     amber: "Amber is a purchasable premium currency for special content and advantages.",
     status: "Plant status is your overall state from Energy, Data Quality, and Care. Higher status improves rewards and daily progress stability.",
-    watering: "Watering triggers care actions. Tap the speech bubble or care button while daily attempts are available. More care improves your care value and rewards.",
+    careInteraction: "Tap me - every so often a Pflege bubble appears. Popping it raises your Care, as long as you still have interactions left for today.",
     stat: {
       energy: "You gain Energy mainly from scanned walking distance. More Energy expands your zone and improves daily energy gain.",
       "data-quality": "You gain Data Quality by scanning within active zones. Higher Data Quality increases your daily zone count.",
-      care: "You gain Care through watering and additional interactions. Higher Care boosts reward multipliers and extra zone rerolls.",
+      care: "You gain Care through your daily scan streak and likes received. Higher Care boosts reward multipliers and extra zone rerolls.",
     },
     aria: {
       sparks: "Sparks info",
       amber: "Amber info",
       status: "Plant status info",
-      watering: "Watering info",
+      careInteraction: "Care interaction info",
       stat: "Status stat info",
     },
   },
@@ -76,40 +75,6 @@ const extractLanguageCandidates = (source) => {
     .filter(Boolean);
 };
 
-/**
- * @param {EventTarget | null} target
- */
-const getEventTargetLabel = (target) => {
-  if (!target || typeof target !== "object") return "unknown";
-  const element = /** @type {{ tagName?: string, className?: string }} */ (target);
-  const tag = String(element.tagName || "node").toLowerCase();
-  const className = String(element.className || "").trim();
-  if (!className) return tag;
-  const shortClasses = className.split(/\s+/).slice(0, 3).join(".");
-  return `${tag}.${shortClasses}`;
-};
-
-/**
- * @param {{left:number,top:number,width:number,height:number} | DOMRect} rect
- */
-const rectToCenterPx = (rect) => ({
-  x: Number((rect.left + rect.width / 2).toFixed(2)),
-  y: Number((rect.top + rect.height / 2).toFixed(2)),
-});
-
-/**
- * @param {{left:number,top:number,width:number,height:number} | DOMRect | null | undefined} rect
- */
-const toDebugRect = (rect) => {
-  if (!rect) return null;
-  return {
-    left: Number(rect.left.toFixed(2)),
-    top: Number(rect.top.toFixed(2)),
-    width: Number(rect.width.toFixed(2)),
-    height: Number(rect.height.toFixed(2)),
-  };
-};
-
 export default function HomeFlorabotOverlay({
   profile,
   authId = null,
@@ -125,12 +90,12 @@ export default function HomeFlorabotOverlay({
   ambientMessage,
   quizAvailable = false,
   onQuizClick,
-  wateringCountToday = 0,
-  wateringLimitPerDay = 3,
-  remainingWatersToday = 0,
+  scanStreakStatus = null,
+  careInteractionCountToday = 0,
+  careInteractionLimitPerDay = 3,
+  remainingCareInteractionsToday = 0,
   isDailyCareLoading = false,
-  isWateringPending = false,
-  onWaterPlant = () => {},
+  isCareInteractionPending = false,
   onSpawnBubble,
   onCustomize,
   onUserUpdated,
@@ -148,9 +113,6 @@ export default function HomeFlorabotOverlay({
   const [isShopOpen, setIsShopOpen] = useState(Boolean(initialShopOpen));
   const [activeShopCategory, setActiveShopCategory] = useState(initialShopCategory || "root");
   const [isHealthPanelCompact, setIsHealthPanelCompact] = useState(false);
-  const [activePlayfulCareAnimation, setActivePlayfulCareAnimation] = useState("");
-  const [careAnimationVisualTarget, setCareAnimationVisualTarget] = useState("bubble");
-  const [playfulCareAnimationNonce, setPlayfulCareAnimationNonce] = useState(0);
   const [floatingLogoHitRect, setFloatingLogoHitRect] = useState(/** @type {{left:number,top:number,width:number,height:number} | null} */ (null));
   const [shopActionState, setShopActionState] = useState({
     label: "Kaufen",
@@ -169,9 +131,6 @@ export default function HomeFlorabotOverlay({
   const speechBubbleRef = useRef(null);
   const fixedFooterRef = useRef(null);
   const shopViewportRef = useRef(null);
-  const careAnimationTimeoutRef = useRef(/** @type {number | null} */ (null));
-  const lastPortalTapTsRef = useRef(0);
-  const lastLogoAlignmentLogKeyRef = useRef("");
     useEffect(() => {
       onCustomizeRef.current = onCustomize;
     }, [onCustomize]);
@@ -190,19 +149,11 @@ export default function HomeFlorabotOverlay({
   const shouldRenderSpeechBubble = !isShopOpen && isSpeechBubbleVisible && (showHealthDetails || Boolean(ambientMessage) || quizAvailable);
 
   useEffect(() => {
-    console.log(`${PORTAL_CARE_DEBUG_PREFIX} overlay render state`, {
-      isShopOpen,
-      isSpeechBubbleVisible,
-      showHealthDetails,
-      hasAmbientMessage: Boolean(ambientMessage),
-      shouldRenderSpeechBubble,
-    });
-  }, [isShopOpen, isSpeechBubbleVisible, showHealthDetails, ambientMessage, shouldRenderSpeechBubble]);
-
-  useEffect(() => {
     setActiveShopCategory(initialShopCategory || "root");
   }, [initialShopCategory]);
 
+  // Track the on-screen Florabot logo position so the invisible tap-target (below,
+  // rendered via portal) lines up with it for the Pflege-Interaktion bubble spawn.
   useEffect(() => {
     if (isShopOpen || typeof document === "undefined") {
       setFloatingLogoHitRect(null);
@@ -233,11 +184,6 @@ export default function HomeFlorabotOverlay({
           return prev;
         }
 
-        console.log(`${PORTAL_CARE_DEBUG_PREFIX} portal logo measured`, {
-          portalRectPx: toDebugRect(nextRect),
-          portalCenterPx: rectToCenterPx(nextRect),
-        });
-
         return {
           left: nextRect.left,
           top: nextRect.top,
@@ -266,43 +212,6 @@ export default function HomeFlorabotOverlay({
       window.removeEventListener("scroll", onLayoutChange, true);
     };
   }, [isShopOpen]);
-
-  useEffect(() => {
-    if (isShopOpen || typeof document === "undefined") return;
-
-    const floatingNode = document.querySelector('[data-floating-logo-overlay="true"]');
-    const portalRect = floatingNode && typeof floatingNode.getBoundingClientRect === "function"
-      ? floatingNode.getBoundingClientRect()
-      : null;
-
-    const portalCenterPx = portalRect ? rectToCenterPx(portalRect) : null;
-    const animationCenterPx = floatingLogoHitRect ? rectToCenterPx(floatingLogoHitRect) : null;
-    const deltaPx = portalCenterPx && animationCenterPx
-      ? {
-          dx: Number((animationCenterPx.x - portalCenterPx.x).toFixed(2)),
-          dy: Number((animationCenterPx.y - portalCenterPx.y).toFixed(2)),
-        }
-      : null;
-
-    const logKey = JSON.stringify({
-      portalCenterPx,
-      animationCenterPx,
-      hasAnimation: Boolean(activePlayfulCareAnimation),
-      careAnimationVisualTarget,
-    });
-    if (lastLogoAlignmentLogKeyRef.current === logKey) return;
-    lastLogoAlignmentLogKeyRef.current = logKey;
-
-    console.log(`${PORTAL_CARE_DEBUG_PREFIX} overlay logo center alignment`, {
-      portalRectPx: toDebugRect(portalRect),
-      portalCenterPx,
-      animationRectPx: toDebugRect(floatingLogoHitRect),
-      animationCenterPx,
-      deltaPx,
-      hasAnimation: Boolean(activePlayfulCareAnimation),
-      careAnimationVisualTarget,
-    });
-  }, [floatingLogoHitRect, isShopOpen, activePlayfulCareAnimation, careAnimationVisualTarget, playfulCareAnimationNonce]);
 
   useEffect(() => {
     const target = statusPanelSlotRef.current;
@@ -375,80 +284,18 @@ export default function HomeFlorabotOverlay({
   useEffect(() => {
     return () => {
       onCustomizeRef.current?.(false);
-      if (careAnimationTimeoutRef.current) {
-        window.clearTimeout(careAnimationTimeoutRef.current);
-        careAnimationTimeoutRef.current = null;
-      }
     };
   }, []);
 
-  const safeWateringLimitPerDay = Math.max(1, Number(wateringLimitPerDay) || 3);
-  const safeWateringCountToday = Math.max(0, Math.min(safeWateringLimitPerDay, Number(wateringCountToday) || 0));
-  const canPerformCareAction = !isDailyCareLoading && !isWateringPending && safeWateringCountToday < safeWateringLimitPerDay;
-  const triggerPlayfulCareAnimation = (visualTarget = "bubble") => {
-    const randomIndex = Math.floor(Math.random() * PLAYFUL_CARE_ANIMATION_KEYS.length);
-    const nextAnimation = PLAYFUL_CARE_ANIMATION_KEYS[randomIndex] || PLAYFUL_CARE_ANIMATION_KEYS[0];
+  const safeCareInteractionLimitPerDay = Math.max(1, Number(careInteractionLimitPerDay) || 3);
+  const safeCareInteractionCountToday = Math.max(0, Math.min(safeCareInteractionLimitPerDay, Number(careInteractionCountToday) || 0));
+  const canPerformCareInteraction = !isDailyCareLoading && !isCareInteractionPending && safeCareInteractionCountToday < safeCareInteractionLimitPerDay;
 
-    if (careAnimationTimeoutRef.current) {
-      window.clearTimeout(careAnimationTimeoutRef.current);
-    }
-
-    setCareAnimationVisualTarget(visualTarget);
-    setActivePlayfulCareAnimation(nextAnimation);
-    setPlayfulCareAnimationNonce((prev) => prev + 1);
-
-    careAnimationTimeoutRef.current = window.setTimeout(() => {
-      setActivePlayfulCareAnimation("");
-      setCareAnimationVisualTarget("bubble");
-      careAnimationTimeoutRef.current = null;
-    }, 920);
-
-    return nextAnimation;
-  };
-
-  const handlePortalCopyTap = (source = "unknown") => {
-    const now = Date.now();
-    const tapIntervalMs = now - lastPortalTapTsRef.current;
-    console.log(`${PORTAL_CARE_DEBUG_PREFIX} tap received`, {
-      source,
-      tapIntervalMs,
-      showHealthDetails,
-      hasAmbientMessage: Boolean(ambientMessage),
-      isWateringPending,
-      isDailyCareLoading,
-      wateringCountToday: safeWateringCountToday,
-      wateringLimitPerDay: safeWateringLimitPerDay,
-      remainingWatersToday: Number(remainingWatersToday) || 0,
-      canPerformCareAction,
-    });
-
-    if (now - lastPortalTapTsRef.current < 220) {
-      console.log(`${PORTAL_CARE_DEBUG_PREFIX} tap ignored (throttled)`, {
-        source,
-        tapIntervalMs,
-      });
-      return;
-    }
-    lastPortalTapTsRef.current = now;
-
-    if (showHealthDetails) {
-      console.log(`${PORTAL_CARE_DEBUG_PREFIX} tap ignored (health details open)`);
-      return;
-    }
-
-    // Logo-hit: spawn a soap bubble instead of directly triggering care
-    if (source.startsWith("logo-hit")) {
-      if (canPerformCareAction) {
-        console.log(`${PORTAL_CARE_DEBUG_PREFIX} logo-hit → spawn bubble`);
-        onSpawnBubble?.();
-      } else {
-        console.log(`${PORTAL_CARE_DEBUG_PREFIX} logo-hit ignored (care not available)`);
-      }
-      return;
-    }
-
-    // Speech bubble tap: no animation, no care action (care only via soap bubble)
-    console.log(`${PORTAL_CARE_DEBUG_PREFIX} bubble tap — no action (use soap bubble for care)`);
+  // Tapping the Florabot logo (invisible hit-target below, positioned via floatingLogoHitRect)
+  // spawns the Pflege-Interaktion soap bubble - a playful interaction, not "Gießen".
+  const handleLogoHitTap = () => {
+    if (showHealthDetails || !canPerformCareInteraction) return;
+    onSpawnBubble?.();
   };
 
   const handleStatusToggle = () => {
@@ -565,127 +412,56 @@ export default function HomeFlorabotOverlay({
       {healthBadge}
       <LockedTooltip
         contentClassName={isLightUi ? "" : "text-white/90"}
-        content={<span className="text-xs leading-relaxed">{tooltipCopy.watering}</span>}
+        content={<span className="text-xs leading-relaxed">{tooltipCopy.careInteraction}</span>}
       >
         <button
           type="button"
-          aria-label={tooltipCopy.aria.watering}
+          aria-label={tooltipCopy.aria.careInteraction}
           className={`${isLightUi ? "text-stone-500" : "text-stone-400"} text-[10px] font-medium`}
         >
-          Pflege: {safeWateringCountToday} / {safeWateringLimitPerDay}
+          Pflege: {safeCareInteractionCountToday} / {safeCareInteractionLimitPerDay}
         </button>
       </LockedTooltip>
     </div>
   );
 
-  const logoAnimationPortal = !isShopOpen && typeof document !== "undefined" && document.body
+  // Invisible tap-target overlaying the real, on-screen Florabot logo (rendered in the
+  // Home hero behind this overlay) - tapping it spawns the Pflege-Interaktion bubble.
+  const logoHitTargetPortal = !isShopOpen && typeof document !== "undefined" && document.body
     ? createPortal(
-        <>
-          <AnimatePresence mode="wait">
-            {activePlayfulCareAnimation && careAnimationVisualTarget === "logo" ? (
-              <motion.div
-                key={`logo-${activePlayfulCareAnimation}-${playfulCareAnimationNonce}`}
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 1.06 }}
-                transition={{ duration: 0.16 }}
-                className="pointer-events-none"
-                style={floatingLogoHitRect
-                  ? {
-                      position: "fixed",
-                      zIndex: 410,
-                      left: `${floatingLogoHitRect.left}px`,
-                      top: `${floatingLogoHitRect.top}px`,
-                      width: `${floatingLogoHitRect.width}px`,
-                      height: `${floatingLogoHitRect.height}px`,
-                    }
-                  : {
-                      position: "fixed",
-                      zIndex: 410,
-                      left: "50%",
-                      top: "50%",
-                      width: "13rem",
-                      height: "13rem",
-                      transform: "translate(-50%, -50%)",
-                    }}
-                aria-hidden="true"
-              >
-                <motion.div
-                  className="absolute inset-[-8%] rounded-full"
-                  style={{
-                    background: isLightUi
-                      ? "radial-gradient(circle, rgba(163,230,53,0.42) 0%, rgba(163,230,53,0.22) 38%, rgba(163,230,53,0) 76%)"
-                      : "radial-gradient(circle, rgba(190,242,100,0.55) 0%, rgba(190,242,100,0.28) 40%, rgba(190,242,100,0) 78%)",
-                    filter: "blur(10px)",
-                  }}
-                  initial={{ opacity: 0, scale: 0.78 }}
-                  animate={{ opacity: [0, 1, 0], scale: [0.78, 1.08, 1.28] }}
-                  transition={{ duration: 0.72, ease: "easeOut" }}
-                />
-                <motion.div
-                  className={`absolute inset-0 rounded-full border-2 ${isLightUi ? "border-lime-400/70" : "border-lime-300/65"}`}
-                  style={{
-                    boxShadow: isLightUi
-                      ? "0 0 26px rgba(132,204,22,0.75), 0 0 52px rgba(163,230,53,0.45)"
-                      : "0 0 32px rgba(190,242,100,0.9), 0 0 60px rgba(190,242,100,0.5)",
-                  }}
-                  initial={{ opacity: 0, scale: 0.82 }}
-                  animate={{ opacity: [0, 1, 0], scale: [0.82, 1.04, 1.15] }}
-                  transition={{ duration: 0.68, ease: "easeOut" }}
-                />
-                <motion.div
-                  className={`absolute inset-3 rounded-full border ${isLightUi ? "border-emerald-300/60" : "border-emerald-200/55"}`}
-                  style={{
-                    boxShadow: isLightUi
-                      ? "0 0 18px rgba(110,231,183,0.5)"
-                      : "0 0 20px rgba(110,231,183,0.6)",
-                  }}
-                  initial={{ opacity: 0, scale: 0.92 }}
-                  animate={{ opacity: [0, 0.9, 0], scale: [0.92, 1, 1.1] }}
-                  transition={{ duration: 0.64, ease: "easeOut", delay: 0.05 }}
-                />
-              </motion.div>
-            ) : null}
-          </AnimatePresence>
-
-          <button
-            type="button"
-            onClick={(event) => {
-              if (event.detail !== 0) return;
-              handlePortalCopyTap("logo-hit-click");
-            }}
-            onPointerUp={() => handlePortalCopyTap("logo-hit-pointerup")}
-            onPointerDown={(event) => {
-              console.log(`${PORTAL_CARE_DEBUG_PREFIX} logo hit-target pointerdown`, {
-                target: getEventTargetLabel(event.target),
-                rect: floatingLogoHitRect,
-              });
-            }}
-            className="rounded-full bg-transparent border-0 p-0"
-            style={floatingLogoHitRect
-              ? {
-                  position: "fixed",
-                  zIndex: 330,
-                  left: `${floatingLogoHitRect.left}px`,
-                  top: `${floatingLogoHitRect.top}px`,
-                  width: `${floatingLogoHitRect.width}px`,
-                  height: `${floatingLogoHitRect.height}px`,
-                }
-              : {
-                  position: "fixed",
-                  zIndex: 330,
-                  left: "50%",
-                  top: "50%",
-                  width: "12rem",
-                  height: "12rem",
-                  transform: "translate(-50%, -50%)",
-                }}
-            aria-label="Pflege auslösen"
-          />
-        </>,
+        <button
+          type="button"
+          onClick={(event) => {
+            if (event.detail !== 0) return;
+            handleLogoHitTap();
+          }}
+          onPointerUp={handleLogoHitTap}
+          className="rounded-full bg-transparent border-0 p-0"
+          style={floatingLogoHitRect
+            ? {
+                position: "fixed",
+                zIndex: 330,
+                left: `${floatingLogoHitRect.left}px`,
+                top: `${floatingLogoHitRect.top}px`,
+                width: `${floatingLogoHitRect.width}px`,
+                height: `${floatingLogoHitRect.height}px`,
+              }
+            : {
+                position: "fixed",
+                zIndex: 330,
+                left: "50%",
+                top: "50%",
+                width: "12rem",
+                height: "12rem",
+                transform: "translate(-50%, -50%)",
+              }}
+          aria-label="Pflege-Interaktion auslösen"
+        />,
         document.body
       )
     : null;
+
+
 
   return (
     <>
@@ -713,11 +489,6 @@ export default function HomeFlorabotOverlay({
               ref={statusPanelSlotRef}
               className="w-full max-w-[340px] min-h-0 flex-1 overflow-y-auto hide-scrollbar flex items-start justify-center py-3 mx-auto"
               style={{ height: `calc(100% - (${fixedFooterReservedHeightExpression}))` }}
-              onPointerDownCapture={(event) => {
-                console.log(`${PORTAL_CARE_DEBUG_PREFIX} status panel pointerdown capture`, {
-                  target: getEventTargetLabel(event.target),
-                });
-              }}
             >
               {shouldRenderSpeechBubble ? (
                 <div className="w-full max-w-[340px] mx-auto" ref={speechBubbleRef}>
@@ -776,23 +547,18 @@ export default function HomeFlorabotOverlay({
                             </div>
                           </div>
                         ))}
+
+                        {scanStreakStatus && (
+                          <div className="pt-1">
+                            <ScanStreakRewardTrack
+                              streakDays={scanStreakStatus.streakDays}
+                              jokerCount={scanStreakStatus.jokerCount}
+                            />
+                          </div>
+                        )}
                       </div>
                     ) : (
-                      <div
-                        className="relative"
-                        onPointerDownCapture={(event) => {
-                          console.log(`${PORTAL_CARE_DEBUG_PREFIX} bubble pointerdown capture`, {
-                            target: getEventTargetLabel(event.target),
-                            currentTarget: getEventTargetLabel(event.currentTarget),
-                          });
-                        }}
-                        onClickCapture={(event) => {
-                          console.log(`${PORTAL_CARE_DEBUG_PREFIX} bubble click capture`, {
-                            target: getEventTargetLabel(event.target),
-                            currentTarget: getEventTargetLabel(event.currentTarget),
-                          });
-                        }}
-                      >
+                      <div className="relative">
                         {quizAvailable ? (
                           <button
                             type="button"
@@ -802,97 +568,12 @@ export default function HomeFlorabotOverlay({
                             Ich habe ein paar Scans, die ich nicht mehr genau zuordnen kann. Kannst du mir dabei helfen? Klick hier, wenn du soweit bist!
                           </button>
                         ) : (
-                          <button
-                            type="button"
-                            onClick={() => handlePortalCopyTap("click")}
-                            onPointerUp={() => handlePortalCopyTap("pointerup")}
-                            onPointerDown={(event) => {
-                              console.log(`${PORTAL_CARE_DEBUG_PREFIX} portal button pointerdown`, {
-                                target: getEventTargetLabel(event.target),
-                              });
-                            }}
-                            className={`w-full border-0 bg-transparent p-0 cursor-pointer touch-manipulation ${isHealthPanelCompact ? "text-[13px]" : "text-sm"} leading-relaxed text-left transition-transform duration-200 hover:scale-[1.01] active:scale-[0.99] ${isLightUi ? "text-stone-600" : "text-stone-300"}`}
+                          <span
+                            className={`block w-full ${isHealthPanelCompact ? "text-[13px]" : "text-sm"} leading-relaxed text-left ${isLightUi ? "text-stone-600" : "text-stone-300"}`}
                           >
                             {ambientMessage}
-                          </button>
+                          </span>
                         )}
-
-                        <AnimatePresence mode="wait">
-                          {activePlayfulCareAnimation && careAnimationVisualTarget === "bubble" ? (
-                            <motion.div
-                              key={`${activePlayfulCareAnimation}-${playfulCareAnimationNonce}`}
-                              initial={{ opacity: 0 }}
-                              animate={{ opacity: 1 }}
-                              exit={{ opacity: 0 }}
-                              transition={{ duration: 0.16 }}
-                              className="pointer-events-none absolute inset-0"
-                              aria-hidden="true"
-                            >
-                              <motion.div
-                                className={`absolute -inset-2 rounded-2xl border ${isLightUi ? "border-emerald-300/70" : "border-emerald-200/60"}`}
-                                initial={{ opacity: 0, scale: 0.94 }}
-                                animate={{ opacity: [0, 1, 0], scale: [0.94, 1.02, 1.08] }}
-                                transition={{ duration: 0.56, ease: "easeOut" }}
-                              />
-
-                              {activePlayfulCareAnimation === "flip" ? (
-                                <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center gap-2">
-                                  {[-1, 0, 1].map((offset) => (
-                                    <motion.span
-                                      key={`flip-${offset}`}
-                                      className={`inline-block h-1.5 w-1.5 rounded-full ${isLightUi ? "bg-sky-400/90" : "bg-sky-300/90"}`}
-                                      initial={{ opacity: 0, y: 4, x: 0, scale: 0.7 }}
-                                      animate={{
-                                        opacity: [0, 1, 0],
-                                        y: [4, -8, 6],
-                                        x: [0, offset * 5, offset * 8],
-                                        scale: [0.7, 1.05, 0.8],
-                                      }}
-                                      transition={{ duration: 0.56, ease: "easeOut", delay: (offset + 1) * 0.06 }}
-                                    />
-                                  ))}
-                                </div>
-                              ) : null}
-
-                              {activePlayfulCareAnimation === "squash" ? (
-                                <div className="absolute inset-0 flex items-center justify-center">
-                                  <motion.span
-                                    className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold ${isLightUi ? "bg-lime-200/80 text-lime-700" : "bg-lime-300/20 text-lime-200"}`}
-                                    initial={{ opacity: 0, scale: 0.85, rotate: -7 }}
-                                    animate={{
-                                      opacity: [0, 1, 1, 0],
-                                      scale: [0.85, 1.02, 0.98, 1],
-                                      rotate: [-7, 7, -5, 0],
-                                    }}
-                                    transition={{ duration: 0.62, ease: "easeOut" }}
-                                  >
-                                    plopp
-                                  </motion.span>
-                                </div>
-                              ) : null}
-
-                              {activePlayfulCareAnimation === "orbit" ? (
-                                <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
-                                  {[0, 1, 2, 3, 4, 5].map((index) => {
-                                    const angle = (index / 6) * Math.PI * 2;
-                                    const x = Math.cos(angle) * 14;
-                                    const y = Math.sin(angle) * 14;
-
-                                    return (
-                                      <motion.span
-                                        key={`burst-${index}`}
-                                        className={`absolute left-1/2 top-1/2 inline-block h-1.5 w-1.5 -translate-x-1/2 -translate-y-1/2 rounded-sm ${isLightUi ? "bg-amber-400/90" : "bg-amber-300/90"}`}
-                                        initial={{ opacity: 0, x: 0, y: 0, scale: 0.6 }}
-                                        animate={{ opacity: [0, 1, 0], x: [0, x], y: [0, y], scale: [0.6, 1, 0.7] }}
-                                        transition={{ duration: 0.54, ease: "easeOut", delay: index * 0.03 }}
-                                      />
-                                    );
-                                  })}
-                                </div>
-                              ) : null}
-                            </motion.div>
-                          ) : null}
-                        </AnimatePresence>
                       </div>
                     )}
                   </div>
@@ -1024,10 +705,6 @@ export default function HomeFlorabotOverlay({
         </motion.div>
       ) : (
         <motion.div
-          // IMPORTANT: keep this wrapper free of transform animations.
-          // The logo ring + hit-target are rendered via createPortal in document.body
-          // to avoid backdrop-filter / WebkitBackdropFilter creating a containing block
-          // for position:fixed descendants (iOS Safari / Android WebView quirk).
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.26, ease: "easeInOut" }}
@@ -1035,7 +712,7 @@ export default function HomeFlorabotOverlay({
         />
       )}
     </FlorabotOverlayShell>
-    {logoAnimationPortal}
+    {logoHitTargetPortal}
   </>
   );
 }

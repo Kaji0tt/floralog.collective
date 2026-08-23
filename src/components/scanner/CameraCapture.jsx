@@ -1,9 +1,10 @@
 import { useRef, useEffect, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Camera, X, Loader2, SwitchCamera } from "lucide-react";
+import { Camera, X, Loader2, SwitchCamera, Plus } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
+import StackedImagePreview from "@/components/shared/StackedImagePreview";
 
 // Bildkomprimierung
 function compressImage(file, maxSizeMB = 1) {
@@ -59,9 +60,11 @@ function compressImage(file, maxSizeMB = 1) {
   });
 }
 
-export default function CameraCapture({ onCapture, onClose }) {
+export const MAX_SCAN_PHOTOS = 3;
+
+export default function CameraCapture({ onCapture, onClose, maxPhotos = MAX_SCAN_PHOTOS }) {
 /**
- * @param {{ onCapture: (file: File, organ: string) => void, onClose: () => void }} props
+ * @param {{ onCapture: (files: File[], organs: string[]) => void, onClose: () => void, maxPhotos?: number }} props
  */
   const videoRef = useRef(null);
   const streamRef = useRef(null);
@@ -80,6 +83,14 @@ export default function CameraCapture({ onCapture, onClose }) {
   const [zoomSupported, setZoomSupported] = useState(false);
   const [zoomRange, setZoomRange] = useState({ min: 1, max: 1, step: 0.1 });
   const [zoomLevel, setZoomLevel] = useState(1);
+  // 'camera' = live viewport, 'preview' = show last captured photo(s) before sending to analysis
+  const [mode, setMode] = useState("camera");
+  const [capturedPhotos, setCapturedPhotos] = useState(/** @type {{ file: File, organ: string, previewUrl: string }[]} */ ([]));
+
+  useEffect(() => () => {
+    capturedPhotos.forEach((photo) => URL.revokeObjectURL(photo.previewUrl));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const clampZoom = (value) => {
     const range = zoomRangeRef.current;
@@ -165,9 +176,10 @@ export default function CameraCapture({ onCapture, onClose }) {
   };
 
   useEffect(() => {
+    if (mode !== "camera") return undefined;
     startCamera();
     return () => stopCamera();
-  }, [facingMode]); // Neu starten wenn facingMode sich ändert
+  }, [facingMode, mode]); // Neu starten wenn facingMode sich ändert oder wir zur Kamera zurückkehren
 
   const startCamera = async () => {
     try {
@@ -306,16 +318,37 @@ export default function CameraCapture({ onCapture, onClose }) {
       // Komprimiere das Bild
       const compressedFile = await compressImage(file);
       
-      console.log("✅ Foto komprimiert - rufe onCapture auf");
-      
-      // Stoppe Kamera erst NACH erfolgreicher Kompression
-      stopCamera();
-      onCapture(compressedFile, selectedOrgan);
+      console.log("✅ Foto komprimiert - zeige Vorschau");
+
+      const previewUrl = URL.createObjectURL(compressedFile);
+      setCapturedPhotos((prev) => [...prev, { file: compressedFile, organ: selectedOrgan, previewUrl }]);
+      setMode("preview");
+      setIsCompressing(false);
     } catch (error) {
       console.error("❌ Fehler beim Erfassen des Fotos:", error);
       alert("Fehler beim Aufnehmen des Fotos. Bitte versuche es erneut.");
       setIsCompressing(false);
     }
+  };
+
+  const handleAddAnotherPhoto = () => {
+    if (capturedPhotos.length >= maxPhotos) return;
+    setSelectedOrgan("auto");
+    setMode("camera");
+  };
+
+  const handleDiscardAndExit = () => {
+    capturedPhotos.forEach((photo) => URL.revokeObjectURL(photo.previewUrl));
+    if (typeof window !== 'undefined' && window.location) {
+      window.location.href = '/';
+    } else {
+      onClose();
+    }
+  };
+
+  const handleSendToAnalysis = () => {
+    if (capturedPhotos.length === 0) return;
+    onCapture(capturedPhotos.map((photo) => photo.file), capturedPhotos.map((photo) => photo.organ));
   };
 
   const organOptions = [
@@ -327,12 +360,67 @@ export default function CameraCapture({ onCapture, onClose }) {
     { value: "habit", label: "🌿 Wuchsform", description: "Fotografiere die ganze Pflanze" }
   ];
 
+  if (mode === "preview") {
+    const canAddMore = capturedPhotos.length < maxPhotos;
+    return (
+      <div className="flex flex-col gap-4 w-full h-full items-center justify-center">
+        <div className="relative w-full flex-1 flex items-center justify-center bg-black rounded-2xl overflow-hidden" style={{ minHeight: 260, maxHeight: 420 }}>
+          <StackedImagePreview
+            images={capturedPhotos.map((photo) => photo.previewUrl)}
+            activeIndex={capturedPhotos.length - 1}
+            className="h-full"
+          />
+        </div>
+
+        <div className="w-full flex justify-center items-center gap-6 pt-4">
+          {/* Zurück-Button: verwirft alle Fotos und verlässt den Scanner */}
+          <button
+            onClick={handleDiscardAndExit}
+            className="w-14 h-14 rounded-full bg-blue-500 hover:bg-blue-600 active:bg-blue-700 flex items-center justify-center shadow-xl border-4 border-white transition-all duration-150"
+            style={{ boxShadow: '0 0 0 6px rgba(59,130,246,0.13)' }}
+            aria-label="Zurück"
+          >
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className="w-8 h-8">
+              <path d="M15 18l-6-6 6-6" />
+            </svg>
+          </button>
+
+          {/* Plus-Button: weiteres Foto derselben Pflanze hinzufügen (max. 3) */}
+          <button
+            onClick={handleAddAnotherPhoto}
+            disabled={!canAddMore}
+            className="w-14 h-14 rounded-full bg-amber-500 hover:bg-amber-600 active:bg-amber-700 flex items-center justify-center shadow-xl border-4 border-white transition-all duration-150 disabled:opacity-40 disabled:cursor-not-allowed"
+            style={{ boxShadow: '0 0 0 6px rgba(245,158,11,0.13)' }}
+            aria-label="Weiteres Foto hinzufügen"
+          >
+            <Plus className="w-7 h-7 text-white" />
+          </button>
+
+          {/* Pfeil-nach-rechts: sendet alle Fotos in die Analyse */}
+          <button
+            onClick={handleSendToAnalysis}
+            className="w-20 h-20 rounded-full bg-green-500 hover:bg-green-600 active:bg-green-700 flex items-center justify-center shadow-xl border-4 border-white transition-all duration-150"
+            style={{ boxShadow: '0 0 0 8px rgba(16,185,129,0.15)' }}
+            aria-label="Analyse starten"
+          >
+            <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M9 6l6 6-6 6" />
+            </svg>
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col gap-4 w-full h-full items-center justify-center">
       {/* Dropdown oben */}
       <div className="w-full flex justify-center z-10 p-2">
         <div className="backdrop-blur-xl bg-black/40 border border-[#f0e5a5]/30 rounded-2xl px-4 py-2 shadow-lg flex flex-col items-center w-full max-w-xs">
           <Label className="text-sm font-semibold text-stone-100 mb-1">Was möchtest du fotografieren?</Label>
+          {capturedPhotos.length > 0 && (
+            <span className="text-xs text-amber-300 mb-1">Foto {capturedPhotos.length + 1} von {maxPhotos}</span>
+          )}
           <Select value={selectedOrgan} onValueChange={setSelectedOrgan}>
             <SelectTrigger className="border border-[#f0e5a5]/35 bg-black/40 text-stone-100 rounded-xl">
               <SelectValue placeholder="Wähle einen Pflanzenteil" />

@@ -516,6 +516,17 @@ export default function GenusDetail() {
     })[0] || null;
   };
 
+  // Flacht alle Funde einer Art zu einer einzigen Foto-Liste ab (Haupt- + Zusatzfotos je Fund),
+  // damit z.B. "Montag 1 Foto + Freitag 3 Fotos" als 4 Fotos in einem Stack erscheinen.
+  const buildDiscoveryPhotoList = (discoveries = []) =>
+    (Array.isArray(discoveries) ? discoveries : []).flatMap((discovery) => {
+      const urls = [
+        discovery?.image_url || null,
+        ...(Array.isArray(discovery?.additional_image_urls) ? discovery.additional_image_urls : []),
+      ].filter(Boolean);
+      return urls.map((url) => ({ url, discovery }));
+    });
+
   const genusPlants = plants.filter(p => 
     selectedGenus && p.genus_category === selectedGenus.category && p.genus_number === selectedGenus.category_dex_number
   ).map(plant => {
@@ -692,18 +703,21 @@ export default function GenusDetail() {
 
     setExpandedPlant(matchingPlant);
     setExpandedActiveVariantIndex(resolvedVariantIndex);
-    const ownDiscoveryIndex = Math.max(
+    // Index des ersten Fotos des Ziel-Funds innerhalb der abgeflachten Foto-Liste (nicht Fund-Index).
+    const targetPhotoIndex = Math.max(
       0,
-      (matchingPlant.allDiscoveries || []).findIndex((entry) => entry?.id === targetDiscoveryId)
+      buildDiscoveryPhotoList(matchingPlant.allDiscoveries || []).findIndex(
+        (photo) => photo?.discovery?.id === targetDiscoveryId
+      )
     );
-    setExpandedOwnScanIndex(ownDiscoveryIndex);
+    setExpandedOwnScanIndex(targetPhotoIndex);
     setActiveVariantIndexes((prev) => ({
       ...prev,
       [matchingPlant.id]: resolvedVariantIndex,
     }));
     setActiveScanIndexes((prev) => ({
       ...prev,
-      [matchingPlant.id]: ownDiscoveryIndex,
+      [matchingPlant.id]: targetPhotoIndex,
     }));
     deepLinkAppliedRef.current = true;
   }, [genusPlants, targetDiscoveryId]);
@@ -765,15 +779,16 @@ export default function GenusDetail() {
     : Array.isArray(expandedPlantData?.allDiscoveries)
       ? expandedPlantData.allDiscoveries
       : [];
-  const expandedOwnDiscoveries = expandedVariantDiscoveries;
+  const expandedPhotoList = buildDiscoveryPhotoList(expandedVariantDiscoveries);
   const activeExpandedFriendActor = activeExpandedVariant && !activeExpandedVariant.isOwn
     ? activeExpandedVariant.actor || null
     : null;
   const safeExpandedOwnScanIndex = Math.min(
     Math.max(expandedOwnScanIndex || 0, 0),
-    Math.max(expandedOwnDiscoveries.length - 1, 0)
+    Math.max(expandedPhotoList.length - 1, 0)
   );
-  const activeExpandedDiscovery = expandedOwnDiscoveries[safeExpandedOwnScanIndex] || null;
+  const activeExpandedPhoto = expandedPhotoList[safeExpandedOwnScanIndex] || null;
+  const activeExpandedDiscovery = activeExpandedPhoto?.discovery || null;
   const activeExpandedLikeCount = activeExpandedDiscovery?.id
     ? (likeCountByDiscoveryId.get(activeExpandedDiscovery.id) || 0)
     : 0;
@@ -1039,7 +1054,7 @@ export default function GenusDetail() {
       expandedSwipeTriggeredRef.current = true;
       cyclePlantScan({
         plantId: expandedPlantData?.id,
-        discoveries: expandedOwnDiscoveries,
+        discoveries: expandedPhotoList,
         direction: deltaX < 0 ? "left" : "right",
         updateExpanded: true,
       });
@@ -1253,21 +1268,24 @@ export default function GenusDetail() {
             );
             const activeVariant = variants[activeIndex] || null;
             const activeVariantDiscoveries = Array.isArray(activeVariant?.discoveries) ? activeVariant.discoveries : [];
+            const variantPhotoList = buildDiscoveryPhotoList(activeVariantDiscoveries);
             const defaultScanIndex = activeVariant?.defaultScanIndex || 0;
             const activeScanIndex = Math.min(
               Math.max(typeof activeScanIndexes[plant.id] === "number" ? activeScanIndexes[plant.id] : defaultScanIndex, 0),
-              Math.max(activeVariantDiscoveries.length - 1, 0)
+              Math.max(variantPhotoList.length - 1, 0)
             );
-            const activeDiscovery = activeVariantDiscoveries[activeScanIndex] || activeVariant?.discovery || null;
+            const activePhoto = variantPhotoList[activeScanIndex] || null;
+            const activeDiscovery = activePhoto?.discovery || activeVariant?.discovery || null;
             const activeLikeCount = activeDiscovery?.id ? (likeCountByDiscoveryId.get(activeDiscovery.id) || 0) : 0;
             const activeLikedByUser = activeDiscovery?.id ? likedDiscoveryIdSet.has(activeDiscovery.id) : false;
             const showStack = variants.length > 1;
-            const orderedPreviewImages = activeVariantDiscoveries.length > 0
-              ? Array.from({ length: activeVariantDiscoveries.length }, (_, offset) => {
-                  const cyclicIndex = (activeScanIndex + offset) % activeVariantDiscoveries.length;
-                  return activeVariantDiscoveries[cyclicIndex]?.image_url || null;
+            // Alle Fotos aller Funde dieser Variante als ein durchgehender Stack, beginnend beim aktiven Foto.
+            const orderedPreviewImages = variantPhotoList.length > 0
+              ? Array.from({ length: variantPhotoList.length }, (_, offset) => {
+                  const cyclicIndex = (activeScanIndex + offset) % variantPhotoList.length;
+                  return variantPhotoList[cyclicIndex]?.url || null;
                 }).filter(Boolean)
-              : (activeDiscovery?.image_url ? [activeDiscovery.image_url] : []);
+              : [];
             const conservation = getConservationFromPlant(plant);
             const plantRarityLabel = plant?.rarity ?? plant?.aiData?.rarity ?? computeRarityLabel(conservation.populationRaw, conservation.threatRaw);
             const threatAnimationClass = getRarityAnimationClass(plantRarityLabel);
@@ -1351,8 +1369,8 @@ export default function GenusDetail() {
               <CardContent className="p-0 relative z-20">
                 <div className="space-y-1.5">
                   <SpeciesInfoCard
-                    plant={{ ...plant, image_url: activeDiscovery?.image_url || null }}
-                    imageUrl={activeDiscovery?.image_url || null}
+                    plant={{ ...plant, image_url: activePhoto?.url || null }}
+                    imageUrl={activePhoto?.url || null}
                     isLightUi={isLightUi}
                     compact={true}
                     showNarrative={true}
@@ -1362,7 +1380,7 @@ export default function GenusDetail() {
                       plantSwipeTriggeredRef.current[plant.id] = true;
                       cyclePlantScan({
                         plantId: plant.id,
-                        discoveries: activeVariantDiscoveries,
+                        discoveries: variantPhotoList,
                         direction: "left",
                         updateExpanded: false,
                       });
@@ -1371,7 +1389,7 @@ export default function GenusDetail() {
                       plantSwipeTriggeredRef.current[plant.id] = true;
                       cyclePlantScan({
                         plantId: plant.id,
-                        discoveries: activeVariantDiscoveries,
+                        discoveries: variantPhotoList,
                         direction: "right",
                         updateExpanded: false,
                       });
@@ -1600,9 +1618,9 @@ export default function GenusDetail() {
               <ThreatLevelSparks active={expandedRarityLevel >= 4} count={22} className="z-40" />
               {/* Großes Bild */}
               <div className="relative z-20">
-                {activeExpandedDiscovery?.image_url ? (
+                {activeExpandedPhoto?.url ? (
                   <img
-                    src={activeExpandedDiscovery.image_url}
+                    src={activeExpandedPhoto.url}
                     alt={expandedPlantData.species_name}
                     className="w-full aspect-square object-cover rounded-t-2xl"
                   />
@@ -1640,14 +1658,14 @@ export default function GenusDetail() {
                 {/* Herz nur für Freundes-Scans (unten links), Stern+Löschen für eigene (unten links/rechts) */}
 
                 {/* Bild-Navigation */}
-                {expandedOwnDiscoveries.length > 1 && (
+                {expandedPhotoList.length > 1 && (
                     <>
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
                           cyclePlantScan({
                             plantId: expandedPlantData?.id,
-                            discoveries: expandedOwnDiscoveries,
+                            discoveries: expandedPhotoList,
                             direction: "right",
                             updateExpanded: true,
                           });
@@ -1663,7 +1681,7 @@ export default function GenusDetail() {
                           e.stopPropagation();
                           cyclePlantScan({
                             plantId: expandedPlantData?.id,
-                            discoveries: expandedOwnDiscoveries,
+                            discoveries: expandedPhotoList,
                             direction: "left",
                             updateExpanded: true,
                           });
@@ -1675,7 +1693,7 @@ export default function GenusDetail() {
                         <ChevronRight className={"w-6 h-6 " + (isLightUi ? "text-stone-700" : "text-stone-100")} />
                       </button>
                       <div className="absolute bottom-3 left-1/2 -translate-x-1/2 bg-black/60 text-white text-sm px-3 py-1 rounded-full">
-                        {(safeExpandedOwnScanIndex || 0) + 1} / {expandedOwnDiscoveries.length}
+                        {(safeExpandedOwnScanIndex || 0) + 1} / {expandedPhotoList.length}
                       </div>
                     </>
                   )}
@@ -1725,8 +1743,8 @@ export default function GenusDetail() {
               {/* Info-Bereich */}
               <div className="p-4 space-y-3 relative z-20">
                 <SpeciesInfoCard
-                  plant={{ ...expandedPlantData, image_url: activeExpandedDiscovery?.image_url || null }}
-                  imageUrl={activeExpandedDiscovery?.image_url || null}
+                  plant={{ ...expandedPlantData, image_url: activeExpandedPhoto?.url || null }}
+                  imageUrl={activeExpandedPhoto?.url || null}
                   isLightUi={isLightUi}
                   compact={false}
                   disableThreatEffects={true}

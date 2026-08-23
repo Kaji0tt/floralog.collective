@@ -37,6 +37,8 @@ type RobotPlantStateRow = {
   care: number | null;
   energy: number | null;
   streak_days: number | null;
+  scan_streak_joker_count: number | null;
+  last_streak_scan_date: string | null;
 };
 
 type ZoneRow = {
@@ -60,7 +62,6 @@ type RewardBreakdown = {
   rarityMultiplier: number;
   noveltyMultiplier: number;
   careMultiplier: number;
-  streakMultiplier: number;
   firstScanOfDayMultiplier: number;
   preTileClaimReward?: number;
   tileClaimMultiplier?: number;
@@ -97,6 +98,7 @@ type ScanRewardContext = {
   derivedEnergyDelta: number;
   derivedDataQualityDelta: number;
   derivedCareDelta: number;
+  scanStreakOutcome: ScanStreakOutcome | null;
   matchedZoneId: string | null;
   nextZoneMultiplier: number | null;
 };
@@ -113,7 +115,6 @@ const REWARD_FORMULA_CONFIG = {
   },
   zoneMultiplier: { min: 1, max: 1.5, default: 1, start: 1.5, decrementPerAdditionalScan: 0.1 },
   noveltyMultiplier: { min: 0.2, max: 1, decrementPerDuplicateScan: 0.2 },
-  streakMultiplier: { min: 1, max: 7 },
   careMultiplier: { min: 1, max: 2 },
   firstScanOfDayMultiplier: { min: 1, max: 2, default: 1 },
   absoluteMinReward: 1,
@@ -137,6 +138,8 @@ const ROBOT_PLANT_DEFAULT_STATE = {
   care: 72,
   energy: 70,
   streak_days: 0,
+  scan_streak_joker_count: 0,
+  last_streak_scan_date: null as string | null,
 };
 
 const NORMALIZED_RARITY_MULTIPLIERS: Record<string, number> = {
@@ -151,9 +154,19 @@ const NORMALIZED_RARITY_MULTIPLIERS: Record<string, number> = {
 
 const EARTH_RADIUS_M = 6371000;
 const SCAN_LIKE_CARE_GAIN_DAILY_CAP = 5;
-const FIRST_SCAN_BASE_CARE_DELTA = 3;
-const FIRST_SCAN_CARE_DELTA_MAX = 10;
-const FIRST_SCAN_CARE_MAX_INACTIVITY_DAYS = 7;
+
+// Scan-Streak retention system (replaces the old login-streak sparks claim).
+const SCAN_STREAK_PFLEGE_BASE_OFFSET = 2;
+const SCAN_STREAK_PFLEGE_CAP = 10;
+const SCAN_STREAK_FUNKEN_CAP = 3;
+const SCAN_STREAK_JOKER_GRANT_DAY = 3;
+const SCAN_STREAK_WEEK_BOUNDARY_START_DAY = 8;
+const SCAN_STREAK_WEEK_BOUNDARY_INTERVAL = 7;
+// Funken awarded on boundary days (week 1, 2, 3, 4+ completed), index = boundary occurrence k.
+const SCAN_STREAK_BOUNDARY_FUNKEN = [5, 10, 20, 30];
+const SCAN_STREAK_BOUNDARY_BERNSTEIN_FROM_INDEX = 3;
+const SCAN_STREAK_BOUNDARY_BERNSTEIN_AMOUNT = 5;
+
 // Minimum scans by one user on a tile to claim it.
 // Lowered from 4 → 3: 3 scans at the same location are sufficient to claim.
 const CLAIM_THRESHOLD = 3;
@@ -204,36 +217,102 @@ function getUtcDayWindow(date = new Date()): { startIso: string; endIso: string 
   };
 }
 
-function computeInactiveDaysSinceLastScan(
-  lastScanIso: string | null | undefined,
-  currentUtcDayStart: Date,
-): number {
-  if (!lastScanIso) {
-    return FIRST_SCAN_CARE_MAX_INACTIVITY_DAYS;
+function parseUtcDateOnly(value: string): Date {
+  const [year, month, day] = value.split("-").map(Number);
+  return new Date(Date.UTC(year, (month || 1) - 1, day || 1));
+}
+
+type ScanStreakOutcome = {
+  streakDays: number;
+  jokerCount: number;
+  pflegeDelta: number;
+  funkenDelta: number;
+  bernsteinDelta: number;
+  isBoundaryDay: boolean;
+  wasHardReset: boolean;
+  jokersConsumed: number;
+};
+
+// Pure, testable core of the Scan-Streak retention system. Mirrored client-side in
+// src/lib/robotPlantEconomy.js (computeScanStreakPreview) for read-only UI previews.
+function computeScanStreakOutcome({
+  previousStreakDays,
+  previousJokerCount,
+  previousStreakDateIso,
+  todayDateIso,
+}: {
+  previousStreakDays: number;
+  previousJokerCount: number;
+  previousStreakDateIso: string | null;
+  todayDateIso: string;
+}): ScanStreakOutcome {
+  const safePreviousStreakDays = Math.max(0, Number(previousStreakDays ?? 0));
+  const safePreviousJokerCount = Math.max(0, Number(previousJokerCount ?? 0));
+
+  let streakDays: number;
+  let jokerCount = safePreviousJokerCount;
+  let wasHardReset = false;
+  let jokersConsumed = 0;
+
+  if (!previousStreakDateIso) {
+    // First ever streak scan - fresh start, no jokers carried over.
+    streakDays = 1;
+    jokerCount = 0;
+  } else {
+    const previousDate = parseUtcDateOnly(previousStreakDateIso);
+    const todayDate = parseUtcDateOnly(todayDateIso);
+    const diffDays = Math.max(
+      1,
+      Math.round((todayDate.getTime() - previousDate.getTime()) / (24 * 60 * 60 * 1000)),
+    );
+    const missedDays = Math.max(0, diffDays - 1);
+
+    if (missedDays === 0) {
+      streakDays = safePreviousStreakDays + 1;
+    } else if (safePreviousJokerCount >= missedDays) {
+      // Grace days bridge the gap without breaking the streak.
+      streakDays = safePreviousStreakDays + 1;
+      jokerCount = safePreviousJokerCount - missedDays;
+      jokersConsumed = missedDays;
+    } else {
+      streakDays = 1;
+      jokerCount = 0;
+      wasHardReset = true;
+    }
   }
 
-  const lastScanDate = new Date(lastScanIso);
-  if (Number.isNaN(lastScanDate.getTime())) {
-    return FIRST_SCAN_CARE_MAX_INACTIVITY_DAYS;
-  }
+  const pflegeDelta = Math.min(streakDays + SCAN_STREAK_PFLEGE_BASE_OFFSET, SCAN_STREAK_PFLEGE_CAP);
 
-  const lastScanUtcDayStart = new Date(Date.UTC(
-    lastScanDate.getUTCFullYear(),
-    lastScanDate.getUTCMonth(),
-    lastScanDate.getUTCDate(),
-    0,
-    0,
-    0,
-    0,
-  ));
+  const isBoundaryDay =
+    streakDays >= SCAN_STREAK_WEEK_BOUNDARY_START_DAY &&
+    (streakDays - SCAN_STREAK_WEEK_BOUNDARY_START_DAY) % SCAN_STREAK_WEEK_BOUNDARY_INTERVAL === 0;
+  const boundaryIndex = isBoundaryDay
+    ? (streakDays - SCAN_STREAK_WEEK_BOUNDARY_START_DAY) / SCAN_STREAK_WEEK_BOUNDARY_INTERVAL
+    : -1;
 
-  const diffMs = currentUtcDayStart.getTime() - lastScanUtcDayStart.getTime();
-  if (diffMs <= 0) {
-    return 0;
-  }
+  // Boundary days replace the normal Funken value entirely (see plan for the confirmed table).
+  const funkenDelta = isBoundaryDay
+    ? SCAN_STREAK_BOUNDARY_FUNKEN[Math.min(boundaryIndex, SCAN_STREAK_BOUNDARY_FUNKEN.length - 1)]
+    : Math.min(streakDays, SCAN_STREAK_FUNKEN_CAP);
+  const bernsteinDelta =
+    isBoundaryDay && boundaryIndex >= SCAN_STREAK_BOUNDARY_BERNSTEIN_FROM_INDEX
+      ? SCAN_STREAK_BOUNDARY_BERNSTEIN_AMOUNT
+      : 0;
 
-  const diffDays = Math.floor(diffMs / (24 * 60 * 60 * 1000));
-  return clamp(diffDays - 1, 0, FIRST_SCAN_CARE_MAX_INACTIVITY_DAYS);
+  // Joker grants: +1 the first time day 3 is reached, +1 on every boundary day.
+  const jokerGrant = (streakDays === SCAN_STREAK_JOKER_GRANT_DAY ? 1 : 0) + (isBoundaryDay ? 1 : 0);
+  jokerCount += jokerGrant;
+
+  return {
+    streakDays,
+    jokerCount,
+    pflegeDelta,
+    funkenDelta,
+    bernsteinDelta,
+    isBoundaryDay,
+    wasHardReset,
+    jokersConsumed,
+  };
 }
 
 const clamp = (value: number, min: number, max: number): number => Math.max(min, Math.min(max, value));
@@ -585,7 +664,6 @@ const computeScanRewardBreakdown = ({
   energyValue,
   dataQualityValue,
   careValue,
-  streakDays,
   isInActiveZone,
   rarity,
   isFirstScanOfDay,
@@ -596,7 +674,6 @@ const computeScanRewardBreakdown = ({
   energyValue: number;
   dataQualityValue: number;
   careValue: number;
-  streakDays: number;
   isInActiveZone: boolean;
   rarity: string | null;
   isFirstScanOfDay?: boolean;
@@ -623,11 +700,6 @@ const computeScanRewardBreakdown = ({
   const careMultiplier = computeCareMultiplier(careValue);
   const healthStateBonus = healthState.scanEventBonus;
   const adjustedBaseReward = baseReward + healthStateBonus;
-  const streakMultiplier = clamp(
-    streakDays <= 1 ? 1 : streakDays,
-    REWARD_FORMULA_CONFIG.streakMultiplier.min,
-    REWARD_FORMULA_CONFIG.streakMultiplier.max,
-  );
   const firstScanOfDayMultiplier = isFirstScanOfDay
     ? REWARD_FORMULA_CONFIG.firstScanOfDayMultiplier.max
     : REWARD_FORMULA_CONFIG.firstScanOfDayMultiplier.default;
@@ -638,7 +710,7 @@ const computeScanRewardBreakdown = ({
     REWARD_FORMULA_CONFIG.absoluteMinReward,
     Math.round(rawPreStreak),
   );
-  const finalReward = Math.round(preStreakReward * streakMultiplier);
+  const finalReward = preStreakReward;
 
   return {
     eventSource,
@@ -652,7 +724,6 @@ const computeScanRewardBreakdown = ({
     rarityMultiplier,
     noveltyMultiplier: roundMultiplier(noveltyMultiplier),
     careMultiplier: roundMultiplier(careMultiplier),
-    streakMultiplier: roundMultiplier(streakMultiplier),
     firstScanOfDayMultiplier: roundMultiplier(firstScanOfDayMultiplier),
     preStreakReward,
     finalReward,
@@ -726,7 +797,7 @@ async function tryResolveScanRewardContext(
 
   const { data: robotPlantState } = await adminClient
     .from("RobotPlant")
-    .select("data_quality, care, energy, streak_days")
+    .select("data_quality, care, energy, streak_days, scan_streak_joker_count, last_streak_scan_date")
     .eq("auth_id", authId)
     .maybeSingle<RobotPlantStateRow>();
 
@@ -802,27 +873,16 @@ async function tryResolveScanRewardContext(
 
   const isFirstScanOfDay = Number(todayScanCount ?? 0) <= 1;
 
+  let scanStreakOutcome: ScanStreakOutcome | null = null;
   let derivedCareDelta = 0;
   if (isFirstScanOfDay) {
-    const { data: previousScanRow, error: previousScanError } = await adminClient
-      .from("UserPlantDiscovery")
-      .select("discovered_date")
-      .eq("auth_id", authId)
-      .lt("discovered_date", utcDayStart.toISOString())
-      .order("discovered_date", { ascending: false })
-      .limit(1)
-      .maybeSingle<{ discovered_date: string | null }>();
-
-    if (previousScanError) {
-      throw new Error(`Failed to load previous scan: ${previousScanError.message}`);
-    }
-
-    const inactivityDays = computeInactiveDaysSinceLastScan(previousScanRow?.discovered_date, utcDayStart);
-    derivedCareDelta = clamp(
-      FIRST_SCAN_BASE_CARE_DELTA + inactivityDays,
-      FIRST_SCAN_BASE_CARE_DELTA,
-      FIRST_SCAN_CARE_DELTA_MAX,
-    );
+    scanStreakOutcome = computeScanStreakOutcome({
+      previousStreakDays: Number(robotPlantState?.streak_days ?? ROBOT_PLANT_DEFAULT_STATE.streak_days),
+      previousJokerCount: Number(robotPlantState?.scan_streak_joker_count ?? ROBOT_PLANT_DEFAULT_STATE.scan_streak_joker_count),
+      previousStreakDateIso: robotPlantState?.last_streak_scan_date ?? ROBOT_PLANT_DEFAULT_STATE.last_streak_scan_date,
+      todayDateIso: dayKey,
+    });
+    derivedCareDelta = scanStreakOutcome.pflegeDelta;
   }
 
   const careValue = Number(robotPlantState?.care ?? ROBOT_PLANT_DEFAULT_STATE.care);
@@ -879,7 +939,6 @@ async function tryResolveScanRewardContext(
     energyValue,
     dataQualityValue,
     careValue,
-    streakDays: Number(robotPlantState?.streak_days ?? ROBOT_PLANT_DEFAULT_STATE.streak_days),
     isInActiveZone,
     rarity: plant.rarity,
     isFirstScanOfDay,
@@ -908,6 +967,7 @@ async function tryResolveScanRewardContext(
     derivedEnergyDelta: finalEnergyDelta,
     derivedDataQualityDelta,
     derivedCareDelta,
+    scanStreakOutcome,
     matchedZoneId: matchedZone?.id || null,
     nextZoneMultiplier,
   };
@@ -1002,6 +1062,8 @@ Deno.serve(async (req) => {
     let rewardDetails: RewardBreakdown | null = null;
     let tileClaimResolution: TileClaimResolution | null = null;
     let zoneSparkReward: Record<string, unknown> | null = null;
+    let scanStreakFunkenReward: Record<string, unknown> | null = null;
+    let scanStreakBernsteinReward: Record<string, unknown> | null = null;
     let currentRobotPlantState: RobotPlantStateRow | null = null;
 
     let scanContext: ScanRewardContext | null = null;
@@ -1052,6 +1114,7 @@ Deno.serve(async (req) => {
         derived_data_quality_delta: effectiveDataQualityDelta,
         derived_care_delta: effectiveCareDelta,
         zone_scan_applied: scanContext.matchedZoneId,
+        scan_streak: scanContext.scanStreakOutcome,
         tile_claim: tileClaimResolution
           ? {
               tile_x: tileClaimResolution.tileX,
@@ -1171,6 +1234,67 @@ Deno.serve(async (req) => {
       }
     }
 
+    const scanStreakOutcome = scanContext?.scanStreakOutcome ?? null;
+    if (scanStreakOutcome) {
+      const streakEventReference = `scan-streak:${dayKey}`;
+
+      if (scanStreakOutcome.funkenDelta > 0) {
+        const { data: funkenGrantData, error: funkenGrantError } = await adminClient.rpc("wallet_grant_currency", {
+          p_auth_id: authId,
+          p_currency_code: "sparks",
+          p_event_source: "scan_streak_reward",
+          p_event_reference: streakEventReference,
+          p_amount: scanStreakOutcome.funkenDelta,
+          p_direction: "credit",
+          p_metadata: {
+            streak_days: scanStreakOutcome.streakDays,
+            is_boundary_day: scanStreakOutcome.isBoundaryDay,
+            jokers_consumed: scanStreakOutcome.jokersConsumed,
+          },
+        });
+
+        if (funkenGrantError) {
+          console.warn("[robotPlantGrantReward] scan streak funken grant failed", funkenGrantError);
+        } else {
+          scanStreakFunkenReward = Array.isArray(funkenGrantData) ? (funkenGrantData[0] ?? null) : (funkenGrantData ?? null);
+        }
+      }
+
+      if (scanStreakOutcome.bernsteinDelta > 0) {
+        const { data: bernsteinGrantData, error: bernsteinGrantError } = await adminClient.rpc("wallet_grant_currency", {
+          p_auth_id: authId,
+          p_currency_code: "amber",
+          p_event_source: "scan_streak_reward",
+          p_event_reference: streakEventReference,
+          p_amount: scanStreakOutcome.bernsteinDelta,
+          p_direction: "credit",
+          p_metadata: {
+            streak_days: scanStreakOutcome.streakDays,
+            is_boundary_day: scanStreakOutcome.isBoundaryDay,
+          },
+        });
+
+        if (bernsteinGrantError) {
+          console.warn("[robotPlantGrantReward] scan streak bernstein grant failed", bernsteinGrantError);
+        } else {
+          scanStreakBernsteinReward = Array.isArray(bernsteinGrantData) ? (bernsteinGrantData[0] ?? null) : (bernsteinGrantData ?? null);
+        }
+      }
+
+      const { error: streakUpdateError } = await adminClient
+        .from("RobotPlant")
+        .update({
+          streak_days: scanStreakOutcome.streakDays,
+          scan_streak_joker_count: scanStreakOutcome.jokerCount,
+          last_streak_scan_date: dayKey,
+        })
+        .eq("auth_id", authId);
+
+      if (streakUpdateError) {
+        console.warn("[robotPlantGrantReward] scan streak state update failed", streakUpdateError);
+      }
+    }
+
     return jsonResponse(
       {
         ok: true,
@@ -1182,6 +1306,14 @@ Deno.serve(async (req) => {
         energyDelta: Math.round(effectiveEnergyDelta),
         dataQualityDelta: Math.round(effectiveDataQualityDelta),
         careDelta: Math.round(effectiveCareDelta),
+        scanStreakDays: scanStreakOutcome?.streakDays ?? null,
+        scanStreakJokerCount: scanStreakOutcome?.jokerCount ?? null,
+        scanStreakIsBoundaryDay: scanStreakOutcome?.isBoundaryDay ?? false,
+        scanStreakWasHardReset: scanStreakOutcome?.wasHardReset ?? false,
+        scanStreakFunkenDelta: scanStreakOutcome?.funkenDelta ?? 0,
+        scanStreakBernsteinDelta: scanStreakOutcome?.bernsteinDelta ?? 0,
+        scanStreakFunkenReward,
+        scanStreakBernsteinReward,
       },
       200,
     );

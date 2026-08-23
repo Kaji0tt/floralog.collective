@@ -80,17 +80,7 @@ function buildRewardSteps(rewardDetails, isInActiveZone) {
   const negativePreStreak = preStreakSteps.filter((step) => !step.positive);
   const steps = [...positivePreStreak, ...negativePreStreak];
 
-  let currentReward = rewardDetails.preStreakReward;
-  if (rewardDetails.streakMultiplier !== 1) {
-    steps.push({
-      id: "streak",
-      label: "Streak",
-      multiplier: rewardDetails.streakMultiplier,
-      result: rewardDetails.finalReward,
-      positive: rewardDetails.streakMultiplier > 1,
-    });
-    currentReward = rewardDetails.finalReward;
-  }
+  const currentReward = rewardDetails.preStreakReward;
 
   if (rewardDetails.tileClaimMultiplier && rewardDetails.tileClaimMultiplier !== 1) {
     const preTileReward =
@@ -226,7 +216,11 @@ export default function ScanFeedbackNotification({
   const isInActiveZone = feedback?.isInActiveZone !== false;
   const energyDelta = Math.max(0, Number(feedback?.energyDelta ?? 0));
   const dataQualityDelta = Math.max(0, Number(feedback?.dataQualityDelta ?? 0));
-  const hasResourceGains = energyDelta > 0 || dataQualityDelta > 0;
+  const scanStreak = feedback?.scanStreak || null;
+  const hasScanStreakGains = Boolean(
+    scanStreak && (scanStreak.pflegeDelta > 0 || scanStreak.funkenDelta > 0 || scanStreak.bernsteinDelta > 0)
+  );
+  const hasResourceGains = energyDelta > 0 || dataQualityDelta > 0 || hasScanStreakGains;
   const rewardSteps = useMemo(
     () => buildRewardSteps(rewardDetails, isInActiveZone),
     [rewardDetails, isInActiveZone]
@@ -681,7 +675,29 @@ export default function ScanFeedbackNotification({
                           Energie +{energyDelta}
                         </span>
                       )}
+                      {scanStreak?.pflegeDelta > 0 && (
+                        <span className="inline-flex items-center rounded-full border border-lime-200/35 bg-lime-500/15 px-2 py-1 font-semibold text-lime-200">
+                          Pflege +{scanStreak.pflegeDelta}
+                        </span>
+                      )}
+                      {scanStreak?.funkenDelta > 0 && (
+                        <span className="inline-flex items-center rounded-full border border-amber-200/35 bg-amber-500/15 px-2 py-1 font-semibold text-amber-200">
+                          Funken +{scanStreak.funkenDelta}
+                        </span>
+                      )}
+                      {scanStreak?.bernsteinDelta > 0 && (
+                        <span className="inline-flex items-center rounded-full border border-orange-200/35 bg-orange-500/15 px-2 py-1 font-semibold text-orange-200">
+                          Bernstein +{scanStreak.bernsteinDelta}
+                        </span>
+                      )}
                     </div>
+                    {hasScanStreakGains && (
+                      <div className="mt-2 text-[11px] text-emerald-100/80">
+                        Scan-Streak Tag {scanStreak.streakDays}
+                        {scanStreak.isBoundaryDay ? " - Wochen-Bonus!" : ""}
+                        {scanStreak.wasHardReset ? " (neu gestartet)" : ""}
+                      </div>
+                    )}
                   </motion.div>
                 )}
               </AnimatePresence>

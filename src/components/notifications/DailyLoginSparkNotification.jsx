@@ -1,14 +1,34 @@
-import React from "react";
+import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Sparkles, Zap } from "lucide-react";
+import { Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useUiTheme } from "@/lib/UiThemeContext";
+import ScanStreakRewardTrack from "@/components/home/ScanStreakRewardTrack";
+
+// Pflege uses the exact color of the "care" stat bar in the Home health/status display.
+const PFLEGE_TEXT_COLOR = "#f59e0b";
+const SPARKLE_DISPLAY_MS = 2000;
 
 export default function DailyLoginSparkNotification({ feedback, onComplete }) {
+  const { isLightUi } = useUiTheme();
+  const [showSparkles, setShowSparkles] = useState(true);
+
+  useEffect(() => {
+    if (!feedback) return undefined;
+    setShowSparkles(true);
+    const timeoutId = window.setTimeout(() => setShowSparkles(false), SPARKLE_DISPLAY_MS);
+    return () => window.clearTimeout(timeoutId);
+  }, [feedback]);
+
   if (!feedback) return null;
 
-  const awardedAmount = Math.max(0, Number(feedback?.awardedAmount ?? 0));
+  const isClaimed = feedback?.mode === "claimed";
   const streakDays = Math.max(0, Number(feedback?.streakDays ?? 0));
-  const sparksBalance = Math.max(0, Number(feedback?.sparksBalance ?? 0));
+  const jokerCount = Math.max(0, Number(feedback?.jokerCount ?? 0));
+  const pflegeDelta = Math.max(0, Number(feedback?.pflegeDelta ?? 0));
+  const funkenDelta = Math.max(0, Number(feedback?.funkenDelta ?? 0));
+  const bernsteinDelta = Math.max(0, Number(feedback?.bernsteinDelta ?? 0));
+  const isBoundaryDay = Boolean(feedback?.isBoundaryDay);
 
   const sparkleNodes = Array.from({ length: 12 }, (_, idx) => {
     const top = 8 + (idx % 4) * 14;
@@ -19,7 +39,7 @@ export default function DailyLoginSparkNotification({ feedback, onComplete }) {
     return (
       <motion.span
         key={`daily-login-sparkle-${idx}`}
-        className="pointer-events-none absolute text-amber-200/90"
+        className={`pointer-events-none absolute ${isLightUi ? "text-[#c8ac62]/80" : "text-[#f0e5a5]/80"}`}
         style={{ top: `${top}%`, left: `${left}%` }}
         initial={{ opacity: 0, y: 8, scale: 0.75 }}
         animate={{ opacity: [0, 1, 0], y: [8, -16, -32], scale: [0.75, 1.1, 0.9] }}
@@ -45,37 +65,67 @@ export default function DailyLoginSparkNotification({ feedback, onComplete }) {
           animate={{ opacity: 1, scale: [1, 1.015, 1], y: 0 }}
           exit={{ opacity: 0, scale: 0.96, y: 12 }}
           transition={{ duration: 0.45, ease: "easeOut" }}
-          className="relative z-10 w-full max-w-xl overflow-hidden rounded-3xl border border-amber-200/30 bg-[radial-gradient(circle_at_20%_10%,rgba(245,158,11,0.3),transparent_45%),radial-gradient(circle_at_80%_8%,rgba(251,191,36,0.24),transparent_40%),linear-gradient(180deg,rgba(24,18,8,0.98)_0%,rgba(16,12,5,0.99)_100%)] p-6 sm:p-8 text-stone-100 shadow-[0_36px_120px_rgba(0,0,0,0.72)]"
+          className={`relative z-10 w-full max-w-xl overflow-hidden rounded-3xl border backdrop-blur-xl p-6 sm:p-8 shadow-[0_36px_120px_rgba(0,0,0,0.55)] ${
+            isLightUi ? "border-[#c8ac62]/45 bg-white/85 text-stone-800" : "border-[#f0e5a5]/35 bg-black/70 text-stone-100"
+          }`}
         >
-          <div className="absolute inset-0">{sparkleNodes}</div>
+          {showSparkles && <div className="absolute inset-0">{sparkleNodes}</div>}
 
           <div className="relative z-10">
-            <div className="inline-flex items-center gap-2 rounded-full border border-amber-200/35 bg-amber-300/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-amber-200/95">
+            <div
+              className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] ${
+                isLightUi ? "border-[#c8ac62]/45 bg-[#c8ac62]/15 text-[#8f6b22]" : "border-[#f0e5a5]/35 bg-[#f0e5a5]/10 text-[#f0e5a5]"
+              }`}
+            >
               <Sparkles className="h-4 w-4" />
-              Taeglicher Login-Bonus
+              Scan-Streak
             </div>
 
-            <h3 className="mt-4 text-2xl sm:text-3xl font-semibold text-amber-50">
+            <h3 className={`mt-4 text-2xl sm:text-3xl font-semibold ${isLightUi ? "text-stone-800" : "text-amber-50"}`}>
               Willkommen zurueck!
             </h3>
 
-            <div className="mt-4 rounded-2xl border border-amber-100/25 bg-black/35 px-4 py-4 sm:px-5 sm:py-5">
-              <div className="flex items-center justify-center gap-2 text-amber-100">
-                <Zap className="h-6 w-6 text-amber-300" />
-                <span className="text-3xl sm:text-4xl font-bold leading-none">+{awardedAmount} Funken</span>
+            <div
+              className={`mt-4 rounded-2xl border px-4 py-4 sm:px-5 sm:py-5 ${
+                isLightUi ? "border-[#c8ac62]/35 bg-white/60" : "border-[#f0e5a5]/20 bg-black/35"
+              }`}
+            >
+              <div className={`text-center text-sm sm:text-base ${isLightUi ? "text-stone-700" : "text-stone-200/90"}`}>
+                {isClaimed
+                  ? "Heute schon erhalten:"
+                  : "Dein naechster Scan heute bringt dir:"}
               </div>
-              <div className="mt-3 text-center text-sm sm:text-base text-amber-100/90">
-                Streak: <span className="font-semibold text-amber-50">{streakDays}</span> Tage (Cap 3)
+
+              <div className="mt-2 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-lg sm:text-xl font-bold">
+                {pflegeDelta > 0 && <span style={{ color: PFLEGE_TEXT_COLOR }}>+{pflegeDelta} Pflege</span>}
+                {funkenDelta > 0 && <span className="text-amber-300">+{funkenDelta} Funken</span>}
+                {bernsteinDelta > 0 && <span className="text-orange-300">+{bernsteinDelta} Bernstein</span>}
               </div>
-              <div className="mt-1 text-center text-xs sm:text-sm text-stone-200/90">
-                Neuer Kontostand: <span className="font-semibold text-amber-100">{sparksBalance} Funken</span>
+
+              <div className={`mt-3 text-center text-sm sm:text-base ${isLightUi ? "text-stone-700" : "text-stone-200/90"}`}>
+                Streak:{" "}
+                <span className={`font-semibold ${isLightUi ? "text-stone-800" : "text-amber-50"}`}>{streakDays}</span> Tage
+                {isBoundaryDay && (
+                  <span className="ml-2 rounded-full border border-amber-200/40 bg-amber-500/15 px-2 py-0.5 text-xs font-semibold text-amber-200">
+                    Wochen-Bonus
+                  </span>
+                )}
               </div>
+              {jokerCount > 0 && (
+                <div className={`mt-1 text-center text-xs sm:text-sm ${isLightUi ? "text-stone-600" : "text-stone-300/80"}`}>
+                  {jokerCount} Joker verfuegbar
+                </div>
+              )}
+            </div>
+
+            <div className="mt-4">
+              <ScanStreakRewardTrack streakDays={streakDays} jokerCount={jokerCount} />
             </div>
 
             <div className="mt-6 flex justify-center">
               <Button
                 onClick={() => onComplete?.()}
-                className="min-w-36 bg-gradient-to-b from-amber-400 to-orange-500 text-black font-semibold hover:from-amber-300 hover:to-orange-400"
+                className="min-w-36 border border-lime-200/35 bg-gradient-to-r from-emerald-700/80 via-emerald-500/70 to-emerald-700/80 text-white shadow-[0_8px_24px_rgba(34,197,94,0.3)] hover:brightness-110"
               >
                 OK
               </Button>

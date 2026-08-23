@@ -35,6 +35,7 @@ type CreateGlobalPlantBody = {
     naturadb_url?: string | null;
   };
   image_url?: string | null;
+  additional_image_urls?: string[] | null;
   discovery_location?: string | null;
 };
 
@@ -127,7 +128,7 @@ Deno.serve(async (req) => {
     const userEmail = user.email || "";
 
     const body = (await req.json()) as CreateGlobalPlantBody;
-    const { plant, image_url, discovery_location } = body;
+    const { plant, image_url, additional_image_urls, discovery_location } = body;
 
     if (!plant || !plant.species_name || !plant.category) {
       return new Response(
@@ -297,6 +298,7 @@ Deno.serve(async (req) => {
         discovery_location: discovery_location || null,
         discovery_notes: "",
         image_url: image_url || null,
+        additional_image_urls: Array.isArray(additional_image_urls) ? additional_image_urls.filter(Boolean) : [],
       })
       .select("id")
       .single();

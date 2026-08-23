@@ -78,8 +78,6 @@ export const ROBOT_PLANT_EVENT_SOURCES = Object.freeze({
   weeklyChallengeParticipation: "weekly_challenge_participation",
   weeklyChallengeLikeReceived: "weekly_challenge_like_received",
   scanLikeReceived: "scan_like_received",
-  waterPlant: "water_plant",
-  fertilizePlant: "fertilize_plant",
   decayTick: "decay_tick",
   shopBoost: "shop_boost",
 });
@@ -99,8 +97,6 @@ export const REWARD_FORMULA_CONFIG = Object.freeze({
     [ROBOT_PLANT_EVENT_SOURCES.weeklyChallengeParticipation]: 12,
     [ROBOT_PLANT_EVENT_SOURCES.weeklyChallengeLikeReceived]: 20,
     [ROBOT_PLANT_EVENT_SOURCES.scanLikeReceived]: 5,
-    [ROBOT_PLANT_EVENT_SOURCES.waterPlant]: 0,
-    [ROBOT_PLANT_EVENT_SOURCES.fertilizePlant]: 0,
     [ROBOT_PLANT_EVENT_SOURCES.decayTick]: 0,
     [ROBOT_PLANT_EVENT_SOURCES.shopBoost]: 0,
   },
@@ -117,12 +113,6 @@ export const REWARD_FORMULA_CONFIG = Object.freeze({
     default: 1,
     decrementPerDuplicateScan: 0.2,
   },
-  streakMultiplier: {
-    min: 1,
-    max: 7,
-    default: 1,
-    capDays: 7,
-  },
   careMultiplier: {
     min: 1,
     max: 2,
@@ -135,6 +125,21 @@ export const REWARD_FORMULA_CONFIG = Object.freeze({
   },
   absoluteMinReward: 1,
 });
+
+// Scan-Streak retention system (replaces the old login-streak sparks claim).
+// Must stay in sync with supabase/functions/robotPlantGrantReward/index.ts.
+export const SCAN_STREAK_CONFIG = Object.freeze({
+  pflegeBaseOffset: 2,
+  pflegeCap: 10,
+  funkenCap: 3,
+  jokerGrantDay: 3,
+  weekBoundaryStartDay: 8,
+  weekBoundaryIntervalDays: 7,
+  boundaryFunken: [5, 10, 20, 30],
+  boundaryBernsteinFromIndex: 3,
+  boundaryBernsteinAmount: 5,
+});
+
 
 export const ROBOT_PLANT_GEO_ZONE_CONFIG = Object.freeze({
   // Basic Zone Parameters
@@ -210,44 +215,10 @@ export const ROBOT_PLANT_GEO_ZONE_CONFIG = Object.freeze({
   },
 });
 
-export const ROBOT_PLANT_CARE_RULES = Object.freeze({
-  gainBoostThreshold: 90,
-  gainBoostMultiplier: 2,
-  decayReductionByCareThreshold: [
-    { min: 100, reduction: 0.8 },
-    { min: 90, reduction: 0.5 },
-    { min: 80, reduction: 0.25 },
-  ],
-});
-
 export const ROBOT_PLANT_GAIN_RULES = Object.freeze({
   energy: {
     metersPerPoint: 100,
     maxPerDay: 15,
-  },
-  care: {
-    wateringByRepeatIndex: [3, 2, 1],
-  },
-});
-
-export const ROBOT_PLANT_SHOP_EFFECTS = Object.freeze({
-  antiDecaySmall: {
-    id: "anti_decay_small",
-    type: "decay_reduction",
-    durationHours: 12,
-    value: 0.15,
-  },
-  antiDecayMedium: {
-    id: "anti_decay_medium",
-    type: "decay_reduction",
-    durationHours: 24,
-    value: 0.25,
-  },
-  bonusBoostSmall: {
-    id: "bonus_boost_small",
-    type: "reward_boost",
-    durationHours: 6,
-    value: 0.1,
   },
 });
 

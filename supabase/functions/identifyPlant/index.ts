@@ -63,16 +63,31 @@ Deno.serve(async (req) => {
       )
     }
 
-    const { image_url, organ = "auto" } = await req.json()
+    const body = await req.json()
+    const rawImageUrls: unknown = body.image_urls ?? (body.image_url ? [body.image_url] : [])
+    const rawOrgans: unknown = body.organs ?? (body.organ ? [body.organ] : [])
 
-    if (!image_url) {
+    const imageUrls = Array.isArray(rawImageUrls) ? rawImageUrls.filter((url) => typeof url === "string" && url) : []
+    // Pad missing organ entries with "auto" so array lengths always match image count.
+    const organs = imageUrls.map((_, index) =>
+      Array.isArray(rawOrgans) && typeof rawOrgans[index] === "string" ? rawOrgans[index] : "auto",
+    )
+
+    if (imageUrls.length === 0) {
       return new Response(
-        JSON.stringify({ error: "image_url required" }),
+        JSON.stringify({ error: "image_urls required" }),
         { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } },
       )
     }
 
-    console.log(`🌿 [identifyPlant] Starte PlantNet Identifikation mit organ: ${organ}...`)
+    if (imageUrls.length > 5) {
+      return new Response(
+        JSON.stringify({ error: "Maximal 5 Bilder pro Identifikation erlaubt" }),
+        { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } },
+      )
+    }
+
+    console.log(`🌿 [identifyPlant] Starte PlantNet Identifikation mit ${imageUrls.length} Bild(ern), organs: ${organs.join(", ")}...`)
 
     try {
       const plantnetApiKey = Deno.env.get("PLANTNET_API_KEY")
@@ -85,20 +100,23 @@ Deno.serve(async (req) => {
 
       const formData = new FormData()
 
-      console.log("📥 [identifyPlant] Lade Bild herunter von:", image_url)
-      const imageResponse = await fetch(image_url)
+      for (let i = 0; i < imageUrls.length; i++) {
+        const imageUrl = imageUrls[i]
+        console.log(`📥 [identifyPlant] Lade Bild ${i + 1}/${imageUrls.length} herunter von:`, imageUrl)
+        const imageResponse = await fetch(imageUrl)
 
-      if (!imageResponse.ok) {
-        throw new Error(
-          `Bild konnte nicht geladen werden: ${imageResponse.status} ${imageResponse.statusText}`,
-        )
+        if (!imageResponse.ok) {
+          throw new Error(
+            `Bild ${i + 1} konnte nicht geladen werden: ${imageResponse.status} ${imageResponse.statusText}`,
+          )
+        }
+
+        const imageBlob = await imageResponse.blob()
+        console.log(`✅ [identifyPlant] Bild ${i + 1} geladen, Größe:`, imageBlob.size, "bytes")
+
+        formData.append("images", imageBlob, `plant-${i + 1}.jpg`)
+        formData.append("organs", organs[i])
       }
-
-      const imageBlob = await imageResponse.blob()
-      console.log("✅ [identifyPlant] Bild geladen, Größe:", imageBlob.size, "bytes")
-
-      formData.append("images", imageBlob, "plant.jpg")
-      formData.append("organs", organ)
 
       console.log("📤 [identifyPlant] Sende Anfrage an PlantNet...")
       const plantnetResponse = await fetch(plantnetUrl, {
