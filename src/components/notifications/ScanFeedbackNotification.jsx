@@ -5,6 +5,7 @@ import { Capacitor } from "@capacitor/core";
 import { Filesystem, Directory } from "@capacitor/filesystem";
 import { Share } from "@capacitor/share";
 import { Haptics } from "@capacitor/haptics";
+import FlorabotLogo from "@/components/florabot/FlorabotLogo";
 // Hilfsfunktionen und Konstanten
 
 // Punkteschwellen, ab denen die Punkte-Card zusaetzlich vibriert/leuchtet.
@@ -14,6 +15,27 @@ const REWARD_MILESTONES = {
 };
 // Farbe des bestehenden Punkte-Card-Rahmens (border-[#f0e5a5]), fuer den Glow bei 800 Punkten.
 const REWARD_MILESTONE_GLOW_COLOR = "rgba(240, 229, 165, 0.92)";
+
+// Gold/Lime-Impulsfarbe fuers Logo, wenn ein Multiplikator angewendet wird (Kartenakzentfarbe).
+const MULTIPLIER_PULSE_COLOR = "#e8dd8c";
+// Identisch zu den Stat-Farben im Home-Overlay (Home.jsx healthStats: Energie/Daten/Pflege),
+// damit Badge- und Logo-Impulsfarben mit dem PlantHealth-Panel uebereinstimmen.
+const PLANT_HEALTH_STAT_COLORS = {
+  energy: "#10b981",
+  "data-quality": "#06b6d4",
+  care: "#f59e0b",
+};
+
+// Kurze Erklaerungen zur Herkunft jedes Multiplikator-Schritts, als Tooltip-Inhalt.
+const MULTIPLIER_STEP_TOOLTIPS = {
+  health: "Bonus/Abzug je nach Gesundheitszustand der gescannten Pflanze.",
+  zone: "Bonus, weil sich die Pflanze in einer aktiven Sammel-Zone befindet.",
+  rarity: "Bonus abhaengig von der Seltenheit dieser Pflanzenart.",
+  novelty: "Bonus fuer neue oder lange nicht bestaetigte Entdeckungen.",
+  care: "Bonus durch die Pflege deines Florabots (Scan-Streak, erhaltene Likes).",
+  firstScan: "Bonus fuer deinen ersten Scan des heutigen Tages.",
+  tiles: "Bonus durch beanspruchte Kartenkacheln in deiner Zone.",
+};
 
 // Nativ (Android/iOS) via Capacitor Haptics vibrieren, im Browser per Vibration API.
 async function triggerDeviceVibration(durationMs) {
@@ -198,9 +220,86 @@ async function handleNativeShare(cardRef, { plantName, rewardDetails } = {}) {
     alert('Teilen fehlgeschlagen: ' + (err?.message || err));
   }
 }
+
+// Farbiger Impuls-Bubble-Puls ums Custom-Logo (gleiche Technik wie beim "Streicheln"
+// eines Florabot-Freundes in FriendProfile.jsx: radialer Glow + zwei Ring-Borders).
+function LogoImpulseRing({ color, nonce }) {
+  return (
+    <AnimatePresence>
+      {color && nonce ? (
+        <motion.div
+          key={`logo-impulse-${nonce}`}
+          className="pointer-events-none absolute inset-0 z-20"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.16 }}
+          aria-hidden="true"
+        >
+          <motion.div
+            className="absolute inset-[-10%] rounded-full"
+            style={{
+              background: `radial-gradient(circle, ${color}55 0%, ${color}2a 38%, transparent 76%)`,
+              filter: "blur(9px)",
+            }}
+            initial={{ opacity: 0, scale: 0.78 }}
+            animate={{ opacity: [0, 1, 0], scale: [0.78, 1.1, 1.3] }}
+            transition={{ duration: 0.7, ease: "easeOut" }}
+          />
+          <motion.div
+            className="absolute inset-0 rounded-full border-2"
+            style={{ borderColor: color, boxShadow: `0 0 26px ${color}cc, 0 0 48px ${color}55` }}
+            initial={{ opacity: 0, scale: 0.84 }}
+            animate={{ opacity: [0, 1, 0], scale: [0.84, 1.03, 1.14] }}
+            transition={{ duration: 0.66, ease: "easeOut" }}
+          />
+        </motion.div>
+      ) : null}
+    </AnimatePresence>
+  );
+}
+
+// Kompaktes PlantHealth-Badge, eingefaerbt in der Farbe des jeweiligen Stats.
+// borderColor/textColor koennen den Rahmen/Text unabhaengig von der Hintergrundfarbe uebersteuern.
+function PlantHealthBadge({ color, label, borderColor = null, textColor = null }) {
+  return (
+    <span
+      className="inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-bold whitespace-nowrap"
+      style={{
+        backgroundColor: `${color}26`,
+        borderColor: borderColor || `${color}66`,
+        color: textColor || color,
+      }}
+    >
+      {label}
+    </span>
+  );
+}
+
+// Rotierender Multicolor-Rahmen, exklusiv fuers Funken-Badge wenn der Daily-Login-Reward
+// beim ersten Scan des Tages mit ausgeschuettet wurde.
+function RainbowFrame({ children }) {
+  return (
+    <motion.span
+      className="inline-flex rounded-full p-[2px]"
+      style={{
+        backgroundImage:
+          "linear-gradient(90deg, #f87171, #fbbf24, #34d399, #38bdf8, #a78bfa, #f87171)",
+        backgroundSize: "300% 100%",
+      }}
+      animate={{ backgroundPosition: ["0% 50%", "100% 50%", "0% 50%"] }}
+      transition={{ duration: 2.6, repeat: Infinity, ease: "linear" }}
+    >
+      {children}
+    </motion.span>
+  );
+}
+
 export default function ScanFeedbackNotification({
   feedback,
   onComplete,
+  profile = null,
+  logoAssets = [],
   shareSnapshotBackgroundImageUrl = null,
   shareSnapshotBackgroundColor = null,
 }) {
@@ -242,8 +341,31 @@ export default function ScanFeedbackNotification({
   const lastCheckedRewardRef = useRef(rewardDetails?.baseReward ?? 0);
 
   const [showResourceGains, setShowResourceGains] = useState(false);
+  // Welcher Multiplikator-Schritt aktuell per Klick/Tap seine Erklaerung ausklappt.
+  const [expandedStepId, setExpandedStepId] = useState(null);
   // Zeigt die Buttons erst nach Abschluss der Animationen und kurzer Wartezeit
   const [showButtons, setShowButtons] = useState(false);
+
+  // Farbiger Impuls am Custom-Logo: bei jedem angewendeten Multiplikator (gold/lime) und
+  // bei jedem erscheinenden PlantHealth-Badge (in dessen Stat-Farbe). nonce erzwingt einen
+  // Remount des Pop-Wrappers, damit die Scale-Bounce-Animation jedes Mal neu abspielt.
+  const [logoPulseColor, setLogoPulseColor] = useState(null);
+  const [logoFeedbackNonce, setLogoFeedbackNonce] = useState(0);
+  const logoFeedbackCounterRef = useRef(0);
+
+  const triggerLogoFeedback = (color) => {
+    logoFeedbackCounterRef.current += 1;
+    setLogoPulseColor(color);
+    setLogoFeedbackNonce(logoFeedbackCounterRef.current);
+  };
+
+  // Scrollt die Multiplikator-Liste an ihr Ende, sobald ein neuer Schritt sichtbar wird.
+  const stepsScrollRef = useRef(null);
+  useEffect(() => {
+    const el = stepsScrollRef.current;
+    if (!el) return;
+    el.scrollTop = el.scrollHeight;
+  }, [visibleStepCount]);
 
   useEffect(() => {
     onCompleteRef.current = onComplete;
@@ -261,6 +383,7 @@ export default function ScanFeedbackNotification({
     setShowButtons(false);
     setRewardCardShakeLevel(0);
     setRewardCardGlowActive(false);
+    setExpandedStepId(null);
     shakeMilestoneReachedRef.current = false;
     glowMilestoneReachedRef.current = false;
     lastCheckedRewardRef.current = rewardDetails?.baseReward ?? 0;
@@ -369,6 +492,7 @@ export default function ScanFeedbackNotification({
         setVibrateMultiplier(true);
 
         triggerDeviceVibration(70);
+        triggerLogoFeedback(MULTIPLIER_PULSE_COLOR);
 
         animateCounter(currentValue, step.result, 550, () => {
           setVibrateCounter(false);
@@ -406,55 +530,57 @@ export default function ScanFeedbackNotification({
     };
   }, [feedback, hasResourceGains, rewardDetails, rewardSteps]);
 
+  // Sobald die PlantHealth-Zusatzgewinne erscheinen, pulst das Logo nacheinander in der
+  // Farbe jedes aktiven Stats (Datenqualitaet/Energie/Pflege), analog zum Streicheln-Effekt.
+  useEffect(() => {
+    if (!showResourceGains) return undefined;
+
+    const activeStatColors = [];
+    if (dataQualityDelta > 0) activeStatColors.push(PLANT_HEALTH_STAT_COLORS["data-quality"]);
+    if (energyDelta > 0) activeStatColors.push(PLANT_HEALTH_STAT_COLORS.energy);
+    if (scanStreak?.pflegeDelta > 0) activeStatColors.push(PLANT_HEALTH_STAT_COLORS.care);
+    if (activeStatColors.length === 0) return undefined;
+
+    const badgeTimeouts = activeStatColors.map((color, index) =>
+      window.setTimeout(() => triggerLogoFeedback(color), index * 260)
+    );
+    return () => badgeTimeouts.forEach((timeoutId) => window.clearTimeout(timeoutId));
+  }, [showResourceGains, dataQualityDelta, energyDelta, scanStreak?.pflegeDelta]);
+
   if (!feedback) return null;
 
   const { type, plantName, questTitle, rewardName } = feedback;
 
   let title = "Scan erfolgreich!";
-  let message = "Dein Scan wurde gespeichert.";
   let containerClasses = "bg-black/55 border-[#f0e5a5]/35";
   let ringClasses = "bg-emerald-400/35";
   let counterClasses = "text-emerald-300";
-  let messageClasses = "text-stone-200";
   let titleClasses = "text-stone-100";
   let emojiSet = ["âœ¨", "âœ¨", "âœ¨"];
   let animationVariant = "rescanned";
 
   if (type === "rescanned") {
-    title = "Erneut gescannt";
-    message = plantName
-      ? `${plantName} wurde erneut bestaetigt.`
-      : "Deine Pflanze wurde erneut bestaetigt.";
+    title = plantName ? `${plantName} erneut gescannt` : "Pflanze erneut gescannt";
     ringClasses = "bg-emerald-300/35";
     emojiSet = ["âœ¨", "ðŸŒ¿", "âœ¨"];
   } else if (type === "newDiscovery") {
-    title = "Neue Entdeckung!";
-    message = plantName
-      ? `${plantName} wurde zu deinem Floralog hinzugefuegt.`
-      : "Eine neue Pflanze wurde deinem Floralog hinzugefuegt.";
+    title = plantName ? `${plantName} neu entdeckt!` : "Neue Pflanze entdeckt!";
     containerClasses = "bg-black/60 border-lime-200/35";
     ringClasses = "bg-lime-400/35";
     counterClasses = "text-lime-300";
     emojiSet = ["âœ¨", "ðŸŒ¿", "âœ¨", "ðŸŒ±"];
     animationVariant = "newDiscovery";
   } else if (type === "globalNewPlant") {
-    title = "Globales Floralog erweitert!";
-    message = plantName
-      ? `${plantName} ist jetzt im globalen Floralog verfuegbar.`
-      : "Eine neue Pflanze ist jetzt im globalen Floralog verfuegbar.";
+    title = plantName ? `${plantName} jetzt global verfuegbar!` : "Neue Pflanze global verfuegbar!";
     containerClasses = "bg-black/60 border-amber-200/35";
     ringClasses = "bg-amber-400/35";
     counterClasses = "text-amber-300";
-    messageClasses = "text-stone-200";
     emojiSet = ["âœ¨", "ðŸŒŸ", "âœ¨", "ðŸŒ¼"];
     animationVariant = "globalNewPlant";
   } else if (type === "questCompleted") {
-    title = "Quest abgeschlossen!";
-    message = questTitle
-      ? `Du hast "${questTitle}" erfolgreich abgeschlossen.`
-      : "Du hast eine Quest erfolgreich abgeschlossen.";
+    title = questTitle ? `"${questTitle}" abgeschlossen!` : "Quest abgeschlossen!";
     if (rewardName) {
-      message += ` Belohnung: ${rewardName}.`;
+      title += ` Belohnung: ${rewardName}.`;
     }
     containerClasses = "bg-black/60 border-emerald-200/35";
     ringClasses = "bg-emerald-400/35";
@@ -510,7 +636,7 @@ export default function ScanFeedbackNotification({
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       transition={{ duration: 0.15 }}
-      className="fixed inset-0 z-50 flex items-start justify-center pt-20 pointer-events-auto"
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 pointer-events-auto"
       onPointerDown={(event) => {
         event.stopPropagation();
       }}
@@ -531,12 +657,11 @@ export default function ScanFeedbackNotification({
         >
           {shareSnapshotStyle && <div className="absolute inset-0 bg-black/20 pointer-events-none" />}
           <div className="absolute inset-0 bg-gradient-to-b from-black/25 via-emerald-950/15 to-black/45 pointer-events-none" />
-          <div className={`absolute -inset-px rounded-2xl opacity-40 blur-xl ${ringClasses}`} />
+          <div className={`absolute -inset-px rounded-2xl opacity-40 blur-xl pointer-events-none ${ringClasses}`} />
           <div className="absolute inset-0 border border-[#f0e5a5]/25 rounded-2xl pointer-events-none" />
 
           <div className="relative z-10 flex flex-col items-center w-full">
-            <h3 className={`text-lg font-bold mb-1 ${titleClasses}`}>{title}</h3>
-            <p className={`text-sm ${messageClasses}`}>{message}</p>
+            <h3 className={`text-lg font-bold ${titleClasses}`}>{title}</h3>
           </div>
 
           {rewardDetails && (
@@ -560,6 +685,80 @@ export default function ScanFeedbackNotification({
                     : { duration: 0.2 }
               }
             >
+            <div
+              className={`mb-2 flex w-full items-center gap-3 ${
+                showResourceGains && hasResourceGains ? "justify-start" : "justify-center"
+              }`}
+            >
+              <motion.div layout transition={{ duration: 0.32, ease: "easeOut" }} className="relative h-20 w-20 shrink-0">
+                <motion.div
+                  key={logoFeedbackNonce}
+                  initial={{ scale: 1, rotate: 0 }}
+                  animate={
+                    logoFeedbackNonce
+                      ? { scale: [1, 1.22, 0.9, 1.05, 1], rotate: [0, -3, 3, -1.5, 0] }
+                      : { scale: 1, rotate: 0 }
+                  }
+                  transition={{ duration: 0.46, ease: "easeOut" }}
+                >
+                  <FlorabotLogo
+                    profile={profile}
+                    logoAssets={logoAssets}
+                    sizeClass="w-20 h-20"
+                    padding="p-[6%]"
+                  />
+                </motion.div>
+                <LogoImpulseRing color={logoPulseColor} nonce={logoFeedbackNonce} />
+              </motion.div>
+
+              <AnimatePresence>
+                {showResourceGains && hasResourceGains && (
+                  <motion.div
+                    layout
+                    initial={{ opacity: 0, x: -8 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: -8 }}
+                    transition={{ duration: 0.24, ease: "easeOut" }}
+                    className="flex flex-1 flex-wrap content-start items-start gap-1.5"
+                  >
+                    {dataQualityDelta > 0 && (
+                      <PlantHealthBadge
+                        color={PLANT_HEALTH_STAT_COLORS["data-quality"]}
+                        label={`Datenqualität +${dataQualityDelta}`}
+                      />
+                    )}
+                    {energyDelta > 0 && (
+                      <PlantHealthBadge color={PLANT_HEALTH_STAT_COLORS.energy} label={`Energie +${energyDelta}`} />
+                    )}
+                    {scanStreak?.pflegeDelta > 0 && (
+                      <PlantHealthBadge color={PLANT_HEALTH_STAT_COLORS.care} label={`Pflege +${scanStreak.pflegeDelta}`} />
+                    )}
+                    {scanStreak?.funkenDelta > 0 && (
+                      <RainbowFrame>
+                        <PlantHealthBadge
+                          color="#f59e0b"
+                          borderColor="#ffffff"
+                          textColor="#ffffff"
+                          label={`Funken +${scanStreak.funkenDelta}`}
+                        />
+                      </RainbowFrame>
+                    )}
+                    {scanStreak?.bernsteinDelta > 0 && (
+                      <PlantHealthBadge color="#fb923c" label={`Bernstein +${scanStreak.bernsteinDelta}`} />
+                    )}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+
+            {showResourceGains && hasScanStreakGains && (
+              <div className="mb-2 w-full text-center text-[10px] text-emerald-100/70">
+                Scan-Streak Tag {scanStreak.streakDays}
+                {scanStreak.isBoundaryDay ? " - Wochen-Bonus!" : ""}
+                {scanStreak.wasHardReset ? " (neu gestartet)" : ""}
+              </div>
+            )}
+
               <div className="relative min-h-[5rem] flex items-center justify-center">
                 <AnimatePresence mode="wait" initial={false}>
                   {isNegativeSwap && previousReward !== null ? (
@@ -599,108 +798,86 @@ export default function ScanFeedbackNotification({
               <div className="mt-1 text-[11px] uppercase tracking-[0.25em] text-stone-300">Seeds</div>
 
               {rewardSteps.length > 0 && (
-                <div className="mt-4 space-y-2 text-left">
-                  {rewardSteps.slice(0, visibleStepCount).map((step, index) => {
-                    const isActive = index === activeStepIndex;
-                    const popKey = `${step.id}-${index}`;
-                    return (
-                      <motion.div
-                        key={step.id}
-                        initial={{ opacity: 0, y: 8, scale: 1.25 }}
-                        animate={{ opacity: 1, y: 0, scale: 1 }}
-                        transition={{ type: "spring", stiffness: 280, damping: 20 }}
-                        className={`flex items-center justify-between rounded-xl px-3 py-2 text-sm ${
-                          isActive ? "bg-stone-900/95 text-white" : "bg-black/40 text-stone-200 border border-[#f0e5a5]/20"
-                        }`}
-                      >
-                        <span className="font-semibold">{step.label}</span>
-                        <div className="relative">
-                          {activePopStepId === popKey && (
-                            <motion.span
-                              initial={{ scale: 0.2, opacity: 0 }}
-                              animate={{ scale: [0.2, 1.25, 1], opacity: [0, 0.85, 0] }}
-                              transition={{ duration: 0.3, ease: "easeOut" }}
-                              className={`absolute inset-0 flex items-center justify-center font-black ${
-                                step.positive ? "text-lime-300/90" : "text-rose-400/90"
-                              }`}
-                              aria-hidden="true"
-                            >
-                              {step.displayValue || `x${formatMultiplier(step.multiplier)}`}
-                            </motion.span>
-                          )}
-                          <motion.span
-                            animate={
-                              isActive && step.positive && vibrateMultiplier
-                                ? { x: [0, -0.9, 0.9, -0.6, 0.6, 0] }
-                                : { x: 0 }
-                            }
-                            transition={
-                              isActive && step.positive && vibrateMultiplier
-                                ? { duration: 0.14, repeat: Infinity, ease: "linear" }
-                                : { duration: 0.16 }
-                            }
-                            className={`relative z-10 font-bold ${
-                              step.positive ? "text-lime-300" : isActive ? "text-amber-200" : "text-rose-500"
+                <div className="relative mt-4">
+                  <div
+                    ref={stepsScrollRef}
+                    className="max-h-[min(11rem,24vh)] space-y-2 overflow-y-auto overscroll-contain pr-1 text-left"
+                  >
+                    {rewardSteps.slice(0, visibleStepCount).map((step, index) => {
+                      const isActive = index === activeStepIndex;
+                      const popKey = `${step.id}-${index}`;
+                      const tooltipText = MULTIPLIER_STEP_TOOLTIPS[step.id] || null;
+                      const isExpanded = expandedStepId === step.id;
+                      return (
+                        <div key={step.id}>
+                          <motion.button
+                            type="button"
+                            onClick={() => tooltipText && setExpandedStepId(isExpanded ? null : step.id)}
+                            initial={{ opacity: 0, y: 8, scale: 1.25 }}
+                            animate={{ opacity: 1, y: 0, scale: isActive ? 1 : 0.94 }}
+                            transition={{ type: "spring", stiffness: 280, damping: 20 }}
+                            className={`flex w-full items-center justify-between rounded-xl text-left text-sm transition-colors ${
+                              isActive ? "px-3 py-2" : "px-2.5 py-1.5 text-[13px] opacity-90"
+                            } ${tooltipText ? "cursor-pointer" : ""} ${
+                              isActive ? "bg-stone-900/95 text-white" : "bg-black/40 text-stone-200 border border-[#f0e5a5]/20 hover:bg-black/55"
                             }`}
                           >
-                            {step.displayValue || `x${formatMultiplier(step.multiplier)}`}
-                          </motion.span>
+                            <span className="font-semibold">{step.label}</span>
+                            <div className="relative">
+                              {activePopStepId === popKey && (
+                                <motion.span
+                                  initial={{ scale: 0.2, opacity: 0 }}
+                                  animate={{ scale: [0.2, 1.25, 1], opacity: [0, 0.85, 0] }}
+                                  transition={{ duration: 0.3, ease: "easeOut" }}
+                                  className={`absolute inset-0 flex items-center justify-center font-black ${
+                                    step.positive ? "text-lime-300/90" : "text-rose-400/90"
+                                  }`}
+                                  aria-hidden="true"
+                                >
+                                  {step.displayValue || `x${formatMultiplier(step.multiplier)}`}
+                                </motion.span>
+                              )}
+                              <motion.span
+                                animate={
+                                  isActive && step.positive && vibrateMultiplier
+                                    ? { x: [0, -0.9, 0.9, -0.6, 0.6, 0] }
+                                    : { x: 0 }
+                                }
+                                transition={
+                                  isActive && step.positive && vibrateMultiplier
+                                    ? { duration: 0.14, repeat: Infinity, ease: "linear" }
+                                    : { duration: 0.16 }
+                                }
+                                className={`relative z-10 font-bold ${
+                                  step.positive ? "text-lime-300" : isActive ? "text-amber-200" : "text-rose-500"
+                                }`}
+                              >
+                                {step.displayValue || `x${formatMultiplier(step.multiplier)}`}
+                              </motion.span>
+                            </div>
+                          </motion.button>
+                          <AnimatePresence>
+                            {isExpanded && tooltipText && (
+                              <motion.div
+                                initial={{ opacity: 0, height: 0 }}
+                                animate={{ opacity: 1, height: "auto" }}
+                                exit={{ opacity: 0, height: 0 }}
+                                transition={{ duration: 0.2, ease: "easeOut" }}
+                                className="overflow-hidden"
+                              >
+                                <div className="mt-1 rounded-lg border border-[#f0e5a5]/25 bg-black/60 px-3 py-2 text-xs text-stone-100">
+                                  {tooltipText}
+                                </div>
+                              </motion.div>
+                            )}
+                          </AnimatePresence>
                         </div>
-                      </motion.div>
-                    );
-                  })}
+                      );
+                    })}
+                  </div>
+                  <div className="pointer-events-none absolute inset-x-0 top-0 h-5 rounded-t-xl bg-gradient-to-b from-black/40 to-transparent" />
                 </div>
               )}
-
-              <AnimatePresence>
-                {showResourceGains && hasResourceGains && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: 6 }}
-                    transition={{ duration: 0.24, ease: "easeOut" }}
-                    className="mt-4 rounded-xl border border-emerald-200/25 bg-emerald-950/30 px-3 py-2"
-                  >
-                    <div className="text-[10px] uppercase tracking-[0.2em] text-emerald-200/80">
-                      Zusatzgewinn
-                    </div>
-                    <div className="mt-2 flex flex-wrap gap-2 text-xs">
-                      {dataQualityDelta > 0 && (
-                        <span className="inline-flex items-center rounded-full border border-cyan-200/35 bg-cyan-500/15 px-2 py-1 font-semibold text-cyan-200">
-                          Datenqualitaet +{dataQualityDelta}
-                        </span>
-                      )}
-                      {energyDelta > 0 && (
-                        <span className="inline-flex items-center rounded-full border border-emerald-200/35 bg-emerald-500/15 px-2 py-1 font-semibold text-emerald-200">
-                          Energie +{energyDelta}
-                        </span>
-                      )}
-                      {scanStreak?.pflegeDelta > 0 && (
-                        <span className="inline-flex items-center rounded-full border border-lime-200/35 bg-lime-500/15 px-2 py-1 font-semibold text-lime-200">
-                          Pflege +{scanStreak.pflegeDelta}
-                        </span>
-                      )}
-                      {scanStreak?.funkenDelta > 0 && (
-                        <span className="inline-flex items-center rounded-full border border-amber-200/35 bg-amber-500/15 px-2 py-1 font-semibold text-amber-200">
-                          Funken +{scanStreak.funkenDelta}
-                        </span>
-                      )}
-                      {scanStreak?.bernsteinDelta > 0 && (
-                        <span className="inline-flex items-center rounded-full border border-orange-200/35 bg-orange-500/15 px-2 py-1 font-semibold text-orange-200">
-                          Bernstein +{scanStreak.bernsteinDelta}
-                        </span>
-                      )}
-                    </div>
-                    {hasScanStreakGains && (
-                      <div className="mt-2 text-[11px] text-emerald-100/80">
-                        Scan-Streak Tag {scanStreak.streakDays}
-                        {scanStreak.isBoundaryDay ? " - Wochen-Bonus!" : ""}
-                        {scanStreak.wasHardReset ? " (neu gestartet)" : ""}
-                      </div>
-                    )}
-                  </motion.div>
-                )}
-              </AnimatePresence>
             </motion.div>
           )}
           {emojiSet.map((emoji, index) => {

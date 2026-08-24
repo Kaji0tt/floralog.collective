@@ -1236,7 +1236,8 @@ Deno.serve(async (req) => {
 
     const scanStreakOutcome = scanContext?.scanStreakOutcome ?? null;
     if (scanStreakOutcome) {
-      const streakEventReference = `scan-streak:${dayKey}`;
+      const streakDayKey = new Date().toISOString().slice(0, 10);
+      const streakEventReference = `scan-streak:${streakDayKey}`;
 
       if (scanStreakOutcome.funkenDelta > 0) {
         const { data: funkenGrantData, error: funkenGrantError } = await adminClient.rpc("wallet_grant_currency", {
@@ -1286,7 +1287,7 @@ Deno.serve(async (req) => {
         .update({
           streak_days: scanStreakOutcome.streakDays,
           scan_streak_joker_count: scanStreakOutcome.jokerCount,
-          last_streak_scan_date: dayKey,
+          last_streak_scan_date: streakDayKey,
         })
         .eq("auth_id", authId);
 

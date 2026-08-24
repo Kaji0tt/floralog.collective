@@ -1236,6 +1236,8 @@ export function useAchievementsFeatureContent({
       {questFeedback && (
         <ScanFeedbackNotification
           feedback={questFeedback}
+          profile={user}
+          logoAssets={logoAssets}
           shareSnapshotBackgroundImageUrl={user?.background_image_url || null}
           shareSnapshotBackgroundColor={user?.background_color || null}
           onComplete={() => {

@@ -3384,6 +3384,8 @@ function HomeContent() {
         {scanFeedback && showScanFeedback && (
           <ScanFeedbackNotification
             feedback={scanFeedback}
+            profile={user}
+            logoAssets={logoAssets}
             shareSnapshotBackgroundImageUrl={user?.background_image_url || null}
             shareSnapshotBackgroundColor={user?.background_color || null}
             onComplete={() => {

@@ -31,6 +31,8 @@ import { ROBOT_PLANT_EVENT_SOURCES } from "@/lib/robotPlantConfig";
 import { getActiveSeason, classifyScan } from "@/lib/seasonConfig";
 import { updateQuestProgress } from "@/components/utils/questProgress";
 const LOGO_URL = "https://blauzahn.eu/PlantDexIcon.png";
+// PlantNet erlaubt maximal 5 Bilder pro Identifikationsanfrage.
+const MAX_SCAN_IMAGES = 5;
 
 /**
  * Verwendet ausschließlich die harten GBIF-Daten – kein LLM.
@@ -1170,8 +1172,8 @@ export default function Scanner() {
   // Ergaenzt bestehende Scan-Bilder um ein Zusatzfoto und startet einen vollstaendigen Re-Scan.
   const handleAddSupplementaryPhoto = (files, organs = []) => {
     setShowSupplementaryCamera(false);
-    const combinedItems = [...scanImageUrls, ...files].slice(0, 5);
-    const combinedOrgans = [...scanOrgans, ...organs].slice(0, 5);
+    const combinedItems = [...scanImageUrls, ...files].slice(0, MAX_SCAN_IMAGES);
+    const combinedOrgans = [...scanOrgans, ...organs].slice(0, MAX_SCAN_IMAGES);
     identifyPlant(combinedItems, combinedOrgans);
   };
 
@@ -1655,6 +1657,7 @@ export default function Scanner() {
         {guestScanFeedback && (
           <ScanFeedbackNotification
             feedback={guestScanFeedback}
+            profile={user}
             shareSnapshotBackgroundImageUrl={user?.background_image_url || null}
             shareSnapshotBackgroundColor={user?.background_color || null}
             onComplete={() => {
@@ -1746,7 +1749,8 @@ export default function Scanner() {
             onConfirmSave={handleConfirmSave}
             isSavingPlant={isSavingPlant}
             onAddSupplementaryPhoto={() => setShowSupplementaryCamera(true)}
-            canAddSupplementaryPhoto={scanImageUrls.length < 3} />
+            canAddSupplementaryPhoto={scanImageUrls.length < MAX_SCAN_IMAGES}
+            maxScanImages={MAX_SCAN_IMAGES} />
 
           </div>
         }
@@ -1754,7 +1758,7 @@ export default function Scanner() {
         {showSupplementaryCamera && (
           <div className="fixed inset-0 bg-black/95 z-[60] flex items-center justify-center p-4">
             <CameraCapture
-              maxPhotos={Math.max(1, 3 - scanImageUrls.length)}
+              maxPhotos={Math.max(1, MAX_SCAN_IMAGES - scanImageUrls.length)}
               onCapture={handleAddSupplementaryPhoto}
               onClose={() => setShowSupplementaryCamera(false)}
             />

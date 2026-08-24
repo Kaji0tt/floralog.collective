@@ -43,6 +43,7 @@ export default function ScanResults({
   onChangeResult,
   onAddSupplementaryPhoto,
   canAddSupplementaryPhoto = true,
+  maxScanImages = 5,
   currentUserId,
   latestDiscoveryId,
   isPendingConfirmation = false,
@@ -510,18 +511,30 @@ export default function ScanResults({
                         <RotateCcw className="w-5 h-5 text-white" />
                       </motion.button>
 
-                      {onAddSupplementaryPhoto && canAddSupplementaryPhoto && (
+                      {onAddSupplementaryPhoto && (
                         <motion.button
-                          onClick={onAddSupplementaryPhoto}
-                          title="Zusatzfoto hinzufügen für mehr Sicherheit"
+                          onClick={() => {
+                            if (!canAddSupplementaryPhoto) {
+                              alert(`Maximal ${maxScanImages} Fotos können zur Identifikation verwendet werden.`);
+                              return;
+                            }
+                            onAddSupplementaryPhoto();
+                          }}
+                          title={
+                            canAddSupplementaryPhoto
+                              ? "Zusatzfoto hinzufügen für mehr Sicherheit"
+                              : `Maximal ${maxScanImages} Fotos möglich`
+                          }
                           className={`w-11 h-11 rounded-full flex items-center justify-center shadow-lg transition-all border ${
-                            isBlockedResult || isLowConfidenceAlt
-                              ? "bg-amber-600 hover:bg-amber-700 border-amber-200/60 threat-glow-border threat-effect-level-4"
-                              : "bg-amber-800/70 hover:bg-amber-800 border-amber-200/25"
+                            !canAddSupplementaryPhoto
+                              ? "bg-stone-700/60 border-stone-500/30 opacity-50"
+                              : isBlockedResult || isLowConfidenceAlt
+                                ? "bg-amber-600 hover:bg-amber-700 border-amber-200/60 threat-glow-border threat-effect-level-4"
+                                : "bg-amber-800/70 hover:bg-amber-800 border-amber-200/25"
                           }`}
-                          style={isBlockedResult || isLowConfidenceAlt ? { "--threat-glow-color": "rgba(245,158,11,0.85)" } : undefined}
-                          whileHover={{ scale: 1.1 }}
-                          whileTap={{ scale: 0.95 }}>
+                          style={canAddSupplementaryPhoto && (isBlockedResult || isLowConfidenceAlt) ? { "--threat-glow-color": "rgba(245,158,11,0.85)" } : undefined}
+                          whileHover={{ scale: canAddSupplementaryPhoto ? 1.1 : 1 }}
+                          whileTap={{ scale: canAddSupplementaryPhoto ? 0.95 : 1 }}>
                           <Plus className="w-5 h-5 text-white" />
                         </motion.button>
                       )}
