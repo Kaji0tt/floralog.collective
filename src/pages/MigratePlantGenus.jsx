@@ -20,8 +20,8 @@ export default function MigratePlantGenus() {
     setMigrated(0);
 
     try {
-      // Lade alle Pflanzen und Gattungen
-      const plants = await Query.Plant.list();
+      // Lade alle Pflanzen und Gattungen (listAll() - list() truncates at 1000 rows)
+      const plants = await Query.Plant.listAll();
       const genera = await Query.PlantGenus.list();
 
       setProgress(`Gefunden: ${plants.length} Pflanzen, ${genera.length} Gattungen`);

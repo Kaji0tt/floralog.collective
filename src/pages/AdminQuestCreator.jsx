@@ -101,7 +101,8 @@ export default function AdminQuestCreator() {
 
   const { data: plants = [] } = useQuery({
     queryKey: ['plants'],
-    queryFn: () => Query.Plant.list(),
+    // listAll() - quest creation needs to pick from the complete catalog, list() truncates at 1000 rows.
+    queryFn: () => Query.Plant.listAll(),
   });
 
   const { data: collectionQuests = [] } = useQuery({

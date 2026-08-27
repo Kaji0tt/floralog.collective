@@ -161,7 +161,8 @@ export default function GenusDetail() {
 
   const { data: plants = [], isLoading: plantsLoading } = useQuery({
     queryKey: ['plants'],
-    queryFn: () => Query.Plant.list(),
+    // listAll() - genus overview needs the complete catalog, list() truncates at 1000 rows.
+    queryFn: () => Query.Plant.listAll(),
   });
 
   // Wenn friendEmail gesetzt ist, laden wir das PublicProfile des Freundes,

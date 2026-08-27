@@ -13,7 +13,8 @@ export default function AdminFixSalix() {
 
   const { data: plants = [] } = useQuery({
     queryKey: ['plants'],
-    queryFn: () => Query.Plant.list(),
+    // listAll() - admin tool needs the complete catalog, list() truncates at 1000 rows.
+    queryFn: () => Query.Plant.listAll(),
   });
 
   const updatePlantMutation = useMutation({

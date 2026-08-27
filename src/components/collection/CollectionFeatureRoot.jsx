@@ -223,7 +223,8 @@ export default function CollectionFeatureRoot({
 
   const { data: plants = [], isLoading: plantsLoading } = useQuery({
     queryKey: ['plants'],
-    queryFn: () => Query.Plant.list(),
+    // listAll() - genus completion counts below need the complete catalog, list() truncates at 1000 rows.
+    queryFn: () => Query.Plant.listAll(),
   });
 
   const { data: visibleCollections = [] } = useQuery({

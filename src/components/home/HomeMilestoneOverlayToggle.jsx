@@ -27,6 +27,7 @@ export default function HomeMilestoneOverlayToggle({
   onSpawnBubble,
   onCustomize,
   onUserUpdated,
+  onHealthDetailsChange,
   onClose,
 }) {
   return (
@@ -56,6 +57,7 @@ export default function HomeMilestoneOverlayToggle({
           onSpawnBubble={onSpawnBubble}
           onCustomize={onCustomize}
           onUserUpdated={onUserUpdated}
+          onHealthDetailsChange={onHealthDetailsChange}
           onClose={() => onClose?.()}
         />
       ) : null}

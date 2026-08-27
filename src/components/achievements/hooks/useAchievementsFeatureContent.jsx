@@ -425,7 +425,8 @@ export function useAchievementsFeatureContent({
 
   const { data: plants = [] } = useQuery({
     queryKey: ['plants'],
-    queryFn: () => Query.Plant.list(),
+    // listAll() - quest/species matching below needs the complete catalog, list() truncates at 1000 rows.
+    queryFn: () => Query.Plant.listAll(),
     staleTime: 10 * 60 * 1000, // 10 Minuten - ändert sich selten
   });
 

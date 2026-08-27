@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { motion } from "framer-motion";
-import { Settings2, HeartPulse, Sparkles, Gem, ArrowLeft } from "lucide-react";
+import { Settings2, HeartPulse, Sparkles, Gem, ArrowLeft, X } from "lucide-react";
 import { useUiTheme } from "@/lib/UiThemeContext";
 import { LockedTooltip } from "@/components/ui/locked-tooltip";
 import FlorabotOverlayShell from "@/components/florabot/FlorabotOverlayShell";
@@ -99,6 +99,7 @@ export default function HomeFlorabotOverlay({
   onSpawnBubble,
   onCustomize,
   onUserUpdated,
+  onHealthDetailsChange,
   onClose,
 }) {
   const { isLightUi } = useUiTheme();
@@ -285,6 +286,19 @@ export default function HomeFlorabotOverlay({
     return () => {
       onCustomizeRef.current?.(false);
     };
+  }, []);
+
+  // Bot name + Anpassen/Status/Schliessen actions hide while the Stat-Health panel is open
+  // (they otherwise overlap it depending on viewport size).
+  useEffect(() => {
+    onHealthDetailsChange?.(showHealthDetails);
+  }, [showHealthDetails, onHealthDetailsChange]);
+
+  useEffect(() => {
+    return () => {
+      onHealthDetailsChange?.(false);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const safeCareInteractionLimitPerDay = Math.max(1, Number(careInteractionLimitPerDay) || 3);
@@ -505,7 +519,7 @@ export default function HomeFlorabotOverlay({
                     />
                   </div>
                   <div
-                    className={`rounded-2xl border ${
+                    className={`relative rounded-2xl border ${
                       isHealthPanelCompact ? "px-4 py-3" : "px-5 py-4"
                     } ${
                       isLightUi
@@ -514,7 +528,21 @@ export default function HomeFlorabotOverlay({
                     }`}
                   >
                     {showHealthDetails ? (
-                      <div className={isHealthPanelCompact ? "space-y-1.5" : "space-y-2"}>
+                      <button
+                        type="button"
+                        onClick={handleStatusToggle}
+                        aria-label="Statuswerte schliessen"
+                        className={`absolute right-2 top-2 inline-flex h-6 w-6 items-center justify-center rounded-full transition-colors ${
+                          isLightUi
+                            ? "text-stone-500 hover:text-stone-800 hover:bg-stone-200/70"
+                            : "text-stone-300 hover:text-white hover:bg-white/15"
+                        }`}
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    ) : null}
+                    {showHealthDetails ? (
+                      <div className={isHealthPanelCompact ? "space-y-1.5 pr-5" : "space-y-2 pr-5"}>
                         {healthStats.map((stat) => (
                           <div key={stat.id} className={isHealthPanelCompact ? "space-y-0.5" : "space-y-1"}>
                             <div className={`flex items-center justify-between ${isHealthPanelCompact ? "text-[10px]" : "text-[11px]"}`}>
@@ -596,79 +624,84 @@ export default function HomeFlorabotOverlay({
               />
             ) : null}
             <div className="mx-auto w-full max-w-[340px] pointer-events-auto flex flex-col gap-3">
-              {isShopOpen ? (
-                <div className="w-full flex gap-2">
-                  <button
-                    type="button"
-                    onClick={handleBackAction}
-                    className={`flex-1 h-9 rounded-xl px-3 text-[11px] font-semibold whitespace-nowrap transition-colors inline-flex items-center justify-center gap-1.5 ${
-                      isLightUi
-                        ? "bg-white/80 text-stone-800 border border-stone-200 hover:bg-white"
-                        : "bg-white/10 text-stone-100 border border-white/20 hover:bg-white/15"
-                    }`}
-                  >
-                    <ArrowLeft className="w-3.5 h-3.5" />
-                    Zurueck
-                  </button>
+              {/* Anpassen/Status/Schliessen actions hide while the Stat-Health panel is open (see X close button on the panel instead) */}
+              {isShopOpen || !showHealthDetails ? (
+                <>
+                  {isShopOpen ? (
+                    <div className="w-full flex gap-2">
+                      <button
+                        type="button"
+                        onClick={handleBackAction}
+                        className={`flex-1 h-9 rounded-xl px-3 text-[11px] font-semibold whitespace-nowrap transition-colors inline-flex items-center justify-center gap-1.5 ${
+                          isLightUi
+                            ? "bg-white/80 text-stone-800 border border-stone-200 hover:bg-white"
+                            : "bg-white/10 text-stone-100 border border-white/20 hover:bg-white/15"
+                        }`}
+                      >
+                        <ArrowLeft className="w-3.5 h-3.5" />
+                        Zurueck
+                      </button>
 
-                  <button
-                    type="button"
-                    onClick={() => shopActionState?.onAction?.()}
-                    disabled={Boolean(shopActionState?.disabled || shopActionState?.isBusy)}
-                    className={`relative overflow-hidden flex-1 h-9 rounded-xl px-3 text-[11px] font-semibold whitespace-nowrap transition-colors inline-flex items-center justify-center gap-1.5 disabled:cursor-not-allowed ${
-                      isLightUi
-                        ? "bg-amber-400 text-stone-900 border border-amber-500/70 hover:bg-amber-300"
-                        : "bg-amber-500 text-black border border-amber-300/60 hover:bg-amber-400"
-                    }`}
-                  >
-                    {shopActionState?.isBusy ? "Verarbeite..." : (shopActionState?.label || "Kaufen")}
-                    {(shopActionState?.disabled || shopActionState?.isBusy) ? (
-                      <span className="absolute inset-0 bg-black/45" aria-hidden="true" />
-                    ) : null}
-                  </button>
-                </div>
-              ) : (
-                <div className="w-full flex gap-2">
-                  <button
-                    type="button"
-                    onClick={handleBackAction}
-                    className={`flex-1 h-9 rounded-xl px-3 text-[11px] font-semibold whitespace-nowrap transition-colors inline-flex items-center justify-center gap-1.5 ${
-                      isLightUi
-                        ? "bg-white/80 text-stone-800 border border-stone-200 hover:bg-white"
-                        : "bg-white/10 text-stone-100 border border-white/20 hover:bg-white/15"
-                    }`}
-                  >
-                    Status anzeigen
-                  </button>
+                      <button
+                        type="button"
+                        onClick={() => shopActionState?.onAction?.()}
+                        disabled={Boolean(shopActionState?.disabled || shopActionState?.isBusy)}
+                        className={`relative overflow-hidden flex-1 h-9 rounded-xl px-3 text-[11px] font-semibold whitespace-nowrap transition-colors inline-flex items-center justify-center gap-1.5 disabled:cursor-not-allowed ${
+                          isLightUi
+                            ? "bg-amber-400 text-stone-900 border border-amber-500/70 hover:bg-amber-300"
+                            : "bg-amber-500 text-black border border-amber-300/60 hover:bg-amber-400"
+                        }`}
+                      >
+                        {shopActionState?.isBusy ? "Verarbeite..." : (shopActionState?.label || "Kaufen")}
+                        {(shopActionState?.disabled || shopActionState?.isBusy) ? (
+                          <span className="absolute inset-0 bg-black/45" aria-hidden="true" />
+                        ) : null}
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="w-full flex gap-2">
+                      <button
+                        type="button"
+                        onClick={handleBackAction}
+                        className={`flex-1 h-9 rounded-xl px-3 text-[11px] font-semibold whitespace-nowrap transition-colors inline-flex items-center justify-center gap-1.5 ${
+                          isLightUi
+                            ? "bg-white/80 text-stone-800 border border-stone-200 hover:bg-white"
+                            : "bg-white/10 text-stone-100 border border-white/20 hover:bg-white/15"
+                        }`}
+                      >
+                        Status anzeigen
+                      </button>
 
-                  <button
-                    type="button"
-                    onClick={handleOpenShopInOverlay}
-                    className={`relative overflow-hidden flex-1 h-9 rounded-xl px-3 text-[11px] font-semibold whitespace-nowrap transition-colors inline-flex items-center justify-center gap-1.5 ${
-                      isLightUi
-                        ? "bg-lime-600 text-white border border-lime-700/70 hover:bg-lime-700"
-                        : "bg-lime-500/85 text-black border border-lime-300/60 hover:bg-lime-400"
-                    }`}
-                  >
-                    <Settings2 className="w-3.5 h-3.5" />
-                    Anpassen
-                  </button>
-                </div>
-              )}
+                      <button
+                        type="button"
+                        onClick={handleOpenShopInOverlay}
+                        className={`relative overflow-hidden flex-1 h-9 rounded-xl px-3 text-[11px] font-semibold whitespace-nowrap transition-colors inline-flex items-center justify-center gap-1.5 ${
+                          isLightUi
+                            ? "bg-lime-600 text-white border border-lime-700/70 hover:bg-lime-700"
+                            : "bg-lime-500/85 text-black border border-lime-300/60 hover:bg-lime-400"
+                        }`}
+                      >
+                        <Settings2 className="w-3.5 h-3.5" />
+                        Anpassen
+                      </button>
+                    </div>
+                  )}
 
-              <div className="w-full flex items-center justify-center pt-1">
-                <button
-                  type="button"
-                  onClick={handleCloseOverlay}
-                  className={`inline-flex min-h-8 items-center justify-center rounded-lg px-3 py-1.5 text-[13px] font-medium leading-none transition-colors ${
-                    isLightUi
-                      ? "text-stone-400 hover:text-stone-600"
-                      : "text-stone-600 hover:text-stone-400"
-                  }`}
-                >
-                  Schliessen
-                </button>
-              </div>
+                  <div className="w-full flex items-center justify-center pt-1">
+                    <button
+                      type="button"
+                      onClick={handleCloseOverlay}
+                      className={`inline-flex min-h-8 items-center justify-center rounded-lg px-3 py-1.5 text-[13px] font-medium leading-none transition-colors ${
+                        isLightUi
+                          ? "text-stone-400 hover:text-stone-600"
+                          : "text-stone-600 hover:text-stone-400"
+                      }`}
+                    >
+                      Schliessen
+                    </button>
+                  </div>
+                </>
+              ) : null}
             </div>
           </div>
         </div>

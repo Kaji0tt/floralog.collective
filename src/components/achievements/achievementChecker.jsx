@@ -31,7 +31,9 @@ export async function checkAndUnlockAchievements(user, { triggerDiscoveryId = nu
     ] = await Promise.all([
       Query.Achievement.list(),
       Query.UserAchievement.filter({ auth_id: user.id }),
-      Query.Plant.list(),
+      // listAll() - list() truncates at Supabase's 1000-row default and would break the
+      // "collected everything" achievement check further below.
+      Query.Plant.listAll(),
       Query.PlantGenus.list(),
       Query.UserPlantDiscovery.filter({ auth_id: user.id }),
       // Lade alle Freundschafts-Einträge und filtere danach wie im restlichen App-Code

@@ -756,6 +756,9 @@ export default function ScanFeedbackNotification({
                 Scan-Streak Tag {scanStreak.streakDays}
                 {scanStreak.isBoundaryDay ? " - Wochen-Bonus!" : ""}
                 {scanStreak.wasHardReset ? " (neu gestartet)" : ""}
+                {scanStreak.jokerCount > 0
+                  ? ` - ${scanStreak.jokerCount} ${scanStreak.jokerCount === 1 ? "freier Tag aktiv" : "freie Tage aktiv"}`
+                  : ""}
               </div>
             )}
 

@@ -266,7 +266,8 @@ export default function Scanner() {
 
   const { data: plants = [] } = useQuery({
     queryKey: ['plants'],
-    queryFn: () => Query.Plant.list()
+    // listAll() - scan matching needs the complete catalog, list() truncates at 1000 rows.
+    queryFn: () => Query.Plant.listAll()
   });
 
   const { data: genera = [] } = useQuery({

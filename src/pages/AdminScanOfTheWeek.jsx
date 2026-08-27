@@ -78,10 +78,17 @@ export default function AdminScanOfTheWeek() {
     enabled: !!selectedProfileId,
   });
 
+  const discoveryPlantIds = React.useMemo(
+    () => [...new Set(discoveries.map((d) => d.plant_id).filter(Boolean))],
+    [discoveries]
+  );
+
   const { data: plants = [] } = useQuery({
-    queryKey: ["allPlants"],
-    queryFn: () => Query.Plant.list(),
-    enabled: !!selectedProfileId,
+    queryKey: ["sotwPlants", discoveryPlantIds],
+    // Fetch only the plants actually referenced by this profile's discoveries instead of
+    // the whole (1800+ row) Plant table.
+    queryFn: () => Query.Plant.filter({ id: discoveryPlantIds }),
+    enabled: discoveryPlantIds.length > 0,
     staleTime: 300_000,
   });
 

@@ -405,6 +405,8 @@ function HomeContent() {
   const [isResolvingHeroMapLocation, setIsResolvingHeroMapLocation] = useState(false);
   const [hasResolvedZoneBootstrap, setHasResolvedZoneBootstrap] = useState(false);
   const [showHealthStatsPanel, setShowHealthStatsPanel] = useState(false);
+  // Bot name overlay hides while the Home Overlay Stat-Health panel is expanded (avoids overlap).
+  const [isHomeOverlayHealthDetailsOpen, setIsHomeOverlayHealthDetailsOpen] = useState(false);
   const [showWeeklyQuestTooltip, setShowWeeklyQuestTooltip] = useState(false);
   const [isNavVisible, setIsNavVisible] = useState(true);
   const [showPlantQuizDialog, setShowPlantQuizDialog] = useState(false);
@@ -622,7 +624,8 @@ function HomeContent() {
 
   const { data: plants = [] } = useQuery({
     queryKey: ['plants'],
-    queryFn: () => Query.Plant.list(),
+    // listAll() - list() truncates at Supabase's 1000-row default (Plant table has 1800+ rows).
+    queryFn: () => Query.Plant.listAll(),
     initialData: [],
     staleTime: 10 * 60 * 1000,
     refetchOnWindowFocus: false,
@@ -3587,11 +3590,13 @@ function HomeContent() {
           setIsHomeOverlayShopOpen(Boolean(isCustomizeOpen));
         }}
         onUserUpdated={(freshUser) => setUser(freshUser)}
+        onHealthDetailsChange={(isOpen) => setIsHomeOverlayHealthDetailsOpen(Boolean(isOpen))}
         onClose={() => {
           setIsHomeOverlayShopOpen(false);
           setIsMilestoneOverlayToggled(false);
           setHomeOverlayInitialShopOpen(false);
           setHomeOverlayInitialShopCategory("root");
+          setIsHomeOverlayHealthDetailsOpen(false);
         }}
       />
 
@@ -3920,7 +3925,7 @@ function HomeContent() {
                       profile={user}
                       logoAssets={logoAssets}
                       selectedProfileBadges={selectedProfileBadges}
-                      elevateLogo={Boolean(isMilestoneOverlayToggled && !showFlorabotIntro && !activeMilestone && !isHomeOverlayShopOpen)}
+                      elevateLogo={Boolean(isMilestoneOverlayToggled && !showFlorabotIntro && !activeMilestone && !isHomeOverlayShopOpen && !isHomeOverlayHealthDetailsOpen)}
                       onBadgeClick={() => openShop("badges")}
                       onBadgeClick={() => {
                         trackAction("home_badge_customize_open", { sourcePage: "Home" });
