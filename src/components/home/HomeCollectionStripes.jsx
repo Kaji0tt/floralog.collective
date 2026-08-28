@@ -595,6 +595,7 @@ export default function HomeCollectionStripes({
   onLogoClick,
   onBadgeClick,
   elevateLogo = false,
+  showFloatingLogoNameBadge = true,
   playerSeeds = 0,
   className = "",
 }) {
@@ -857,9 +858,11 @@ export default function HomeCollectionStripes({
                 padding="p-[7%]"
                 className="drop-shadow-[0_0_28px_rgba(190,242,100,0.5)]"
               />
-              <div className="absolute left-1/2 top-[calc(100%+0.45rem)] -translate-x-1/2">
-                {renderFlorabotNameBadge()}
-              </div>
+              {showFloatingLogoNameBadge ? (
+                <div className="absolute left-1/2 top-[calc(100%+0.45rem)] -translate-x-1/2">
+                  {renderFlorabotNameBadge()}
+                </div>
+              ) : null}
             </div>
           </div>,
           document.body

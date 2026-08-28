@@ -3925,8 +3925,8 @@ function HomeContent() {
                       profile={user}
                       logoAssets={logoAssets}
                       selectedProfileBadges={selectedProfileBadges}
-                      elevateLogo={Boolean(isMilestoneOverlayToggled && !showFlorabotIntro && !activeMilestone && !isHomeOverlayShopOpen && !isHomeOverlayHealthDetailsOpen)}
-                      onBadgeClick={() => openShop("badges")}
+                      elevateLogo={Boolean(isMilestoneOverlayToggled && !showFlorabotIntro && !activeMilestone && !isHomeOverlayShopOpen)}
+                      showFloatingLogoNameBadge={!isHomeOverlayHealthDetailsOpen}
                       onBadgeClick={() => {
                         trackAction("home_badge_customize_open", { sourcePage: "Home" });
                         setHomeOverlayInitialShopCategory("badges");
