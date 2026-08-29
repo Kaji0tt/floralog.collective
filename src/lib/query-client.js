@@ -19,8 +19,12 @@ const NON_PERSISTED_QUERY_KEYS = new Set([
 	'userAchievements',
 	// ExplorerLog: never persist so there's no stale-content flash on cold start.
 	'explorerDiscoveriesInfinite',
-	// Friend PublicProfile: always fetch fresh so background/avatar changes are visible immediately.
+	// Friend/PublicProfile lists: always fetch fresh so background/avatar/custom-logo
+	// changes made by other players are visible immediately, not just after 24h gcTime expiry.
 	'publicProfile',
+	'allUsers',
+	'allPublicProfiles',
+	'publicProfiles',
 ]);
 
 const shouldPersistQuery = (query) => {

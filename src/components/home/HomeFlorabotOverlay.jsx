@@ -497,11 +497,11 @@ export default function HomeFlorabotOverlay({
         ? "basis-auto grow-0 shrink-0"
         : "basis-[46%] justify-start overflow-hidden"}
       footer={(
-        <div className="w-full max-w-[340px] h-full min-h-0 flex flex-col items-center pt-1">
+        <div className="w-full max-w-[340px] h-full min-h-0 flex flex-col items-center pt-0">
           {!isShopOpen ? (
             <div
               ref={statusPanelSlotRef}
-              className="w-full max-w-[340px] min-h-0 flex-1 overflow-y-auto hide-scrollbar flex items-start justify-center py-3 mx-auto"
+              className="w-full max-w-[340px] min-h-0 flex-1 overflow-y-auto hide-scrollbar flex items-start justify-center pt-0 pb-3 mx-auto"
               style={{ height: `calc(100% - (${fixedFooterReservedHeightExpression}))` }}
             >
               {shouldRenderSpeechBubble ? (
@@ -577,7 +577,7 @@ export default function HomeFlorabotOverlay({
                         ))}
 
                         {scanStreakStatus && (
-                          <div className="pt-1">
+                          <div className="pt-0">
                             <ScanStreakRewardTrack
                               streakDays={scanStreakStatus.streakDays}
                               jokerCount={scanStreakStatus.jokerCount}

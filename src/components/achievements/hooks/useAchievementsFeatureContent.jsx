@@ -1118,7 +1118,7 @@ export function useAchievementsFeatureContent({
             type: "questCompleted",
             questTitle,
             rewardName: rewardLabel,
-            seedReward: totalSeedReward,
+            seedReward: questSeedReward,
           },
         },
       });

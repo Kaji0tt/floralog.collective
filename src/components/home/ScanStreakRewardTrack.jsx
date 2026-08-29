@@ -44,7 +44,7 @@ export default function ScanStreakRewardTrack({ streakDays = 0, jokerCount = 0 }
   }, [highlightedDay]);
 
   return (
-    <div className="space-y-1.5">
+    <div className="space-y-1">
       <div
         className={`flex items-center justify-between text-[11px] md:text-xs ${
           isLightUi ? "text-stone-700" : "text-stone-100/90"
@@ -52,14 +52,14 @@ export default function ScanStreakRewardTrack({ streakDays = 0, jokerCount = 0 }
       >
         <span className="font-semibold uppercase tracking-wide">Scan-Streak</span>
         {safeJokerCount > 0 && (
-          <span className="inline-flex items-center gap-1 rounded-full border border-amber-200/40 bg-amber-500/15 px-2 py-0.5 font-semibold text-amber-200">
+          <span className="inline-flex items-center gap-1 rounded-full border border-amber-200/40 bg-amber-500/15 px-1.5 py-0.5 font-semibold text-amber-200 text-[9px]">
             {safeJokerCount} {safeJokerCount === 1 ? "freier Tag" : "freie Tage"}
           </span>
         )}
       </div>
 
       <div
-        className="flex gap-2 overflow-x-auto hide-scrollbar pb-1 pointer-events-auto"
+        className="flex gap-1.5 overflow-x-auto hide-scrollbar pb-0 pointer-events-auto"
         role="list"
         aria-label="Scan-Streak Belohnungen"
       >
@@ -68,7 +68,7 @@ export default function ScanStreakRewardTrack({ streakDays = 0, jokerCount = 0 }
             key={slot.day}
             ref={slot.isCurrent ? currentCardRef : null}
             role="listitem"
-            className={`relative flex-shrink-0 w-24 rounded-xl border px-2 py-1.5 text-center ${
+            className={`relative flex-shrink-0 w-20 rounded-lg border px-1.5 py-1 text-center ${
               slot.isCurrent
                 ? "border-amber-300/80 bg-amber-500/20 shadow-[0_0_12px_rgba(245,158,11,0.35)]"
                 : slot.isBoundaryDay
@@ -79,12 +79,12 @@ export default function ScanStreakRewardTrack({ streakDays = 0, jokerCount = 0 }
             }`}
           >
             {slot.isAchieved && (
-              <Check className="absolute -top-1.5 -right-1.5 h-4 w-4 rounded-full bg-emerald-500 p-0.5 text-white" />
+              <Check className="absolute -top-1 -right-1 h-3 w-3 rounded-full bg-emerald-500 p-0.5 text-white" />
             )}
-            <div className={`text-[10px] font-semibold ${isLightUi ? "text-stone-700" : "text-stone-200/90"}`}>
+            <div className={`text-[9px] font-semibold ${isLightUi ? "text-stone-700" : "text-stone-200/90"}`}>
               Tag {slot.day}
             </div>
-            <div className="mt-1 flex flex-col items-center gap-0.5 text-[10px] font-semibold leading-tight">
+            <div className="mt-0.5 flex flex-col items-center gap-0.5 text-[9px] font-semibold leading-tight">
               <span style={{ color: PFLEGE_TEXT_COLOR }}>+{slot.pflegeDelta} Pflege</span>
               <span className="text-amber-300">+{slot.funkenDelta} Funken</span>
               {slot.bernsteinDelta > 0 && <span className="text-orange-300">+{slot.bernsteinDelta} Bernstein</span>}

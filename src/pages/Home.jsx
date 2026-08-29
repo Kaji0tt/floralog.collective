@@ -864,6 +864,8 @@ function HomeContent() {
     queryFn: () => Query.PublicProfile.list(),
     initialData: [],
     staleTime: 5 * 60 * 1000,
+    // Custom logo/avatar changes by other players must show up on re-entering Home.
+    refetchOnMount: 'always',
     refetchOnWindowFocus: true,
   });
 

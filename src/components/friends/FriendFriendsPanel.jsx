@@ -48,6 +48,9 @@ export default function FriendFriendsPanel({ friendUser, friendEmail, currentUse
   const { data: allPublicProfiles = [], isLoading: profilesLoading } = useQuery({
     queryKey: ["allPublicProfiles"],
     queryFn: () => Query.PublicProfile.list(),
+    // Custom logo/avatar changes by other players must show up on re-entering this panel.
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: true,
   });
 
   const { data: logoAssets = [] } = useQuery({

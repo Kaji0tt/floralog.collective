@@ -66,6 +66,7 @@ export default function ScanResults({
   const x = useMotionValue(0);
   const constraintsRef = useRef(null);
   const cardRef = useRef(null);
+  const playerButtonRefs = useRef([]);
 
   useEffect(() => {
     const loadCollectionData = async () => {
@@ -173,7 +174,7 @@ export default function ScanResults({
 
     loadCommunityScans();
     return () => { cancelled = true; };
-  }, [currentPlant?.id, currentUserId]);
+  }, [currentPlant?.id, currentUserId, logoAssetsCatalog]);
 
   const ownImages = scanImageUrls.length > 0 ? scanImageUrls : (imageUrl ? [imageUrl] : []);
   const players = [
@@ -190,6 +191,15 @@ export default function ScanResults({
   const activePlayer = players[safeActivePlayerIndex] || players[0];
   const activePlayerImages = activePlayer?.images || [];
   const hasMultiplePlayers = players.length > 1;
+
+  useEffect(() => {
+    if (!hasMultiplePlayers) return;
+    playerButtonRefs.current[safeActivePlayerIndex]?.scrollIntoView({
+      behavior: "smooth",
+      block: "nearest",
+      inline: "center",
+    });
+  }, [hasMultiplePlayers, safeActivePlayerIndex]);
 
   const { membershipsByPlantId } = buildCollectionMembershipIndex({
     plants: results,
@@ -544,26 +554,58 @@ export default function ScanResults({
 
                   {/* Spieler-Auswahl: eigener Scan + andere Spieler mit Scans dieser Art (Swipe wechselt Spieler) */}
                   {hasMultiplePlayers && (
-                    <div className="flex justify-center items-center gap-2 mt-4 flex-wrap">
-                      {players.map((player, index) => (
-                        <button
-                          key={player.authId}
-                          type="button"
-                          onClick={() => setActivePlayerIndex(index)}
-                          title={player.isOwn ? "Deine Scans" : player.name}
-                          className={`rounded-full overflow-hidden bg-black/35 border shrink-0 transition-all duration-200 ${
-                            index === safeActivePlayerIndex ? "w-9 h-9 ring-2 ring-emerald-400/70 border-white/60" : "w-7 h-7 border-white/20 opacity-70 hover:opacity-100"
-                          }`}
-                        >
-                          <CustomLogoAvatar
-                            logoAssets={player.logoAssets}
-                            className="w-full h-full"
-                            tooltipText={player.name}
-                            fallbackText={(player.name || "?").charAt(0).toUpperCase()}
-                            fallbackClassName="text-[9px] font-bold text-white"
-                          />
-                        </button>
-                      ))}
+                    <div className="flex items-center gap-2 mt-4">
+                      <motion.button
+                        type="button"
+                        onClick={() => safeActivePlayerIndex > 0 && setActivePlayerIndex(safeActivePlayerIndex - 1)}
+                        disabled={safeActivePlayerIndex === 0}
+                        className={`shrink-0 flex items-center justify-center transition-all ${
+                          safeActivePlayerIndex === 0 ? 'opacity-20 cursor-not-allowed' : 'opacity-50 hover:opacity-80'
+                        }`}
+                        whileHover={safeActivePlayerIndex > 0 ? { scale: 1.2 } : {}}
+                        whileTap={safeActivePlayerIndex > 0 ? { scale: 0.9 } : {}}>
+                        <ChevronLeft className="w-8 h-8 text-stone-300" />
+                      </motion.button>
+
+                      <div
+                        className="flex-1 min-w-0 overflow-x-auto overflow-y-hidden [&::-webkit-scrollbar]:hidden"
+                        style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+                      >
+                        <div className="flex items-center justify-start gap-2 flex-nowrap px-1 py-1">
+                          {players.map((player, index) => (
+                            <button
+                              key={player.authId}
+                              ref={(node) => { playerButtonRefs.current[index] = node; }}
+                              type="button"
+                              onClick={() => setActivePlayerIndex(index)}
+                              title={player.isOwn ? "Deine Scans" : player.name}
+                              className={`rounded-full overflow-hidden bg-black/35 border shrink-0 transition-all duration-200 ${
+                                index === safeActivePlayerIndex ? "w-9 h-9 ring-2 ring-emerald-400/70 border-white/60" : "w-7 h-7 border-white/20 opacity-70 hover:opacity-100"
+                              }`}
+                            >
+                              <CustomLogoAvatar
+                                logoAssets={player.logoAssets}
+                                className="w-full h-full"
+                                tooltipText={player.name}
+                                fallbackText={(player.name || "?").charAt(0).toUpperCase()}
+                                fallbackClassName="text-[9px] font-bold text-white"
+                              />
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      <motion.button
+                        type="button"
+                        onClick={() => safeActivePlayerIndex < players.length - 1 && setActivePlayerIndex(safeActivePlayerIndex + 1)}
+                        disabled={safeActivePlayerIndex === players.length - 1}
+                        className={`shrink-0 flex items-center justify-center transition-all ${
+                          safeActivePlayerIndex === players.length - 1 ? 'opacity-20 cursor-not-allowed' : 'opacity-50 hover:opacity-80'
+                        }`}
+                        whileHover={safeActivePlayerIndex < players.length - 1 ? { scale: 1.2 } : {}}
+                        whileTap={safeActivePlayerIndex < players.length - 1 ? { scale: 0.9 } : {}}>
+                        <ChevronRight className="w-8 h-8 text-stone-300" />
+                      </motion.button>
                     </div>
                   )}
 

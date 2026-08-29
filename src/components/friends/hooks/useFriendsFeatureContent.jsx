@@ -280,13 +280,19 @@ export function useFriendsFeatureContent({
   const { data: allUsers = [] } = useQuery({
     queryKey: ['allUsers'],
     queryFn: () => Query.PublicProfile.list(),
-    staleTime: 60000 // 1 Minute Cache
+    staleTime: 60000, // 1 Minute Cache
+    // Custom logo/avatar changes by other players must show up on re-entering this tab,
+    // not just after a manual pull-to-refresh.
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: true,
   });
 
   const { data: allPublicProfiles = [] } = useQuery({
     queryKey: ['allPublicProfiles'],
     queryFn: () => Query.PublicProfile.list(),
-    staleTime: 30000 // 30 Sekunden Cache
+    staleTime: 30000, // 30 Sekunden Cache
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: true,
   });
 
   // Referrals, bei denen der aktuelle User der Werber ist (für Handshake-Markierung)
