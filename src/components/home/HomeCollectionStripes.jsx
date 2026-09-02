@@ -625,7 +625,11 @@ export default function HomeCollectionStripes({
     if (logoRect?.height && viewportRect.height) {
       const logoBottom = logoRect.bottom - viewportRect.top;
       if (isHealthView) {
-        const nextReservedHeight = Math.ceil(Math.max(0, logoBottom) + 8);
+        // The health panel starts at the transformed 10rem logo unit's lower edge.
+        // The button itself has an extra scale-[1.24] for visual emphasis and must
+        // not artificially reserve additional vertical space.
+        const unitBottom = unitRect.bottom - viewportRect.top;
+        const nextReservedHeight = Math.ceil(Math.max(0, unitBottom) + 8);
         setHealthLogoReservedHeightPx((previousHeight) => (
           previousHeight !== null && Math.abs(previousHeight - nextReservedHeight) < 1
             ? previousHeight
