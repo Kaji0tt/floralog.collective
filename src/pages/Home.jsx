@@ -3980,6 +3980,13 @@ function HomeContent() {
                       profile={effectiveUser}
                       logoAssets={logoAssets}
                       elevateLogo={Boolean(isMilestoneOverlayToggled && !showFlorabotIntro && !activeMilestone && !isHomeOverlayShopOpen)}
+                      profileBadges={!showHealthStatsPanel && !showShopStack ? (
+                        <HomeProfileBadgesPanel
+                          isLightUi={isLightUi}
+                          selectedProfileBadges={selectedProfileBadges}
+                          playerSeeds={playerSeeds}
+                        />
+                      ) : null}
                       onBadgeClick={() => {
                         trackAction("home_badge_customize_open", { sourcePage: "Home" });
                         setHomeOverlayInitialShopCategory("badges");
@@ -4064,32 +4071,18 @@ function HomeContent() {
                           healthStats={healthStats}
                           isLoading={isPlantHealthPending}
                           isDailyCareLoading={isDailyCareStatusLoading}
-                          wateringCountToday={wateringCountToday}
-                          wateringLimitPerDay={wateringLimitPerDay}
-                          remainingWatersToday={remainingWatersToday}
-                          isWateringPending={waterPlantMutation.isPending}
-                          isFertilizerPending={useInventoryItemMutation.isPending}
-                          isFertilizerInventoryLoading={isFertilizerInventoryLoading}
-                          fertilizerInventoryItems={fertilizerItems}
-                          activeFertilizerItemId={activeFertilizerItemId}
-                          activeFertilizerRemainingDays={activeFertilizerRemainingDays}
-                          activeDecayPercent={activeDecayPercent}
-                          careActionMessage={careActionMessage}
-                          careGainFeedback={careGainFeedback}
-                          onWaterPlant={handleWaterPlantClick}
-                          onUseFertilizerItem={handleUseFertilizerItem}
-                          onOpenFertilizerShop={handleOpenFertilizerShop}
+                          wateringCountToday={careInteractionCountToday}
+                          wateringLimitPerDay={careInteractionLimitPerDay}
+                          remainingWatersToday={remainingCareInteractionsToday}
+                          isWateringPending={careInteractionMutation.isPending}
+                          onWaterPlant={handleCareInteractionClick}
+                          scanStreakStatus={scanStreakStatus}
                         />
                       </div>
                     ) : (
                       <div
                         className="relative z-10 flex flex-initial flex-col gap-2"
                       >
-                        <HomeProfileBadgesPanel
-                          isLightUi={isLightUi}
-                          selectedProfileBadges={selectedProfileBadges}
-                          playerSeeds={playerSeeds}
-                        />
                         <div
                           className="w-full"
                           style={eventStripeHeightPx ? { maxHeight: `${eventStripeHeightPx}px` } : undefined}

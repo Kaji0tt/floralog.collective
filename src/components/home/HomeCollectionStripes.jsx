@@ -22,6 +22,9 @@ const BADGE_LOGO_FILL_WIDTH_RATIO = 1.20;
 const BADGE_LOGO_VISIBLE_HEIGHT_RATIO = 0.58;
 const BADGE_LOGO_UNIT_HEIGHT_REM = 10;
 const BADGE_LOGO_UNIT_MAX_WIDTH_REM = 22;
+const PROFILE_BADGE_REWARD_CLEARANCE_PX = 8;
+// Extra upward shift for the badges container relative to its logo-anchored position.
+const PROFILE_BADGES_EXTRA_LIFT_PX = 20;
 // Only needs to clear the floating name/title overlay now that the badge arc no longer renders here.
 const LOGO_ROW_TOP_REM = .0;
 
@@ -582,6 +585,7 @@ export default function HomeCollectionStripes({
   onLogoClick,
   onBadgeClick,
   elevateLogo = false,
+  profileBadges = null,
   className = "",
   isHealthView = false,
 }) {
@@ -593,6 +597,7 @@ export default function HomeCollectionStripes({
   const [isFloatingLogoMounted, setIsFloatingLogoMounted] = useState(false);
   const [isFloatingLogoVisible, setIsFloatingLogoVisible] = useState(false);
   const [badgeLogoScale, setBadgeLogoScale] = useState(1);
+  const [profileBadgesTopPx, setProfileBadgesTopPx] = useState(null);
   const badgeLogoScaleRef = useRef(1);
   // Remembers the scale (and its rendered pixel height) computed for the default (content-stack)
   // view, so the health-view logo permanently locks to that exact size instead of shrinking.
@@ -615,6 +620,17 @@ export default function HomeCollectionStripes({
 
     const logoNode = logoButtonRef.current;
     const logoRect = logoNode?.getBoundingClientRect();
+    const viewportRect = viewportNode.getBoundingClientRect();
+    if (logoRect?.height && viewportRect.height) {
+      const logoBottom = logoRect.bottom - viewportRect.top;
+      // The reward strip follows this viewport in Home.jsx. Keep the bottom edge of the
+      // unscaled middle badge above that boundary, but otherwise anchor it to the logo.
+      const maxBadgeBottom = Math.max(0, viewportNode.clientHeight - PROFILE_BADGE_REWARD_CLEARANCE_PX);
+      const nextTop = Math.max(0, Math.min(logoBottom, maxBadgeBottom));
+      setProfileBadgesTopPx((previousTop) => (
+        previousTop !== null && Math.abs(previousTop - nextTop) < 0.5 ? previousTop : nextTop
+      ));
+    }
     // logoHeight/logoWidth: size of the logo button in unit-coordinate space (removes unit scale,
     // keeps button's own scale-[1.24]) - the actual rendered artwork footprint, not the unit box.
     const logoHeight = Math.max(1, (logoRect?.height || 0) / currentUnitScale);
@@ -876,6 +892,14 @@ export default function HomeCollectionStripes({
           </div>
           </div>
         </div>
+        {profileBadges && profileBadgesTopPx !== null ? (
+          <div
+            className="absolute inset-x-0 z-[130]"
+            style={{ top: `${Math.max(0, profileBadgesTopPx - PROFILE_BADGES_EXTRA_LIFT_PX)}px` }}
+          >
+            {profileBadges}
+          </div>
+        ) : null}
       </div>
 
       {floatingLogoPortal}

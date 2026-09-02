@@ -16,13 +16,9 @@ const formatCompactValue = (value) => {
   return `${Math.round(safeValue / 1000000)}m`;
 };
 
-// Badges are centered on the card's top edge; left/right badges are lifted further above it.
+// The middle badge's lower edge aligns with the preceding Custom-Logo container;
+// left/right badges remain lifted to preserve the arc.
 const SIDE_BADGE_EXTRA_LIFT_PX = 15;
-// BadgeCircleIcon's default size (see BadgeCircleIcon.jsx); translateY(-75%) leaves this fraction
-// of the circle below the column's top edge, so the column needs at least that much height or the
-// sibling below (RewardCardWrapper) sits directly under it and the circle overlaps it.
-const BADGE_CIRCLE_SIZE_REM = 3.5;
-const BADGE_CIRCLE_VISIBLE_BELOW_TOP_REM = BADGE_CIRCLE_SIZE_REM * 0.25;
 
 /**
  * Dedicated profile-badges container: 3 equal columns, each showing the badge icon
@@ -54,14 +50,13 @@ export default function HomeProfileBadgesPanel({
     <div className={className}>
       <div
         className="grid grid-cols-3"
-        style={{ minHeight: `${BADGE_CIRCLE_VISIBLE_BELOW_TOP_REM}rem` }}
         aria-label="Ausgewählte Abzeichen"
       >
         {badgeSlots.map((badge, slotIndex) => {
           const isSideSlot = slotIndex !== 1;
           const circleTransform = isSideSlot
-            ? `translateY(calc(-75% - ${SIDE_BADGE_EXTRA_LIFT_PX}px))`
-            : "translateY(-75%)";
+            ? `translateY(calc(-100% - ${SIDE_BADGE_EXTRA_LIFT_PX}px))`
+            : "translateY(-100%)";
 
           if (!badge) {
             return (
