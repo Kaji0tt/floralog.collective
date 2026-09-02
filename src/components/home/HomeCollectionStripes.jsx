@@ -598,6 +598,7 @@ export default function HomeCollectionStripes({
   const [isFloatingLogoVisible, setIsFloatingLogoVisible] = useState(false);
   const [badgeLogoScale, setBadgeLogoScale] = useState(1);
   const [profileBadgesTopPx, setProfileBadgesTopPx] = useState(null);
+  const [healthLogoReservedHeightPx, setHealthLogoReservedHeightPx] = useState(null);
   const badgeLogoScaleRef = useRef(1);
   // Remembers the scale (and its rendered pixel height) computed for the default (content-stack)
   // view, so the health-view logo permanently locks to that exact size instead of shrinking.
@@ -623,6 +624,16 @@ export default function HomeCollectionStripes({
     const viewportRect = viewportNode.getBoundingClientRect();
     if (logoRect?.height && viewportRect.height) {
       const logoBottom = logoRect.bottom - viewportRect.top;
+      if (isHealthView) {
+        const nextReservedHeight = Math.ceil(Math.max(0, logoBottom) + 8);
+        setHealthLogoReservedHeightPx((previousHeight) => (
+          previousHeight !== null && Math.abs(previousHeight - nextReservedHeight) < 1
+            ? previousHeight
+            : nextReservedHeight
+        ));
+      } else {
+        setHealthLogoReservedHeightPx(null);
+      }
       // The reward strip follows this viewport in Home.jsx. Keep the bottom edge of the
       // unscaled middle badge above that boundary, but otherwise anchor it to the logo.
       const maxBadgeBottom = Math.max(0, viewportNode.clientHeight - PROFILE_BADGE_REWARD_CLEARANCE_PX);
@@ -852,7 +863,10 @@ export default function HomeCollectionStripes({
       : null;
 
   return (
-    <div className={`flex min-h-0 flex-col gap-2 ${className}`}>
+    <div
+      className={`flex min-h-0 flex-col gap-2 ${className}`}
+      style={isHealthView && healthLogoReservedHeightPx ? { minHeight: `${healthLogoReservedHeightPx}px` } : undefined}
+    >
       <div
         ref={badgeLogoViewportRef}
         className="relative min-h-0 flex-1 overflow-visible text-stone-100"

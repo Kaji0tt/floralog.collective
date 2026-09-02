@@ -1275,11 +1275,13 @@ function HomeContent() {
   // gated to a few times per day like before.
   const careInteractionMutation = useMutation({
     mutationFn: () => performRobotPlantCareInteraction(),
-    onSuccess: async () => {
+    onSuccess: async (result) => {
+      console.info("[Home][FlorabotCare] Care interaction completed", { result });
       await queryClient.invalidateQueries({ queryKey: ['robotPlantState'] });
       await queryClient.invalidateQueries({ queryKey: ['robotPlantDailyCareStatus'] });
     },
     onError: (error) => {
+      console.error("[Home][FlorabotCare] Care interaction failed", error);
       console.warn('[Home] Care interaction failed:', error?.message || error);
     },
   });
@@ -3920,10 +3922,22 @@ function HomeContent() {
                         openShopStack();
                       }}
                       onLogoClick={() => {
+                        console.info("[Home][FlorabotCare] Logo clicked", {
+                          remainingCareInteractionsToday,
+                          careInteractionCountToday,
+                          careInteractionLimitPerDay,
+                          isDailyCareStatusLoading,
+                          hasActiveCareBubble: Boolean(careBubble),
+                        });
                         // The personal Home logo always offers the care interaction.
                         if (remainingCareInteractionsToday > 0 && !careBubble) {
                           const pos = pickCareBubblePosition();
+                          console.info("[Home][FlorabotCare] Care bubble position resolved", { position: pos });
                           if (pos) setCareBubble({ ...pos, key: Date.now() });
+                        } else {
+                          console.info("[Home][FlorabotCare] Care bubble not spawned", {
+                            reason: careBubble ? "bubble_already_active" : "daily_limit_reached",
+                          });
                         }
                       }}
                       zoneHintText={zoneHintText}
