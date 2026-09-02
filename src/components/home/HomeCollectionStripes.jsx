@@ -716,6 +716,20 @@ export default function HomeCollectionStripes({
   }, [updateBadgeLogoScale]);
 
   useEffect(() => {
+    let firstFrameId = null;
+    let secondFrameId = null;
+
+    firstFrameId = window.requestAnimationFrame(() => {
+      secondFrameId = window.requestAnimationFrame(updateBadgeLogoScale);
+    });
+
+    return () => {
+      if (firstFrameId) window.cancelAnimationFrame(firstFrameId);
+      if (secondFrameId) window.cancelAnimationFrame(secondFrameId);
+    };
+  }, [badgeLogoScale, isHealthView, profileBadges, updateBadgeLogoScale]);
+
+  useEffect(() => {
     return () => {
       if (floatingLogoUnmountTimeoutRef.current) {
         window.clearTimeout(floatingLogoUnmountTimeoutRef.current);
