@@ -26,7 +26,7 @@ import { getOpenPlantQuiz, submitPlantQuizAnswer } from "@/api/plantQuizService"
 import { getTileClaims } from "@/api/tileClaimService";
 import { trackAction } from "@/api/analyticsService";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Camera, Loader2, Leaf, Users, Scroll, CheckCircle, AlertCircle, TreePine, Building2, Waves, Flower2, MapPin, Smartphone, Sparkles } from "lucide-react";
+import { Camera, Loader2, Leaf, Sprout, Users, Scroll, CheckCircle, AlertCircle, TreePine, Building2, Waves, Flower2, MapPin, Smartphone, Sparkles } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import AchievementNotification from "../components/achievements/AchievementNotification";
 import ScanFeedbackNotification from "../components/notifications/ScanFeedbackNotification";
@@ -52,18 +52,24 @@ import HomeHeaderBar from "@/components/navigation/HomeHeaderBar";
 import HomeBottomNavigation from "@/components/navigation/HomeBottomNavigation";
 import { getNavButtonStyle } from "@/components/navigation/navButtonStyles";
 import HomeBackgroundShell from "@/components/home/HomeBackgroundShell";
+import GoldGradientCard from "@/components/home/GoldGradientCard";
 import HomeCollectionStripes from "@/components/home/HomeCollectionStripes";
 import HomeMilestoneOverlayToggle from "@/components/home/HomeMilestoneOverlayToggle";
 import HomeHeroSideNav from "@/components/home/HomeHeroSideNav";
 import HomeProfileBadgesPanel from "@/components/home/HomeProfileBadgesPanel";
 import RewardCardWrapper from "@/components/home/RewardCardWrapper";
+import HomeEventStripe from "@/components/home/HomeEventStripe";
 import HomeScanInfoRow from "@/components/home/HomeScanInfoRow";
+import HomeCurrencyInfoRow from "@/components/home/HomeCurrencyInfoRow";
 import PlantHeroHealthPanel from "@/components/home/PlantHeroHealthPanel";
 import GreenCareBubble from "@/components/home/GreenCareBubble";
 import GuestHomeFlow from "@/components/home/GuestHomeFlow";
 import BugReportDialog from "@/components/home/BugReportDialog";
+import ServerNewsDialog from "@/components/home/ServerNewsDialog";
 import HomeOtaGate from "@/components/home/HomeOtaGate";
 import HomeMapFeatureRoot from "@/components/home/HomeMapFeatureRoot.jsx";
+import ShopCategoryVerticalCarousel from "@/components/home/ShopCategoryVerticalCarousel";
+import AmberPurchaseDialog from "@/components/home/AmberPurchaseDialog";
 
 import ShopFeatureRoot from "@/components/shop/ShopFeatureRoot";
 import PlantQuizDialog from "@/components/home/PlantQuizDialog";
@@ -411,6 +417,13 @@ function HomeContent() {
   const [isResolvingHeroMapLocation, setIsResolvingHeroMapLocation] = useState(false);
   const [hasResolvedZoneBootstrap, setHasResolvedZoneBootstrap] = useState(false);
   const [showHealthStatsPanel, setShowHealthStatsPanel] = useState(false);
+  // "Anpassen" content-stack view: opened via HomeHeroSideNav's palette button, renders the
+  // flat/draft ShopFeatureRoot in place of badges/reward-cards while staying in the hero section.
+  const [showShopStack, setShowShopStack] = useState(false);
+  const [shopStackDraftOverrides, setShopStackDraftOverrides] = useState(null);
+  const [shopStackHasUnsavedChanges, setShopStackHasUnsavedChanges] = useState(false);
+  const [shopStackActiveCategory, setShopStackActiveCategory] = useState("backgrounds");
+  const [shopStackSaveNonce, setShopStackSaveNonce] = useState(0);
   const [showWeeklyQuestTooltip, setShowWeeklyQuestTooltip] = useState(false);
   const [showPlantQuizDialog, setShowPlantQuizDialog] = useState(false);
   const [plantQuizResult, setPlantQuizResult] = useState(null);
@@ -418,9 +431,12 @@ function HomeContent() {
     try { return localStorage.getItem('weeklyQuestSeen') || ''; } catch { return ''; }
   });
   const healthStatsPanelRef = useRef(null);
+  const eventStripeContainerRef = useRef(null);
+  const [eventStripeHeightPx, setEventStripeHeightPx] = useState(null);
   const [heroStageSizePx, setHeroStageSizePx] = useState(0);
   const [heroMapInstance, setHeroMapInstance] = useState(null);
   const [bugReportDialogOpen, setBugReportDialogOpen] = useState(false);
+  const [serverNewsDialogOpen, setServerNewsDialogOpen] = useState(false);
   const [showFlorabotIntro, setShowFlorabotIntro] = useState(false);
   const [activeMilestone, setActiveMilestone] = useState(null);
   const [isMilestoneOverlayToggled, setIsMilestoneOverlayToggled] = useState(false);
@@ -668,6 +684,14 @@ function HomeContent() {
   const { data: quests = [] } = useQuery({
     queryKey: ['quests'],
     queryFn: () => Query.Quest.list('quest_number'),
+    initialData: [],
+    staleTime: 10 * 60 * 1000,
+    refetchOnWindowFocus: false,
+  });
+
+  const { data: achievements = [] } = useQuery({
+    queryKey: ['achievements'],
+    queryFn: () => Query.Achievement.list('achievement_number'),
     initialData: [],
     staleTime: 10 * 60 * 1000,
     refetchOnWindowFocus: false,
@@ -1813,6 +1837,13 @@ function HomeContent() {
   }, [user?.id, hasCalledZoneGenerationToday, zoneGenerationDay, setZoneGenerationDayForUser, todayKey]);
 
   useEffect(() => {
+    if (activePanel !== null || showHealthStatsPanel) {
+      setShowShopStack(false);
+      setShopStackHasUnsavedChanges(false);
+    }
+  }, [activePanel, showHealthStatsPanel]);
+
+  useEffect(() => {
     const handleOutside = (event) => {
       if (healthStatsPanelRef.current && !healthStatsPanelRef.current.contains(event.target)) {
         setShowHealthStatsPanel(false);
@@ -1857,6 +1888,32 @@ function HomeContent() {
 
     window.addEventListener("resize", updateHeroStageSize);
     return () => window.removeEventListener("resize", updateHeroStageSize);
+  }, []);
+
+  // Reward card gets capped to the Event-Stripe's rendered height; any height this frees up
+  // in the hero column is credited to the Florabot logo (HomeCollectionStripes grows via flex-1).
+  useEffect(() => {
+    const node = eventStripeContainerRef.current;
+    if (!node) {
+      setEventStripeHeightPx(null);
+      return undefined;
+    }
+
+    const updateEventStripeHeight = () => {
+      const nextHeight = node.getBoundingClientRect().height;
+      setEventStripeHeightPx((prev) => (Number.isFinite(nextHeight) && nextHeight > 0 && prev !== nextHeight ? nextHeight : prev));
+    };
+
+    updateEventStripeHeight();
+
+    if (typeof ResizeObserver !== "undefined") {
+      const observer = new ResizeObserver(updateEventStripeHeight);
+      observer.observe(node);
+      return () => observer.disconnect();
+    }
+
+    window.addEventListener("resize", updateEventStripeHeight);
+    return () => window.removeEventListener("resize", updateEventStripeHeight);
   }, [activePanel, showHealthStatsPanel]);
 
   const cachedLocation = getCachedLocation({ maxAgeMs: LOCATION_CACHE_MAX_AGE_MS });
@@ -2307,6 +2364,45 @@ function HomeContent() {
     { ...currentMonthlyQuest, isCompleted: currentMonthlyUserQuest.completed || false } : null;
   const availableMonthlyQuest = currentMonthlyQuest && !currentMonthlyUserQuest;
 
+  // Zeitlich begrenzte Events/Aufgaben (Wochen-/Monatsquest, später Community Events),
+  // gerendert im rotierenden HomeEventStripe.
+  const homeEventStripeItems = [];
+  if (displayedWeeklyQuest) {
+    const weeklyQuestTargetLabel = displayedWeeklyQuest.target_species_name
+      || displayedWeeklyQuest.target_genus_name
+      || displayedWeeklyQuest.title;
+    homeEventStripeItems.push({
+      id: `weekly-quest-${displayedWeeklyQuest.id}`,
+      kind: "weekly",
+      title: weeklyQuestTargetLabel,
+      description: displayedWeeklyQuest.description,
+      progressCurrent: Number(currentWeeklyUserQuest?.progress || 0),
+      progressTarget: Number(displayedWeeklyQuest.required_discoveries || 0),
+      isCompleted: activeWeeklyQuest?.isCompleted || false,
+      isAvailable: Boolean(availableWeeklyQuest),
+      onClick: () => {
+        trackAction("home_event_stripe_weekly", { sourcePage: "Home" });
+        setActivePanel("achievements");
+      },
+    });
+  }
+  if (currentMonthlyQuest) {
+    homeEventStripeItems.push({
+      id: `monthly-quest-${currentMonthlyQuest.id}`,
+      kind: "monthly",
+      title: currentMonthlyQuest.title,
+      description: currentMonthlyQuest.description,
+      progressCurrent: Number(currentMonthlyUserQuest?.progress || 0),
+      progressTarget: Number(currentMonthlyQuest.required_discoveries || 0),
+      isCompleted: activeMonthlyQuest?.isCompleted || false,
+      isAvailable: Boolean(availableMonthlyQuest),
+      onClick: () => {
+        trackAction("home_event_stripe_monthly", { sourcePage: "Home" });
+        setActivePanel("achievements");
+      },
+    });
+  }
+
   const activeCollectionQuests = collectionQuests
     .filter(quest => {
       const userQuest = userCollectionQuests.find(ucq => ucq.collection_quest_id === quest.id);
@@ -2375,6 +2471,11 @@ function HomeContent() {
   const getDisplayName = () => user.display_name || user.full_name;
   const displayName = getDisplayName() || "Spieler";
   const resolvedUserTitle = resolveTitleValue(user?.selected_title, user?.title) || "Pflanzen-Entdecker";
+  // Live-preview profile: while the "Anpassen" content-stack is open, staged (not-yet-saved) shop
+  // selections are merged over the real user so the Custom Logo/background reflect them immediately.
+  const effectiveUser = showShopStack && shopStackDraftOverrides
+    ? { ...user, ...shopStackDraftOverrides }
+    : user;
 
   const getRgbaFromRgb = (rgbString, opacity) => {
     if (!rgbString) return null;
@@ -3067,6 +3168,7 @@ function HomeContent() {
         handleOpenHeroZoneMap();
         setShowHealthStatsPanel(false);
       },
+      isActive: activePanel === "map",
       ...getNavButtonStyle({ palette: "blue", isLightUi }),
     },
     {
@@ -3078,6 +3180,7 @@ function HomeContent() {
         setShowHealthStatsPanel(false);
       },
       showNotificationDot: hasRedeemableQuests,
+      isActive: activePanel === "achievements",
       ...getNavButtonStyle({ palette: "amber", isLightUi }),
     },
     {
@@ -3089,6 +3192,7 @@ function HomeContent() {
         setEmbeddedCollectionEntryCategory(null);
         setShowHealthStatsPanel(false);
       },
+      isActive: activePanel === "collection",
       ...getNavButtonStyle({ palette: "green", isLightUi }),
     },
     {
@@ -3100,6 +3204,7 @@ function HomeContent() {
         setShowHealthStatsPanel(false);
       },
       showNotificationDot: hasSocialNotifications,
+      isActive: activePanel === "friends",
       ...getNavButtonStyle({ palette: "purple", isLightUi }),
     },
   ];
@@ -3379,6 +3484,24 @@ function HomeContent() {
     return true;
   };
 
+  const openShopStack = () => {
+    if (showShopStack) {
+      setShowShopStack(false);
+      setShopStackDraftOverrides(null);
+      setShopStackHasUnsavedChanges(false);
+      return true;
+    }
+
+    if (!isShopUnlocked) {
+      window.alert("Der Shop wird ab 5.000 Samen freigeschaltet.");
+      return false;
+    }
+
+    setShowHealthStatsPanel(false);
+    setShowShopStack(true);
+    return true;
+  };
+
   /** Returns a random viewport position for the care bubble that avoids the floating logo overlay. */
   const pickCareBubblePosition = () => {
     if (typeof window === "undefined") return null;
@@ -3479,14 +3602,6 @@ function HomeContent() {
 
   return (
     <>
-      <style>{`
-        @media (max-height: 760px) {
-          .home-tight-vh-label {
-            display: none;
-          }
-        }
-      `}</style>
-
       <AnimatePresence>
         {newAchievements.length > 0 && currentAchievementIndex < newAchievements.length && (
           <AchievementNotification
@@ -3814,60 +3929,16 @@ function HomeContent() {
         }}
       />
 
-      <Dialog open={showAmberPurchaseModal} onOpenChange={setShowAmberPurchaseModal}>
-        <DialogContent className={`sm:max-w-lg ${isLightUi ? "bg-white" : "bg-[#141714] border-[#f0e5a5]/30"}`}>
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <span className={`inline-flex items-center justify-center w-5 h-5 ${isLightUi ? "text-[#8f6b22]" : "text-[#f0e5a5]"}`} aria-hidden="true">🔸</span>
-              Bernstein kaufen (Vorbereitung)
-            </DialogTitle>
-          </DialogHeader>
-
-          <div className="space-y-4">
-            <div className={`text-sm ${isLightUi ? "text-stone-700" : "text-stone-200"}`}>
-              Aktueller Kontostand: <span className="font-semibold">{playerAmber} Bernstein</span>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              {[
-                { amount: 120, price: '2,99 EUR' },
-                { amount: 350, price: '6,99 EUR' },
-                { amount: 900, price: '14,99 EUR' },
-              ].map((pack) => (
-                <button
-                  key={pack.amount}
-                  type="button"
-                  disabled
-                  className={`rounded-2xl border px-3 py-3 text-left opacity-70 cursor-not-allowed ${isLightUi ? "border-[#c8ac62]/40 bg-white/70" : "border-[#f0e5a5]/25 bg-black/30"}`}
-                >
-                  <div className="text-sm font-semibold">{pack.amount} Bernstein</div>
-                  <div className={`text-xs mt-1 ${isLightUi ? "text-stone-600" : "text-stone-300"}`}>{pack.price}</div>
-                </button>
-              ))}
-            </div>
-
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-              {["Apple Pay", "Google Pay", "PayPal", "Kreditkarte"].map((method) => (
-                <button
-                  key={method}
-                  type="button"
-                  disabled
-                  className={`h-10 rounded-xl border text-xs font-medium opacity-65 cursor-not-allowed ${isLightUi ? "border-[#c8ac62]/35 bg-white/70 text-stone-700" : "border-[#f0e5a5]/20 bg-black/35 text-stone-200"}`}
-                >
-                  {method}
-                </button>
-              ))}
-            </div>
-
-            <div className={`rounded-xl border px-3 py-2 text-xs leading-relaxed ${isLightUi ? "border-amber-300/60 bg-amber-50 text-amber-900" : "border-amber-300/35 bg-amber-900/20 text-amber-100"}`}>
-              Die Bezahlfunktionen sind noch nicht aktiv. Dieses Modal bereitet nur die spaetere Echtgeld-Integration vor.
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <AmberPurchaseDialog
+        open={showAmberPurchaseModal}
+        onOpenChange={setShowAmberPurchaseModal}
+        currentBalance={playerAmber}
+        isLightUi={isLightUi}
+        onPurchased={() => queryClient.invalidateQueries({ queryKey: ["userWallet", user?.id] })}
+      />
 
       <HomeBackgroundShell
-        user={user}
+        user={effectiveUser}
         getRgbaFromRgb={getRgbaFromRgb}
       >
           <motion.div
@@ -3879,13 +3950,39 @@ function HomeContent() {
           >
             <div className={`relative z-10 h-full flex flex-col ${activePanel === "map" ? "px-0 py-0" : "px-2 md:px-4 py-4 md:py-6"} ${isLightUi ? "text-stone-800" : "text-stone-100"}`}>
               {activePanel === null && (
-                <div className="pointer-events-none absolute inset-x-4 top-4 z-20 max-w-[65%] md:inset-x-8 md:top-6">
-                  <h1 className="truncate font-bold leading-tight text-2xl md:text-3xl" title={displayName || undefined}>
-                    {displayName}
-                  </h1>
-                  <p className={`mt-0.5 truncate text-sm md:text-base ${isLightUi ? "text-stone-700/90" : "text-stone-200/85"}`}>
-                    und {botName || "Florabot"}
-                  </p>
+                <div className="pointer-events-none absolute inset-x-4 top-4 z-20 flex max-w-[65%] flex-col md:inset-x-8 md:top-6">
+                  {showShopStack ? (
+                    <>
+                      <h1
+                        className="-m-3 truncate p-3 font-bold leading-tight text-2xl md:text-3xl [text-shadow:0_1px_2px_rgba(0,0,0,0.9),0_0_10px_rgba(0,0,0,0.75),0_0_20px_rgba(0,0,0,0.55)]"
+                      >
+                        Anpassen
+                      </h1>
+                      <div className="-mx-3 -mt-2.5 p-3">
+                        <ShopCategoryVerticalCarousel
+                          activeKey={shopStackActiveCategory}
+                          onSelect={setShopStackActiveCategory}
+                          isLightUi={isLightUi}
+                        />
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <h1
+                        className="-m-3 truncate p-3 font-bold leading-tight text-2xl md:text-3xl [text-shadow:0_1px_2px_rgba(0,0,0,0.9),0_0_10px_rgba(0,0,0,0.75),0_0_20px_rgba(0,0,0,0.55)]"
+                        title={`${displayName || ""}, ${resolvedUserTitle}`}
+                      >
+                        {displayName}, {resolvedUserTitle}
+                      </h1>
+                      <p className={`-mx-3 -mb-3 -mt-2.5 truncate p-3 text-sm md:text-base [text-shadow:0_1px_2px_rgba(0,0,0,0.9),0_0_8px_rgba(0,0,0,0.7)] ${isLightUi ? "text-stone-700/90" : "text-stone-200/85"}`}>
+                        und {botName || "Florabot"}
+                      </p>
+                      <div className={`-mx-3 -mt-3 flex items-center gap-1.5 p-3 text-sm md:text-base font-semibold [text-shadow:0_1px_2px_rgba(0,0,0,0.9),0_0_8px_rgba(0,0,0,0.7)] ${isLightUi ? "text-stone-800" : "text-stone-100"}`}>
+                        <Sprout className={`h-4 w-4 shrink-0 ${isLightUi ? "text-emerald-600" : "text-emerald-400"}`} aria-hidden="true" />
+                        <span>{playerSeedsDisplay}</span>
+                      </div>
+                    </>
+                  )}
                 </div>
               )}
 
@@ -3928,6 +4025,12 @@ function HomeContent() {
                 onOpenChange={setBugReportDialogOpen}
                 user={user}
                 displayName={getDisplayName()}
+              />
+
+              <ServerNewsDialog
+                open={serverNewsDialogOpen}
+                onOpenChange={setServerNewsDialogOpen}
+                user={user}
               />
 
               <div
@@ -4023,6 +4126,7 @@ function HomeContent() {
                       playerSeeds={playerSeeds}
                       playerSparks={playerSparks}
                       playerAmber={playerAmber}
+                      user={effectiveUser}
                       isHealthViewActive={showHealthStatsPanel}
                       onToggleHealthView={() => setShowHealthStatsPanel((prev) => !prev)}
                       onOpenSettings={() => {
@@ -4030,14 +4134,16 @@ function HomeContent() {
                         setActivePanel("settings");
                       }}
                       onOpenBugReport={() => setBugReportDialogOpen(true)}
+                      onOpenServerNews={() => setServerNewsDialogOpen(true)}
                       onOpenAmberPurchase={() => setShowAmberPurchaseModal(true)}
-                      onOpenCustomize={() => openShop("backgrounds")}
+                      onOpenCustomize={() => openShopStack()}
                     />
                     <div className="relative flex min-h-0 flex-1 flex-col gap-2">
                       <HomeCollectionStripes
-                      className={showHealthStatsPanel ? "flex-[0.62] min-h-0" : "flex-[1.15] min-h-0"}
+                      className={showHealthStatsPanel ? "flex-[0.4] min-h-[12.5rem]" : "flex-1 min-h-0"}
+                      isHealthView={showHealthStatsPanel}
                       isLightUi={isLightUi}
-                      profile={user}
+                      profile={effectiveUser}
                       logoAssets={logoAssets}
                       elevateLogo={Boolean(isMilestoneOverlayToggled && !showFlorabotIntro && !activeMilestone && !isHomeOverlayShopOpen)}
                       onBadgeClick={() => {
@@ -4084,7 +4190,36 @@ function HomeContent() {
                       nearestZoneDistanceKm={nearestZoneDistanceKm}
                       securedMultiplier={securedNextScanMultiplier}
                       />
-                    {showHealthStatsPanel ? (
+                    {showShopStack ? (
+                      <GoldGradientCard
+                        blur
+                        className="mt-3 flex-1 min-h-0 overflow-hidden"
+                        contentClassName="flex min-h-0 flex-col"
+                      >
+                        <ShopFeatureRoot
+                          embedded
+                          flatMode
+                          draftMode
+                          authId={user?.id}
+                          currentUser={user}
+                          badgeMetrics={profileBadgeMetrics}
+                          ownedUniqueBadgeIds={ownedUniqueBadgeIds}
+                          onUserUpdated={(freshUser) => setUser(freshUser)}
+                          saveNonce={shopStackSaveNonce}
+                          activeFlatCategoryKey={shopStackActiveCategory}
+                          onFlatCategoryKeyChange={setShopStackActiveCategory}
+                          onDraftPreviewChange={setShopStackDraftOverrides}
+                          onUnsavedChange={setShopStackHasUnsavedChanges}
+                          onSaveComplete={(success) => {
+                            if (success) {
+                              setShowShopStack(false);
+                              setShopStackDraftOverrides(null);
+                              setShopStackHasUnsavedChanges(false);
+                            }
+                          }}
+                        />
+                      </GoldGradientCard>
+                    ) : showHealthStatsPanel ? (
                       <div ref={healthStatsPanelRef} className="flex-1 min-h-0">
                         <PlantHeroHealthPanel
                           contextBubbleMessage={homeHealthContextBubbleMessage}
@@ -4114,21 +4249,32 @@ function HomeContent() {
                       </div>
                     ) : (
                       <div
-                        className="relative z-10 flex min-h-0 flex-[0.85] flex-col gap-2"
+                        className="relative z-10 flex flex-initial flex-col gap-2"
                       >
                         <HomeProfileBadgesPanel
                           isLightUi={isLightUi}
                           selectedProfileBadges={selectedProfileBadges}
                           playerSeeds={playerSeeds}
                         />
-                        <RewardCardWrapper
-                          className="flex-1"
-                          rewards={rewards}
-                          userRewards={userRewards}
-                          isLightUi={isLightUi}
-                          completedWeeklyQuestCount={completedWeeklyQuestCount}
-                          completedMonthlyQuestCount={completedMonthlyQuestCount}
-                        />
+                        <div
+                          className="w-full"
+                          style={eventStripeHeightPx ? { maxHeight: `${eventStripeHeightPx}px` } : undefined}
+                        >
+                          <RewardCardWrapper
+                            className="h-full"
+                            rewards={rewards}
+                            userRewards={userRewards}
+                            isLightUi={isLightUi}
+                            completedWeeklyQuestCount={completedWeeklyQuestCount}
+                            completedMonthlyQuestCount={completedMonthlyQuestCount}
+                            quests={quests}
+                            weeklyQuests={weeklyQuests}
+                            monthlyQuests={monthlyQuests}
+                            achievements={achievements}
+                            genera={genera}
+                            plants={plants}
+                          />
+                        </div>
                       </div>
                     )}
                     </div>
@@ -4137,24 +4283,56 @@ function HomeContent() {
               </div>
 
               <div className={`${activePanel === null ? "pt-0" : "pt-[clamp(0.35rem,0.9vh,0.7rem)]"} pb-[clamp(0.15rem,0.5vh,0.35rem)] flex shrink-0 flex-col`}>
+                {activePanel === null && !showHealthStatsPanel && !showShopStack ? (
+                  <div ref={eventStripeContainerRef} className="mb-[clamp(0.35rem,0.8vh,0.55rem)]">
+                    <HomeEventStripe isLightUi={isLightUi} events={homeEventStripeItems} />
+                  </div>
+                ) : null}
                 {activePanel === null ? (
-                  <HomeScanInfoRow
-                    className="mb-[clamp(0.35rem,0.8vh,0.55rem)]"
-                    isLightUi={isLightUi}
-                    conqueredZonesDisplay={conqueredZonesDisplay}
-                    zoneMultiplier={zoneMultiplier}
-                    careMultiplier={careMultiplier}
-                    activityBonusDisplay={healthSeedBonusDisplay}
-                  />
+                  showShopStack ? (
+                    <HomeCurrencyInfoRow
+                      className="mb-[clamp(0.35rem,0.8vh,0.55rem)]"
+                      isLightUi={isLightUi}
+                      playerSparks={playerSparks}
+                      playerAmber={playerAmber}
+                      onOpenAmberPurchase={() => setShowAmberPurchaseModal(true)}
+                    />
+                  ) : (
+                    <HomeScanInfoRow
+                      className="mb-[clamp(0.35rem,0.8vh,0.55rem)]"
+                      isLightUi={isLightUi}
+                      conqueredZonesDisplay={conqueredZonesDisplay}
+                      zoneMultiplier={zoneMultiplier}
+                      careMultiplier={careMultiplier}
+                      activityBonusDisplay={healthSeedBonusDisplay}
+                    />
+                  )
                 ) : null}
                 <HomeBottomNavigation
                   navItems={navItems}
                   controlsScale={controlsScale}
-                  centerContext="inside"
-                  highlightCenterAction={showScannerHighlight}
+                  centerContext={activePanel === null && !showShopStack ? "inside" : "outside"}
+                  highlightCenterAction={activePanel === null && !showShopStack && showScannerHighlight}
                   onCenterAction={() => {
-                    trackAction("home_scan_click", { sourcePage: "Home" });
-                    navigate(createPageUrl('Scanner'));
+                    if (activePanel === null) {
+                      if (showShopStack) {
+                        if (shopStackHasUnsavedChanges) {
+                          trackAction("home_shop_stack_save", { sourcePage: "Home" });
+                          setShopStackSaveNonce((prev) => prev + 1);
+                        } else {
+                          setShowShopStack(false);
+                          setShopStackDraftOverrides(null);
+                          setShopStackHasUnsavedChanges(false);
+                        }
+                        return;
+                      }
+                      trackAction("home_scan_click", { sourcePage: "Home" });
+                      navigate(createPageUrl('Scanner'));
+                      return;
+                    }
+
+                    trackAction("bottomnav_home", { sourcePage: "Home", metadata: { closedPanel: activePanel } });
+                    setActivePanel(null);
                   }}
                 />
               </div>

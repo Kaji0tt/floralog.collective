@@ -5,7 +5,7 @@ import { buildNotificationPayload } from "@/lib/story/storyDefinition";
 import { supabase } from "@/api/supabaseClient";
 import { sendFriendRequest, removeFriendship, respondToFriendRequest } from "@/api/friendService";
 import { trackAction } from "@/api/analyticsService";
-import { getCurrentUser } from "@/api/userApi";
+import { getCurrentUser, updateCurrentUserProfile } from "@/api/userApi";
 import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
@@ -14,7 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { UserPlus, Users, Loader2, Check, X, Bell, UserMinus, Leaf, Trophy, Share2, Plus, Heart, UserCheck, BookOpenText, Clock, Newspaper, Send, ChevronDown, Handshake, ExternalLink } from "lucide-react";
+import { UserPlus, Users, Loader2, Check, X, Bell, UserMinus, Leaf, Trophy, Share2, Plus, Heart, UserCheck, BookOpenText, Clock, Newspaper, Send, ChevronDown, Handshake, ExternalLink, Gift, CheckCircle } from "lucide-react";
 import { motion } from "framer-motion";
 import { checkAndUnlockAchievements } from "@/components/achievements/achievementChecker";
 import AchievementNotification from "@/components/achievements/AchievementNotification";
@@ -26,6 +26,7 @@ import { de } from "date-fns/locale";
 import { useUiTheme } from "@/lib/UiThemeContext";
 import { encodeReferralCode } from "@/lib/referralCode";
 import { resolveEquippedLogoAssetsWithCatalog } from "@/lib/logoAccessoryAssets";
+import { resolveTitleValue } from "@/lib/profileCustomizationOptions";
 import CustomLogoAvatar from "@/components/profile/CustomLogoAvatar";
 import HomeShellBorderGlow from "@/components/effects/HomeShellBorderGlow";
 import { getRgbaFromRgb } from "@/lib/friendColorUtils";
@@ -169,9 +170,8 @@ export function useFriendsFeatureContent({
   const [newsFilter, setNewsFilter] = useState("activities");
   const [expandedNewsIds, setExpandedNewsIds] = useState(new Set());
   const [showAddFriendDialog, setShowAddFriendDialog] = useState(false);
-  const [showAdminNewsDialog, setShowAdminNewsDialog] = useState(false);
-  const [adminNewsTitle, setAdminNewsTitle] = useState("");
-  const [adminNewsText, setAdminNewsText] = useState("");
+  const [selectedAchievement, setSelectedAchievement] = useState(null);
+  const [showTitleDialog, setShowTitleDialog] = useState(false);
   const autoMarkingNewsRef = useRef(false);
 
   useEffect(() => {
@@ -184,7 +184,7 @@ export function useFriendsFeatureContent({
 
 
   useEffect(() => {
-    const allowedTabs = new Set(["friends", "news", "explorer"]);
+    const allowedTabs = new Set(["friends", "achievements", "explorer"]);
     if (!allowedTabs.has(activeTab)) {
       setActiveTab("explorer");
     }
@@ -407,13 +407,6 @@ export function useFriendsFeatureContent({
     staleTime: 2 * 60 * 1000,
   });
 
-
-  const { data: adminNews = [] } = useQuery({
-    queryKey: ['news'],
-    queryFn: () => Query.News.list('-created_date'),
-    staleTime: 60000,
-  });
-
   const { data: scanLikes = [] } = useQuery({
     queryKey: ['scanLikesAll'],
     queryFn: () => Query.ScanLike.list('-created_date', 2000),
@@ -616,8 +609,55 @@ export function useFriendsFeatureContent({
   // Lade Achievement Definitionen
   const { data: achievements = [] } = useQuery({
     queryKey: ['achievements'],
-    queryFn: () => Query.Achievement.list()
+    queryFn: () => Query.Achievement.list('achievement_number')
   });
+
+  // Lade eigene Achievements des aktuellen Users
+  const { data: userAchievements = [] } = useQuery({
+    queryKey: ['userAchievements', user?.id],
+    queryFn: () => Query.UserAchievement.filter({ auth_id: user?.id }),
+    enabled: !!user?.id,
+  });
+
+  // Lade Belohnungen/Rewards für Titel
+  const { data: rewards = [] } = useQuery({
+    queryKey: ['rewards'],
+    queryFn: () => Query.Reward.list(),
+  });
+
+  const sortedAchievements = useMemo(() => {
+    return [...achievements].sort((a, b) => (a.achievement_number || 0) - (b.achievement_number || 0));
+  }, [achievements]);
+
+  const unlockedCount = useMemo(() => {
+    return achievements.filter((a) => userAchievements.some((ua) => ua.achievement_id === a.id)).length;
+  }, [achievements, userAchievements]);
+
+  const updateTitleMutation = useMutation({
+    mutationFn: (title) => updateCurrentUserProfile({ selected_title: title }),
+    onSuccess: async () => {
+      queryClient.invalidateQueries({ queryKey: ['user'] });
+      queryClient.invalidateQueries({ queryKey: ['shopCurrentUser'] });
+      const currentUser = await getCurrentUser();
+      setUser(currentUser);
+      setShowTitleDialog(false);
+    }
+  });
+
+  const handleSelectTitle = (achievement, reward) => {
+    setSelectedAchievement({ ...achievement, selectedReward: reward });
+    setShowTitleDialog(true);
+  };
+
+  const confirmTitleSelection = () => {
+    const normalizedTitle = resolveTitleValue(
+      selectedAchievement?.selectedReward?.value,
+      selectedAchievement?.selectedReward?.display_name
+    );
+    if (normalizedTitle) {
+      updateTitleMutation.mutate(normalizedTitle);
+    }
+  };
 
   const sendFriendRequestMutation = useMutation({
     mutationFn: async () => {
@@ -765,29 +805,6 @@ export function useFriendsFeatureContent({
     onError: (error) => {
       alert(`Fehler beim Entfernen des Freundes: ${error.message}`);
     }
-  });
-
-  const broadcastNewsMutation = useMutation({
-    mutationFn: async ({ title, text }) => {
-      const { data: { session } } = await supabase.auth.getSession();
-      const { data, error } = await supabase.functions.invoke("broadcastNews", {
-        body: { title, text, createdBy: user?.email },
-        headers: session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {},
-      });
-      if (error) throw error;
-      if (!data?.success) throw new Error(data?.error || "Broadcast fehlgeschlagen");
-      return data;
-    },
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['news'] });
-      setAdminNewsTitle("");
-      setAdminNewsText("");
-      setShowAdminNewsDialog(false);
-      alert(`✅ Neuigkeit erstellt und an ${data.pushSent ?? 0} Spielende als Push-Benachrichtigung gesendet!`);
-    },
-    onError: (error) => {
-      alert(`❌ Fehler: ${error.message}`);
-    },
   });
 
   const markNewsAsSeenMutation = useMutation({
@@ -1471,6 +1488,34 @@ Viel Spaß beim Entdecken! 🌿`;
     ? "bg-[#8f6b22] text-white"
     : "border border-[#d6b665]/55 bg-[#2b2412]/72 text-[#f6e7b7]";
 
+  const achievementUnlockedCardClass = isLightUi
+    ? "border-amber-300 bg-gradient-to-br from-white/90 to-amber-50/90 backdrop-blur-md hover:shadow-md"
+    : "border-[#f0e5a5]/40 bg-gradient-to-br from-[#2d2418]/90 via-[#1c1710]/88 to-[#12100b]/92 backdrop-blur-md hover:shadow-[0_8px_20px_rgba(0,0,0,0.35)]";
+  const achievementLockedCardClass = isLightUi
+    ? "border-stone-200 bg-stone-50/80 backdrop-blur-sm opacity-60"
+    : "border-[#f0e5a5]/25 bg-black/35 backdrop-blur-sm opacity-70";
+  const achievementTitleClass = isLightUi ? "text-stone-900" : "text-stone-100";
+  const achievementMutedTextClass = isLightUi ? "text-stone-600" : "text-stone-300/90";
+  const achievementLockedTitleClass = isLightUi ? "text-stone-500" : "text-stone-400/75";
+  const achievementLockedMutedTextClass = isLightUi ? "text-stone-400" : "text-stone-500/75";
+  const achievementRewardClass = isLightUi
+    ? "bg-amber-50 text-amber-700"
+    : "bg-amber-400/10 text-amber-200";
+  const achievementLockedRewardClass = isLightUi
+    ? "bg-stone-100 text-stone-400"
+    : "bg-stone-700/35 text-stone-400";
+  const achievementsContentClass = embedded ? "mt-0 px-2 pb-20 flex-1 min-h-0 overflow-y-auto overflow-x-hidden" : "pt-36 px-2 pb-4";
+
+  const getRarityColor = (rarity) => {
+    switch (rarity) {
+      case "Ungewöhnlich": return "bg-green-500";
+      case "Selten": return "bg-blue-500";
+      case "Episch": return "bg-purple-500";
+      case "Legendär": return "bg-amber-500";
+      default: return "bg-gray-500";
+    }
+  };
+
   const moduleChips = [
     {
       id: "explorer",
@@ -1479,10 +1524,10 @@ Viel Spaß beim Entdecken! 🌿`;
       total: explorerLogEntries.length,
     },
     {
-      id: "news",
-      title: "News",
-      active: unreadNewsCount,
-      total: userNews.length,
+      id: "achievements",
+      title: "Erfolge",
+      active: unlockedCount,
+      total: achievements.length,
     },
     {
       id: "friends",
@@ -1496,8 +1541,8 @@ Viel Spaß beim Entdecken! 🌿`;
     if (!embedded || typeof onHeaderMetaChange !== "function") return;
 
     onHeaderMetaChange({
-      title: activeTab === "friends" ? "Social" : activeTab === "news" ? "Neuigkeiten" : "Forscher Log",
-      subtitle: activeTab === "explorer" ? "Scans der letzten 30 Tage" : "Dein Freundesbereich",
+      title: activeTab === "friends" ? "Social" : activeTab === "achievements" ? "Erfolge" : "Forscher Log",
+      subtitle: activeTab === "explorer" ? "Scans der letzten 30 Tage" : activeTab === "achievements" ? "Dein Fortschritt im Überblick" : "Dein Freundesbereich",
     });
   }, [
     embedded,
@@ -1639,10 +1684,10 @@ Viel Spaß beim Entdecken! 🌿`;
                 <div className="px-4 pt-3 pb-2 flex items-center justify-between gap-3">
                   <div className="min-w-0">
                     <h1 className="text-xl sm:text-2xl font-bold text-stone-900 truncate">
-                      {activeTab === "friends" ? "Social" : activeTab === "news" ? "Neuigkeiten" : "Forscher Log"}
+                      {activeTab === "friends" ? "Social" : activeTab === "achievements" ? "Erfolge" : "Forscher Log"}
                     </h1>
                     <p className="text-xs text-stone-600 truncate">
-                      {activeTab === "explorer" ? "Scans aus den letzten 30 Tagen" : "Dein Freundesbereich"}
+                      {activeTab === "explorer" ? "Scans aus den letzten 30 Tagen" : activeTab === "achievements" ? "Dein Fortschritt im Überblick" : "Dein Freundesbereich"}
                     </p>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
@@ -1656,18 +1701,8 @@ Viel Spaß beim Entdecken! 🌿`;
                         <Plus className="w-5 h-5 text-[#f0e5a5]" />
                       </button>
                     )}
-                    {activeTab === "news" && isAdminUser && (
-                      <button
-                        type="button"
-                        onClick={() => setShowAdminNewsDialog(true)}
-                        className="w-11 h-11 rounded-full border border-[#f0e5a5]/35 bg-black/30 backdrop-blur-md flex items-center justify-center hover:bg-black/45 transition-colors shrink-0"
-                        aria-label="Neuigkeit senden"
-                      >
-                        <Plus className="w-5 h-5 text-[#f0e5a5]" />
-                      </button>
-                    )}
                     <Badge className="bg-stone-800 text-white text-[10px] px-2 py-1 shrink-0">
-                      {activeTab === "friends" ? `${friends.length} Freunde` : activeTab === "news" ? `${unreadNewsCount} neu` : `${explorerLogEntries.length} Eintraege`}
+                      {activeTab === "friends" ? `${friends.length} Freunde` : activeTab === "achievements" ? `${unlockedCount} / ${achievements.length}` : `${explorerLogEntries.length} Eintraege`}
                     </Badge>
                   </div>
                 </div>
@@ -2046,242 +2081,92 @@ Viel Spaß beim Entdecken! 🌿`;
             </div>
           </TabsContent>
 
-          {/* News Tab Content */}
-          <TabsContent value="news" className={newsContentClass} style={embeddedContentMaskStyle}>
+          {/* Achievements Tab Content */}
+          <TabsContent value="achievements" className={achievementsContentClass} style={embeddedContentMaskStyle}>
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5 }}
-              className="max-w-5xl mx-auto space-y-4"
+              transition={{ duration: 0.4 }}
+              className="max-w-6xl mx-auto space-y-4"
               style={embedded ? { paddingTop: listTopFadePx, paddingBottom: listBottomFadePx } : undefined}
             >
-              {/* Kombinierte News-Liste mit Filter-Toggle */}
-              {userNews.length === 0 && adminNews.length === 0 ? (
-                <div className={`${sectionSurfaceClass} px-5 py-10 text-center`}>
-                  <Bell className={`w-16 h-16 mx-auto mb-4 ${isLightUi ? "text-stone-300" : "text-stone-500"}`} />
-                  <p className={`text-lg font-semibold mb-2 ${titleTextClass}`}>
-                      Noch keine Neuigkeiten
-                  </p>
-                  <p className={bodyTextClass}>Hier siehst du, was in deinem Freundeskreis passiert.</p>
-                </div>
-              ) : (
-                <section className={`${sectionSurfaceClass} p-4 md:p-5`}>
-                  <div className="flex items-start justify-between gap-3 mb-4">
-                    <div>
-                      <div className={`flex items-center gap-2 ${titleTextClass}`}>
-                        <Bell className={`w-4 h-4 ${isLightUi ? "text-blue-700" : "text-blue-300"}`} />
-                        <h3 className="text-base font-semibold">{newsFilter === "activities" ? "Aktivitätsfeed" : "Server-News"}</h3>
-                      </div>
-                      <p className={`text-sm mt-1 ${bodyTextClass}`}>
-                        {newsFilter === "activities" 
-                          ? "Achievements, Likes, Anfragen und Sammlungs-Updates"
-                          : "Neuigkeiten und Ankündigungen vom Server"}
-                      </p>
-                    </div>
-                    <Badge className={accentBadgeClass}>
-                      {newsFilter === "activities" ? unreadNewsCount : adminNews.length} {newsFilter === "activities" ? "neu" : ""}
-                    </Badge>
-                  </div>
+              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+                {sortedAchievements.map((achievement, index) => {
+                  const isUnlocked = userAchievements.some((ua) => ua.achievement_id === achievement.id);
+                  const achievementReward = achievement.reward_name ? rewards.find((r) => r.name === achievement.reward_name) : null;
+                  const rewardTitleValue = resolveTitleValue(achievementReward?.value, achievementReward?.display_name);
+                  const isCurrentTitle = achievementReward?.type === 'title' && resolveTitleValue(user?.selected_title) === rewardTitleValue;
 
-                  {/* Filter Toggle */}
-                  <div className="flex items-center justify-between gap-3 mb-4">
-                    <div
-                      className={
-                          `inline-flex rounded-full border p-1 ${isLightUi
-                            ? "border-[#d9c48a]/60 bg-[#f8f1dc]/85"
-                            : "border-[#f0e5a5]/30 bg-black/30"}`
-                      }
+                  return (
+                    <motion.div
+                      key={achievement.id}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: index * 0.03 }}
                     >
-                      {[
-                        { id: "activities", label: "Aktivitäten" },
-                        { id: "server", label: "Server" },
-                      ].map((option) => {
-                        const isSelected = newsFilter === option.id;
-                        return (
-                          <button
-                            key={option.id}
-                            type="button"
-                            onClick={() => setNewsFilter(option.id)}
-                            className={
-                              `rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${isSelected
-                                ? (isLightUi
-                                  ? "bg-white text-[#8f6b22] shadow-sm"
-                                  : "bg-[#f0e5a5] text-stone-950")
-                                : (isLightUi
-                                  ? "text-stone-600 hover:text-stone-900"
-                                  : "text-stone-300 hover:text-stone-100")}`
-                            }
-                          >
-                            {option.label}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  {/* News Items - Collapsible */}
-                  <div className="space-y-2">
-                    {(newsFilter === "activities" ? userNews : adminNews).map((newsItem, index) => {
-                      const isExpanded = expandedNewsIds.has(newsItem.id);
-                      const isAdminNews = !newsItem.created_by || newsItem.created_by === 'system' || newsItem.text;
-                      
-                      if (newsFilter === "activities") {
-                        // User News Items
-                        const meta = getNewsMeta(newsItem.notification_type);
-                        const Icon = meta.icon;
-                        const actor = getNewsActor(newsItem);
-                        const avatarFallback = (actor.name || actor.email || '?').charAt(0).toUpperCase();
-                        const pendingRequestFromNews = getPendingRequestFromNews(newsItem);
-                        const showFriendRequestActions =
-                          newsItem.notification_type === 'friend_request_received' &&
-                          !!pendingRequestFromNews;
-
-                        return (
-                          <motion.div
-                            key={newsItem.id}
-                            initial={{ opacity: 0, y: 8 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: index * 0.03 }}
-                          >
-                            <div
-                              className={`${nestedCardClass} ${isLightUi ? "bg-white" : ""} transition-all cursor-pointer ${isExpanded ? "bg-opacity-100" : "hover:bg-opacity-75"} ${newsItem.seen ? "" : (isLightUi ? "border-emerald-200 bg-white" : "border-emerald-300/30 bg-emerald-500/10")}`}
-                              onClick={() => toggleNewsExpanded(newsItem.id)}
-                            >
-                              <CardContent className="p-3">
-                                {/* Collapsed View */}
-                                <div className="flex items-start gap-3">
-                                  <div className="relative w-10 h-10 flex-shrink-0">
-                                    <div className={`w-10 h-10 rounded-full overflow-hidden border ${isLightUi ? "border-stone-200" : "border-[#f0e5a5]/20"} flex items-center justify-center`}>
-                                      <CustomLogoAvatar
-                                        logoAssets={actor.logoAssets}
-                                        className="w-full h-full"
-                                        fallbackText={avatarFallback}
-                                        fallbackClassName={`text-xs font-semibold ${isLightUi ? "text-stone-700" : "text-stone-100"}`}
-                                      />
-                                    </div>
-                                    <div className={`absolute -bottom-1 -right-1 w-5 h-5 rounded-full border flex items-center justify-center ${isLightUi ? "bg-white border-stone-200" : "bg-stone-950 border-[#f0e5a5]/20"}`}>
-                                      <Icon className={`w-3 h-3 ${meta.accent}`} />
-                                    </div>
-                                  </div>
-                                  <div className="flex-1 min-w-0">
-                                    <div className="flex items-center justify-between gap-2 min-w-0">
-                                      <div className="flex items-center gap-2 min-w-0 flex-1">
-                                        {!newsItem.seen && <span className="w-2 h-2 rounded-full bg-emerald-500 flex-shrink-0" />}
-                                        <p className={`text-sm font-semibold truncate ${titleTextClass}`}>
-                                          {newsItem.title || 'Neuigkeit'}
-                                        </p>
-                                      </div>
-                                      <ChevronDown className={`w-4 h-4 flex-shrink-0 transition-transform ${isExpanded ? "rotate-180" : ""} ${mutedTextClass}`} />
-                                    </div>
-                                    {newsItem.notification_type === 'friend_achievement' && (
-                                      <p className={`text-xs mt-0.5 truncate ${mutedTextClass}`}>
-                                        {actor.name}{newsItem.description ? ` · ${newsItem.description}` : ''}
-                                      </p>
-                                    )}
-                                    <p className={`text-[10px] mt-1 ${faintTextClass}`}>
-                                      {formatDistanceToNow(new Date(newsItem.created_date || newsItem.created_at || new Date().toISOString()), {
-                                        addSuffix: true,
-                                        locale: de,
-                                      })}
-                                    </p>
-
-                                    {/* Expanded Content */}
-                                    {isExpanded && (
-                                      <motion.div
-                                        initial={{ opacity: 0, height: 0 }}
-                                        animate={{ opacity: 1, height: "auto" }}
-                                        exit={{ opacity: 0, height: 0 }}
-                                        className="mt-3 pt-3 border-t border-current border-opacity-10"
-                                      >
-                                        <p className={`text-[11px] mb-2 ${mutedTextClass}`}>
-                                          von {actor.name}
-                                        </p>
-                                        <p className={`text-xs ${bodyTextClass}`}>
-                                          {newsItem.message}
-                                        </p>
-                                        {!!newsItem.description && (
-                                          <p className={`text-[11px] mt-2 ${mutedTextClass}`}>{newsItem.description}</p>
-                                        )}
-                                        {showFriendRequestActions && (
-                                          <div className="flex gap-2 mt-3" onClick={(event) => event.stopPropagation()}>
-                                            <Button
-                                              size="sm"
-                                              className="h-6 px-2 text-xs bg-green-600 hover:bg-green-700"
-                                              disabled={acceptFriendRequestMutation.isPending || rejectFriendRequestMutation.isPending}
-                                              onClick={(event) => handleFriendRequestActionFromNews(event, newsItem, 'accept')}
-                                            >
-                                              <Check className="w-3 h-3 mr-1" />
-                                              Annehmen
-                                            </Button>
-                                            <Button
-                                              size="sm"
-                                              variant="outline"
-                                              className={`h-6 px-2 text-xs ${isLightUi ? "border-red-300 text-red-600 hover:bg-red-50" : "border-red-400/50 text-red-200 hover:bg-red-500/10"}`}
-                                              disabled={acceptFriendRequestMutation.isPending || rejectFriendRequestMutation.isPending}
-                                              onClick={(event) => handleFriendRequestActionFromNews(event, newsItem, 'reject')}
-                                            >
-                                              <X className="w-3 h-3 mr-1" />
-                                              Ablehnen
-                                            </Button>
-                                          </div>
-                                        )}
-                                      </motion.div>
-                                    )}
-                                  </div>
-                                </div>
-                              </CardContent>
+                      <Card className={`border shadow-sm transition-all duration-300 ${isUnlocked ? achievementUnlockedCardClass : achievementLockedCardClass}`}>
+                        <CardContent className="p-3">
+                          <div className="flex items-start gap-2">
+                            <div className={`text-2xl ${isUnlocked ? '' : 'grayscale opacity-30'} flex-shrink-0`}>
+                              {achievement.icon_emoji}
                             </div>
-                          </motion.div>
-                        );
-                      } else {
-                        // Admin News Items
-                        return (
-                          <motion.div
-                            key={newsItem.id}
-                            initial={{ opacity: 0, y: 8 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: index * 0.03 }}
-                          >
-                            <div
-                              className={`${nestedCardClass} ${isLightUi ? "bg-white" : ""} transition-all cursor-pointer`}
-                              onClick={() => toggleNewsExpanded(newsItem.id)}
-                            >
-                              <CardContent className="p-3">
-                                <div className="flex items-start gap-3">
-                                  <div className={`w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 ${isLightUi ? "bg-emerald-100" : "bg-emerald-500/15"}`}>
-                                    <Newspaper className={`w-4 h-4 ${isLightUi ? "text-emerald-600" : "text-emerald-300"}`} />
-                                  </div>
-                                  <div className="flex-1 min-w-0">
-                                    <div className="flex items-center justify-between gap-2 min-w-0">
-                                      <p className={`text-sm font-semibold truncate ${titleTextClass}`}>{newsItem.title}</p>
-                                      <ChevronDown className={`w-4 h-4 flex-shrink-0 transition-transform ${isExpanded ? "rotate-180" : ""} ${mutedTextClass}`} />
-                                    </div>
-                                    <p className={`text-[10px] mt-1 ${faintTextClass}`}>
-                                      {formatDistanceToNow(new Date(newsItem.created_date || new Date().toISOString()), { addSuffix: true, locale: de })}
-                                    </p>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-1 mb-1">
+                                <Badge className={`${getRarityColor(achievement.rarity)} text-white font-semibold text-[10px] px-1 py-0`}>
+                                  {achievement.rarity}
+                                </Badge>
+                                {isUnlocked && <Trophy className="w-3 h-3 text-amber-500" />}
+                              </div>
+                              <h3 className={`text-sm font-bold mb-1 ${isUnlocked ? achievementTitleClass : achievementLockedTitleClass}`}>
+                                {achievement.title}
+                              </h3>
+                              <p className={`text-xs mb-1 ${isUnlocked ? achievementMutedTextClass : achievementLockedMutedTextClass}`}>
+                                {achievement.description}
+                              </p>
 
-                                    {/* Expanded Content */}
-                                    {isExpanded && (
-                                      <motion.div
-                                        initial={{ opacity: 0, height: 0 }}
-                                        animate={{ opacity: 1, height: "auto" }}
-                                        exit={{ opacity: 0, height: 0 }}
-                                        className="mt-3 pt-3 border-t border-current border-opacity-10"
-                                      >
-                                        <p className={`text-xs ${bodyTextClass}`}>{newsItem.text}</p>
-                                      </motion.div>
-                                    )}
-                                  </div>
+                              {achievementReward && (
+                                <div className={`flex items-center gap-1 text-xs mt-2 px-2 py-1 rounded-lg ${isUnlocked ? achievementRewardClass : achievementLockedRewardClass}`}>
+                                  <Gift className="w-3 h-3" />
+                                  <span className="font-semibold">{achievementReward.display_name}</span>
                                 </div>
-                              </CardContent>
+                              )}
+
+                              {achievementReward && achievementReward.type === 'title' && isUnlocked && (
+                                <Button
+                                  onClick={() => handleSelectTitle(achievement, achievementReward)}
+                                  disabled={isCurrentTitle || updateTitleMutation.isPending}
+                                  className={`w-full text-[10px] h-6 mt-1 ${isCurrentTitle ? 'bg-green-600 hover:bg-green-600' : 'bg-purple-600 hover:bg-purple-700'}`}
+                                  size="sm"
+                                >
+                                  {isCurrentTitle ? (
+                                    <>
+                                      <CheckCircle className="w-2.5 h-2.5 mr-1" />
+                                      Aktiv
+                                    </>
+                                  ) : (
+                                    `Titel: ${rewardTitleValue}`
+                                  )}
+                                </Button>
+                              )}
                             </div>
-                          </motion.div>
-                        );
-                      }
-                    })}
-                  </div>
-                </section>
-              )}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </motion.div>
+                  );
+                })}
+
+                {sortedAchievements.length === 0 && (
+                  <Card className={`border-2 backdrop-blur-md ${isLightUi ? "border-stone-200 bg-white/80" : "border-[#f0e5a5]/25 bg-black/35"}`}>
+                    <CardContent className="p-12 text-center">
+                      <Trophy className={`w-16 h-16 mx-auto mb-4 ${isLightUi ? "text-stone-400" : "text-stone-500"}`} />
+                      <h3 className={`text-xl font-bold mb-2 ${isLightUi ? "text-stone-900" : "text-stone-100"}`}>
+                        Noch keine Erfolge verfügbar
+                      </h3>
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
             </motion.div>
           </TabsContent>
 
@@ -2549,59 +2434,35 @@ Viel Spaß beim Entdecken! 🌿`;
         </DialogContent>
       </Dialog>
 
-      {/* Admin Broadcast Dialog */}
-      <Dialog open={showAdminNewsDialog} onOpenChange={setShowAdminNewsDialog}>
-        <DialogContent className={`max-w-md ${!isLightUi ? "bg-[#1a1d1a] border-[#f0e5a5]/20" : ""}`}>
+      {/* Title Selection Dialog */}
+      <Dialog open={showTitleDialog} onOpenChange={setShowTitleDialog}>
+        <DialogContent className={!isLightUi ? "bg-[#1a1d1a] border-[#f0e5a5]/20" : ""}>
           <DialogHeader>
-            <DialogTitle className={!isLightUi ? "text-stone-100" : ""}>
-              <span className="flex items-center gap-2">
-                <Newspaper className="w-5 h-5" />
-                Neuigkeit senden
-              </span>
-            </DialogTitle>
-            <DialogDescription className={!isLightUi ? "text-stone-400" : ""}>
-              Die Neuigkeit wird für alle Spielenden sichtbar und als Push-Benachrichtigung gesendet.
-            </DialogDescription>
+            <DialogTitle className={!isLightUi ? "text-stone-100" : ""}>Titel ausrüsten</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4 pt-4">
-            <div className="space-y-2">
-              <label className={`text-sm font-medium ${!isLightUi ? "text-stone-200" : "text-stone-900"}`}>Titel</label>
-              <input
-                type="text"
-                value={adminNewsTitle}
-                onChange={(e) => setAdminNewsTitle(e.target.value)}
-                placeholder="z.B. Neues Update verfügbar!"
-                className={`w-full px-3 py-2 rounded-md border text-sm ${!isLightUi ? "border-stone-600 bg-stone-800/60 text-stone-100 placeholder:text-stone-500" : "border-stone-200 bg-white"}`}
-              />
+          <div className="py-4">
+            <p className={`mb-4 ${!isLightUi ? "text-stone-300" : "text-stone-700"}`}>
+              Möchtest du den Titel <strong className={!isLightUi ? "text-purple-300" : "text-purple-700"}>"{resolveTitleValue(selectedAchievement?.selectedReward?.value, selectedAchievement?.selectedReward?.display_name)}"</strong> ausrüsten?
+            </p>
+            <p className={`text-sm mb-6 ${!isLightUi ? "text-stone-400" : "text-stone-500"}`}>
+              Dieser Titel wird in deinem Profil und auf der Startseite angezeigt.
+            </p>
+            <div className="flex gap-3">
+              <Button
+                variant="outline"
+                onClick={() => setShowTitleDialog(false)}
+                className={`flex-1 ${!isLightUi ? "border-stone-600 text-stone-300 hover:bg-stone-800" : ""}`}
+              >
+                Abbrechen
+              </Button>
+              <Button
+                onClick={confirmTitleSelection}
+                disabled={updateTitleMutation.isPending}
+                className="flex-1 bg-purple-600 hover:bg-purple-700"
+              >
+                {updateTitleMutation.isPending ? 'Wird ausgerüstet...' : 'Ausrüsten'}
+              </Button>
             </div>
-            <div className="space-y-2">
-              <label className={`text-sm font-medium ${!isLightUi ? "text-stone-200" : "text-stone-900"}`}>Text</label>
-              <Textarea
-                value={adminNewsText}
-                onChange={(e) => setAdminNewsText(e.target.value)}
-                placeholder="Beschreibe die Neuigkeit..."
-                rows={4}
-                className={`border-2 resize-none ${!isLightUi ? "border-stone-600 bg-stone-800/60 text-stone-100 placeholder:text-stone-500" : "border-stone-200"}`}
-              />
-            </div>
-            <Button
-              onClick={() => {
-                if (!adminNewsTitle.trim() || !adminNewsText.trim()) {
-                  alert("Bitte fülle Titel und Text aus.");
-                  return;
-                }
-                broadcastNewsMutation.mutate({ title: adminNewsTitle, text: adminNewsText });
-              }}
-              disabled={broadcastNewsMutation.isPending || !adminNewsTitle.trim() || !adminNewsText.trim()}
-              className="w-full bg-emerald-600 hover:bg-emerald-700 text-white"
-            >
-              {broadcastNewsMutation.isPending ? (
-                <Loader2 className="w-4 h-4 animate-spin mr-2" />
-              ) : (
-                <Send className="w-4 h-4 mr-2" />
-              )}
-              An alle senden
-            </Button>
           </div>
         </DialogContent>
       </Dialog>

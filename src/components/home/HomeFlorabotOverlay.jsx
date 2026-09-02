@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "framer-motion";
-import { Settings2, HeartPulse, Sparkles, Gem, ArrowLeft } from "lucide-react";
+import { Settings2, HeartPulse, Sparkles, Gem } from "lucide-react";
 import { useUiTheme } from "@/lib/UiThemeContext";
 import { LockedTooltip } from "@/components/ui/locked-tooltip";
 import FlorabotOverlayShell from "@/components/florabot/FlorabotOverlayShell";
@@ -162,6 +162,10 @@ export default function HomeFlorabotOverlay({
     canGoBack: false,
     onBack: () => {},
   });
+  // Draft/save state for the flat, "anprobieren"-style shop restructure (mirrors Home.jsx's hero stack).
+  const [shopSaveNonce, setShopSaveNonce] = useState(0);
+  const [shopHasUnsavedChanges, setShopHasUnsavedChanges] = useState(false);
+  const [shopDraftOverrides, setShopDraftOverrides] = useState(null);
   const [shopViewportHeight, setShopViewportHeight] = useState(/** @type {number | null} */ (null));
   const onCustomizeRef = useRef(onCustomize);
 
@@ -919,31 +923,31 @@ export default function HomeFlorabotOverlay({
                 <div className="w-full flex gap-2">
                   <button
                     type="button"
-                    onClick={handleBackAction}
+                    onClick={() => {
+                      setIsShopOpen(false);
+                      setShopDraftOverrides(null);
+                      onCustomizeRef.current?.(false);
+                    }}
                     className={`flex-1 h-9 rounded-xl px-3 text-[11px] font-semibold whitespace-nowrap transition-colors inline-flex items-center justify-center gap-1.5 ${
                       isLightUi
                         ? "bg-white/80 text-stone-800 border border-stone-200 hover:bg-white"
                         : "bg-white/10 text-stone-100 border border-white/20 hover:bg-white/15"
                     }`}
                   >
-                    <ArrowLeft className="w-3.5 h-3.5" />
-                    Zurueck
+                    Abbrechen
                   </button>
 
                   <button
                     type="button"
-                    onClick={() => shopActionState?.onAction?.()}
-                    disabled={Boolean(shopActionState?.disabled || shopActionState?.isBusy)}
-                    className={`relative overflow-hidden flex-1 h-9 rounded-xl px-3 text-[11px] font-semibold whitespace-nowrap transition-colors inline-flex items-center justify-center gap-1.5 disabled:cursor-not-allowed ${
+                    onClick={() => setShopSaveNonce((prev) => prev + 1)}
+                    disabled={!shopHasUnsavedChanges}
+                    className={`relative overflow-hidden flex-1 h-9 rounded-xl px-3 text-[11px] font-semibold whitespace-nowrap transition-colors inline-flex items-center justify-center gap-1.5 disabled:opacity-50 ${
                       isLightUi
                         ? "bg-amber-400 text-stone-900 border border-amber-500/70 hover:bg-amber-300"
                         : "bg-amber-500 text-black border border-amber-300/60 hover:bg-amber-400"
                     }`}
                   >
-                    {shopActionState?.isBusy ? "Verarbeite..." : (shopActionState?.label || "Kaufen")}
-                    {(shopActionState?.disabled || shopActionState?.isBusy) ? (
-                      <span className="absolute inset-0 bg-black/45" aria-hidden="true" />
-                    ) : null}
+                    Speichern
                   </button>
                 </div>
               ) : (
@@ -1010,15 +1014,23 @@ export default function HomeFlorabotOverlay({
             <ShopFeatureRoot
               embedded
               showEmbeddedBottomDivider={false}
+              flatMode
+              draftMode
               authId={authId}
               currentUser={currentUser || profile}
               badgeMetrics={badgeMetrics}
               onHeaderMetaChange={() => {}}
               onUserUpdated={onUserUpdated}
-              initialCategory={activeShopCategory}
-              externalActionMode
-              onActionStateChange={setShopActionState}
-              onBackStateChange={setShopBackState}
+              saveNonce={shopSaveNonce}
+              onDraftPreviewChange={setShopDraftOverrides}
+              onUnsavedChange={setShopHasUnsavedChanges}
+              onSaveComplete={(success) => {
+                if (success) {
+                  setIsShopOpen(false);
+                  setShopDraftOverrides(null);
+                  onCustomizeRef.current?.(false);
+                }
+              }}
             />
           </div>
         </motion.div>

@@ -10,14 +10,20 @@ const PROGRESS_TICK_MS = 50;
 const OVERLAY_EXIT_FADE_MS = 350;
 const FLOW_TEXT_SINGLE_LINE_MAX_CHARS = 84;
 const BADGE_LOGO_MIN_SCALE = 0.24;
-const BADGE_LOGO_MAX_SCALE = 1.56;
-const BADGE_LOGO_FILL_HEIGHT_RATIO = 0.98;
-const BADGE_LOGO_FILL_WIDTH_RATIO = 0.96;
-const BADGE_LOGO_VISIBLE_HEIGHT_RATIO = 0.72;
+const BADGE_LOGO_MAX_SCALE = 2.3;
+const BADGE_LOGO_FILL_HEIGHT_RATIO = 0.76;
+const BADGE_LOGO_FILL_WIDTH_RATIO = 1.20;
+// FlorabotLogo now crops its baked-in top margin via translateY(-16%) (see LOGO_LAYER_TOP_MARGIN_PERCENT
+// in FlorabotLogo.jsx), so the visible artwork ends ~14pp earlier within the button's own height than
+// before that fix. This only affects how large the logo renders inside its own (already reserved)
+// viewport - it does NOT move the profile-badges panel below, since the badge/logo unit is absolutely
+// positioned and decoupled from layout flow. To shift the badges panel itself, adjust the flex-grow
+// ratio passed to HomeCollectionStripes vs. its sibling in Home.jsx (search "flex-[0.9]").
+const BADGE_LOGO_VISIBLE_HEIGHT_RATIO = 0.58;
 const BADGE_LOGO_UNIT_HEIGHT_REM = 10;
 const BADGE_LOGO_UNIT_MAX_WIDTH_REM = 22;
 // Only needs to clear the floating name/title overlay now that the badge arc no longer renders here.
-const LOGO_ROW_TOP_REM = .4;
+const LOGO_ROW_TOP_REM = .0;
 
 const clampIndex = (index, size) => {
   if (!Number.isFinite(index) || size <= 0) return 0;
@@ -577,6 +583,7 @@ export default function HomeCollectionStripes({
   onBadgeClick,
   elevateLogo = false,
   className = "",
+  isHealthView = false,
 }) {
   const badgeLogoViewportRef = useRef(/** @type {HTMLDivElement | null} */ (null));
   const badgeLogoUnitRef = useRef(/** @type {HTMLDivElement | null} */ (null));
@@ -587,6 +594,9 @@ export default function HomeCollectionStripes({
   const [isFloatingLogoVisible, setIsFloatingLogoVisible] = useState(false);
   const [badgeLogoScale, setBadgeLogoScale] = useState(1);
   const badgeLogoScaleRef = useRef(1);
+  // Remembers the scale (and its rendered pixel height) computed for the default (content-stack)
+  // view, so the health-view logo permanently locks to that exact size instead of shrinking.
+  const contentStackMaxScaleRef = useRef(/** @type {number | null} */ (null));
 
   useEffect(() => {
     badgeLogoScaleRef.current = badgeLogoScale;
@@ -602,12 +612,15 @@ export default function HomeCollectionStripes({
     const currentUnitScale = Math.max(0.01, badgeLogoScaleRef.current || 1);
     const unitRect = unitNode.getBoundingClientRect();
     const unitHeight = Math.max(1, unitRect.height / currentUnitScale);
-    const unitWidth = Math.max(1, unitRect.width / currentUnitScale);
 
     const logoNode = logoButtonRef.current;
     const logoRect = logoNode?.getBoundingClientRect();
-    // logoHeight: height of logo button in unit-coordinate space (removes unit scale, keeps button's own scale-[1.24])
+    // logoHeight/logoWidth: size of the logo button in unit-coordinate space (removes unit scale,
+    // keeps button's own scale-[1.24]) - the actual rendered artwork footprint, not the unit box.
     const logoHeight = Math.max(1, (logoRect?.height || 0) / currentUnitScale);
+    // Using the unit box's own (fixed, oversized) width here instead of the real logo width used to
+    // deflate widthScale well below heightScale's headroom, silently capping growth on mobile.
+    const logoWidth = Math.max(1, (logoRect?.width || 0) / currentUnitScale);
 
     // Effective content bottom in unit's natural coordinate system:
     // = top offset of logo button + visible portion of logo height.
@@ -617,14 +630,21 @@ export default function HomeCollectionStripes({
     const effectiveUnitHeight = Math.max(1, logoRowTopPx + logoHeight * BADGE_LOGO_VISIBLE_HEIGHT_RATIO);
 
     const heightScale = (availableHeight * BADGE_LOGO_FILL_HEIGHT_RATIO) / effectiveUnitHeight;
-    const widthScale = (availableWidth * BADGE_LOGO_FILL_WIDTH_RATIO) / unitWidth;
-    const nextScale = Math.max(
+    const widthScale = (availableWidth * BADGE_LOGO_FILL_WIDTH_RATIO) / logoWidth;
+    let nextScale = Math.max(
       BADGE_LOGO_MIN_SCALE,
       Math.min(BADGE_LOGO_MAX_SCALE, heightScale, widthScale)
     );
 
+    if (!isHealthView) {
+      contentStackMaxScaleRef.current = nextScale;
+    } else if (contentStackMaxScaleRef.current !== null) {
+      // Lock to the exact content-stack size (not just a ceiling) so the logo never shrinks.
+      nextScale = contentStackMaxScaleRef.current;
+    }
+
     setBadgeLogoScale((prevScale) => (Math.abs(prevScale - nextScale) < 0.01 ? prevScale : nextScale));
-  }, []);
+  }, [isHealthView]);
 
   useEffect(() => {
     /** @type {number | null} */

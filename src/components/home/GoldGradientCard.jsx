@@ -23,7 +23,7 @@ export default function GoldGradientCard({
 
   return (
     <Component
-      className={`relative rounded-3xl shadow-[0_12px_30px_rgba(0,0,0,0.35)] ${className}`}
+      className={`relative rounded-3xl shadow-[0_12px_30px_rgba(0,0,0,0.45)] ${className}`}
       {...rest}
     >
       {blur && (

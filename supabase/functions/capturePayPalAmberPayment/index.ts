@@ -25,15 +25,12 @@ const AMBER_PACKAGES: AmberPackage[] = [
   { price: 7.90, amber: 240 },
 ];
 
-function findPackageByPrice(price: number): AmberPackage | null {
-  return AMBER_PACKAGES.find((pkg) => Math.abs(pkg.price - price) < 0.001) || null;
-}
-
-function extractAmberFromCustomId(customId: string): number | null {
-  const match = /^amber:(\d+):/.exec(customId || "");
+function extractPurchaseFromCustomId(customId: string): { amber: number; authId: string } | null {
+  const match = /^amber:(\d+):([0-9a-f-]{36})$/i.exec(customId || "");
   if (!match) return null;
   const amber = Number(match[1]);
-  return Number.isFinite(amber) && amber > 0 ? amber : null;
+  if (!Number.isFinite(amber) || !AMBER_PACKAGES.some((pkg) => pkg.amber === amber)) return null;
+  return { amber, authId: match[2] };
 }
 
 async function requestPayPalToken(paypalBaseUrl: string, clientId: string, clientSecret: string) {
@@ -118,8 +115,6 @@ Deno.serve(async (req) => {
 
     const body = await req.json().catch(() => ({}));
     const orderID = typeof body?.orderID === "string" ? body.orderID.trim() : "";
-    const requestedAmber = typeof body?.amber === "number" ? body.amber : Number(body?.amber || 0);
-
     if (!orderID) {
       return jsonResponse({ error: "Missing orderID" }, 400);
     }
@@ -148,25 +143,12 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: "Payment not completed", status: capture?.status || "UNKNOWN" }, 400);
     }
 
-    // Determine amber amount from the order's custom_id or from the request
     const purchaseUnit = capture?.purchase_units?.[0];
     const customId = purchaseUnit?.payments?.captures?.[0]?.custom_id || purchaseUnit?.custom_id || "";
-    let amberToCredit = extractAmberFromCustomId(customId);
-
-    // Fallback: validate via paid amount
-    if (!amberToCredit) {
-      const paidValue = Number(purchaseUnit?.payments?.captures?.[0]?.amount?.value || purchaseUnit?.amount?.value || 0);
-      const matchedPkg = findPackageByPrice(paidValue);
-      if (matchedPkg) {
-        amberToCredit = matchedPkg.amber;
-      } else if (requestedAmber > 0 && AMBER_PACKAGES.some((pkg) => pkg.amber === requestedAmber)) {
-        amberToCredit = requestedAmber;
-      }
-    }
-
-    if (!amberToCredit || amberToCredit <= 0) {
-      console.error("[capturePayPalAmberPayment] Could not determine amber amount", { customId, capture });
-      return jsonResponse({ error: "Could not determine amber amount from payment" }, 500);
+    const purchase = extractPurchaseFromCustomId(customId);
+    if (!purchase || purchase.authId !== user.id) {
+      console.error("[capturePayPalAmberPayment] Invalid purchase reference", { customId, orderID, authId: user.id });
+      return jsonResponse({ error: "Payment does not belong to this account" }, 400);
     }
 
     // Credit amber to user wallet
@@ -174,16 +156,16 @@ Deno.serve(async (req) => {
       auth: { persistSession: false },
     });
 
-    const eventReference = `amber-purchase:${orderID}:${amberToCredit}`;
+    const eventReference = `amber-purchase:${orderID}:${purchase.amber}`;
 
     const { error: rpcError } = await adminClient.rpc("wallet_grant_currency", {
       p_auth_id: user.id,
       p_currency_code: "amber",
       p_event_source: "paypal_amber_purchase",
       p_event_reference: eventReference,
-      p_amount: amberToCredit,
+      p_amount: purchase.amber,
       p_direction: "credit",
-      p_metadata: { orderID, amber: amberToCredit },
+      p_metadata: { orderID, amber: purchase.amber },
     });
 
     if (rpcError) {
@@ -194,8 +176,8 @@ Deno.serve(async (req) => {
     return jsonResponse(
       {
         success: true,
-        amber: amberToCredit,
-        message: `${amberToCredit} Bernstein wurden deinem Konto gutgeschrieben.`,
+        amber: purchase.amber,
+        message: `${purchase.amber} Bernstein wurden deinem Konto gutgeschrieben.`,
       },
       200,
     );

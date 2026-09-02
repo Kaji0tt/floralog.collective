@@ -909,3 +909,8 @@ button:focus-visible {
   mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
   mask-composite: exclude;
 }
+
+/* Half-strength variant for smaller/denser containers (e.g. bottom nav bar). */
+.gold-gradient-border-mask-thin {
+  padding: 0.75px;
+}

@@ -1,5 +1,4 @@
 import { Leaf } from "lucide-react";
-import GoldGradientCard from "@/components/home/GoldGradientCard";
 import BadgeCircleIcon from "@/components/home/BadgeCircleIcon";
 
 const BADGE_RANK_ICON_STYLE = {
@@ -19,6 +18,11 @@ const formatCompactValue = (value) => {
 
 // Badges are centered on the card's top edge; left/right badges are lifted further above it.
 const SIDE_BADGE_EXTRA_LIFT_PX = 15;
+// BadgeCircleIcon's default size (see BadgeCircleIcon.jsx); translateY(-75%) leaves this fraction
+// of the circle below the column's top edge, so the column needs at least that much height or the
+// sibling below (RewardCardWrapper) sits directly under it and the circle overlaps it.
+const BADGE_CIRCLE_SIZE_REM = 3.5;
+const BADGE_CIRCLE_VISIBLE_BELOW_TOP_REM = BADGE_CIRCLE_SIZE_REM * 0.25;
 
 /**
  * Dedicated profile-badges container: 3 equal columns, each showing the badge icon
@@ -47,8 +51,12 @@ export default function HomeProfileBadgesPanel({
   };
 
   return (
-    <GoldGradientCard className={className} contentClassName="px-2.5 pb-3 pt-3" blur>
-      <div className="grid grid-cols-3 gap-2" aria-label="Ausgewählte Abzeichen">
+    <div className={className}>
+      <div
+        className="grid grid-cols-3"
+        style={{ minHeight: `${BADGE_CIRCLE_VISIBLE_BELOW_TOP_REM}rem` }}
+        aria-label="Ausgewählte Abzeichen"
+      >
         {badgeSlots.map((badge, slotIndex) => {
           const isSideSlot = slotIndex !== 1;
           const circleTransform = isSideSlot
@@ -57,7 +65,7 @@ export default function HomeProfileBadgesPanel({
 
           if (!badge) {
             return (
-              <div key={`badge-slot-empty-${slotIndex}`} className="relative flex min-w-0 flex-col items-center gap-1 pt-5 text-center">
+              <div key={`badge-slot-empty-${slotIndex}`} className="relative min-w-0">
                 <BadgeCircleIcon
                   className="absolute left-1/2 top-0 z-10 text-[9px] font-medium text-stone-100"
                   style={{ transform: `translateX(-50%) ${circleTransform}` }}
@@ -74,7 +82,7 @@ export default function HomeProfileBadgesPanel({
           const valueLabel = resolveBadgeValueLabel(badge);
 
           return (
-            <div key={badge.id} className="relative flex min-w-0 flex-col items-center gap-1 pt-5 text-center">
+            <div key={badge.id} className="relative min-w-0">
               <BadgeCircleIcon
                 className="absolute left-1/2 top-0 z-10 shrink-0"
                 style={{ transform: `translateX(-50%) ${circleTransform}` }}
@@ -86,16 +94,10 @@ export default function HomeProfileBadgesPanel({
                   {valueLabel}
                 </span>
               </BadgeCircleIcon>
-              <p className="w-full truncate text-[10px] font-semibold leading-tight">{badge.label}</p>
-              {badge.description && (
-                <p className={`text-[9px] leading-snug ${isLightUi ? "text-stone-600" : "text-stone-300/70"}`}>
-                  {badge.description}
-                </p>
-              )}
             </div>
           );
         })}
       </div>
-    </GoldGradientCard>
+    </div>
   );
 }

@@ -45,10 +45,10 @@ const DEFAULT_QUEST_SEED_REWARD_BY_TYPE = {
   monthly: 1000,
 };
 
-const ALLOWED_ACHIEVEMENTS_TABS = new Set(["quests", "achievements", "stats"]);
+const ALLOWED_ACHIEVEMENTS_TABS = new Set(["quests", "stats"]);
 
 const resolveAchievementsTab = (tabValue) => (
-  ALLOWED_ACHIEVEMENTS_TABS.has(tabValue) ? tabValue : "stats"
+  ALLOWED_ACHIEVEMENTS_TABS.has(tabValue) ? tabValue : "quests"
 );
 
 /**
@@ -220,11 +220,10 @@ export function useAchievementsFeatureContent({
   const [showPersonalStats, setShowPersonalStats] = useState(true);
   const [statsSection, setStatsSection] = useState("global");
   const [globalSubSection, setGlobalSubSection] = useState("scans");
-  // Layered navigation: null = overview, "leaderboard_scope", "leaderboard", "quests", "achievements"
+  // Layered navigation: null = overview, "leaderboard_scope", "leaderboard", "quests"
   const [achievementsView, setAchievementsView] = useState(() => {
     const tab = resolveAchievementsTab(String(initialTab || "").toLowerCase());
     if (tab === "quests") return "quests";
-    if (tab === "achievements") return "achievements";
     return null;
   });
   const _prevAchievementsViewRef = useRef(achievementsView);
@@ -1153,11 +1152,10 @@ export function useAchievementsFeatureContent({
   useEffect(() => {
     if (!embedded || typeof onHeaderMetaChange !== "function") return;
     const titleMap = {
-      null: "Erfolge",
+      null: "Aufgaben",
       leaderboard_scope: "Rangliste",
       leaderboard: statsComparisonScope === "season" ? `Rangliste · ${activeSeason?.title || "Saison"}` : "Rangliste · All-Time",
       quests: "Aufgaben",
-      achievements: "Erfolge",
     };
     const backHandler = achievementsView !== null
       ? () => {
@@ -1169,7 +1167,7 @@ export function useAchievementsFeatureContent({
         }
       : null;
     onHeaderMetaChange({
-      title: titleMap[achievementsView] ?? "Erfolge",
+      title: titleMap[achievementsView] ?? "Aufgaben",
       subtitle: achievementsView === "leaderboard" ? "Scan-Insights und globaler Vergleich" : "Dein Fortschritt im Überblick",
       backHandler,
     });
@@ -2011,12 +2009,6 @@ export function useAchievementsFeatureContent({
       active: activeQuests.length,
       total: activeQuests.length + completedQuests.length,
     },
-    {
-      id: "achievements",
-      title: "Erfolge",
-      active: unlockedCount,
-      total: achievements.length,
-    },
   ];
 
   const tabsHeaderClass = embedded
@@ -2237,8 +2229,8 @@ export function useAchievementsFeatureContent({
           <div className={achievementsContentClass} style={embeddedContentMaskStyle}>
             {!embedded && (
               <div className="px-1 pt-3 pb-4">
-                <h1 className="text-xl sm:text-2xl font-bold text-stone-900">Erfolge</h1>
-                <p className="text-xs text-stone-600 mt-0.5">Bestenlisten, Aufgaben und Errungenschaften</p>
+                <h1 className="text-xl sm:text-2xl font-bold text-stone-900">Aufgaben</h1>
+                <p className="text-xs text-stone-600 mt-0.5">Bestenlisten und Aufgaben</p>
               </div>
             )}
             <div className="space-y-3" style={embedded ? { paddingTop: listTopFadePx, paddingBottom: listBottomFadePx } : undefined}>
@@ -2258,15 +2250,6 @@ export function useAchievementsFeatureContent({
                 accent="themes"
                 showChevron
                 onClick={() => setAchievementsView("quests")}
-              />
-              <CollectionCategoryEntryCard
-                title="Erfolge"
-                description={`${unlockedCount} von ${achievements.length} Erfolgen freigeschaltet`}
-                info="Erfolge, Titel und Belohnungen"
-                icon={Trophy}
-                accent="browse"
-                showChevron
-                onClick={() => setAchievementsView("achievements")}
               />
             </div>
           </div>
@@ -2295,110 +2278,6 @@ export function useAchievementsFeatureContent({
                 showChevron
                 onClick={() => { setStatsComparisonScope("alltime"); setAchievementsView("leaderboard"); setIsLeaderboardRefreshing(true); }}
               />
-            </div>
-          </div>
-        )}
-
-        {/* ── ERFOLGE ── */}
-        {achievementsView === "achievements" && (
-          <div className={achievementsContentClass} style={embeddedContentMaskStyle}>
-
-            <div className="max-w-6xl mx-auto" style={embedded ? { paddingTop: listTopFadePx, paddingBottom: listBottomFadePx } : undefined}>
-              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {sortedAchievements.map((achievement, index) => {
-                    const isUnlocked = userAchievements.some((ua) => ua.achievement_id === achievement.id);
-
-                    // Lade den zugehörigen Reward
-                    const achievementReward = achievement.reward_name ? rewards.find(r => r.name === achievement.reward_name) : null;
-                    const rewardTitleValue = resolveTitleValue(achievementReward?.value, achievementReward?.display_name);
-                    const isCurrentTitle = achievementReward?.type === 'title' && resolveTitleValue(user?.selected_title) === rewardTitleValue;
-
-                    return (
-                      <motion.div
-                        key={achievement.id}
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: index * 0.05 }}>
-
-                <Card className={`border shadow-sm transition-all duration-300 ${
-                  isUnlocked
-                  ? achievementUnlockedCardClass
-                  : achievementLockedCardClass}`
-                  }>
-                  <CardContent className="p-3">
-                    <div className="flex items-start gap-2">
-                      <div className={`text-2xl ${isUnlocked ? '' : 'grayscale opacity-30'} flex-shrink-0`}>
-                        {achievement.icon_emoji}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-1 mb-1">
-                          <Badge className={`${getRarityColor(achievement.rarity)} text-white font-semibold text-[10px] px-1 py-0`}>
-                            {achievement.rarity}
-                          </Badge>
-                          {isUnlocked &&
-                                  <Trophy className="w-3 h-3 text-amber-500" />
-                                  }
-                        </div>
-                        <h3 className={`text-sm font-bold mb-1 ${isUnlocked ? achievementTitleClass : achievementLockedTitleClass}`}>
-                          {achievement.title}
-                        </h3>
-                        <p className={`text-xs mb-1 ${isUnlocked ? achievementMutedTextClass : achievementLockedMutedTextClass}`}>
-                          {achievement.description}
-                        </p>
-
-                        {achievementReward && (
-                          <div className={`flex items-center gap-1 text-xs mt-2 px-2 py-1 rounded-lg ${
-                            isUnlocked ? achievementRewardClass : achievementLockedRewardClass
-                          }`}>
-                            <Gift className="w-3 h-3" />
-                            <span className="font-semibold">{achievementReward.display_name}</span>
-                          </div>
-                        )}
-                        
-                        {achievementReward && achievementReward.type === 'title' && isUnlocked &&
-                                <Button
-                                  onClick={() => handleSelectTitle(achievement, achievementReward)}
-                                  disabled={isCurrentTitle || updateTitleMutation.isPending}
-                                  className={`w-full text-[10px] h-6 mt-1 ${
-                                  isCurrentTitle ?
-                                  'bg-green-600 hover:bg-green-600' :
-                                  'bg-purple-600 hover:bg-purple-700'}`
-                                  }
-                                  size="sm">
-
-                            {isCurrentTitle ?
-                                  <>
-                                <CheckCircle className="w-2 h-2 mr-1" />
-                                Aktiv
-                              </> :
-
-                                  `Titel: ${rewardTitleValue}`
-                                  }
-                          </Button>
-                                }
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-                </motion.div>);
-
-                  })}
-
-                {sortedAchievements.length === 0 &&
-                  <Card className={`border-2 backdrop-blur-md ${
-                    isLightUi
-                      ? "border-stone-200 bg-white/80"
-                      : "border-[#f0e5a5]/25 bg-black/35"
-                  }`}>
-                    <CardContent className="p-12 text-center">
-                      <Trophy className={`w-16 h-16 mx-auto mb-4 ${isLightUi ? "text-stone-400" : "text-stone-500"}`} />
-                      <h3 className={`text-xl font-bold mb-2 ${statsTitleClass}`}>
-                        Noch keine Erfolge verfügbar
-                      </h3>
-                    </CardContent>
-                  </Card>
-                  }
-              </div>
             </div>
           </div>
         )}
