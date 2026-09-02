@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { CalendarDays, CheckCircle2, HeartPulse, InspectionPanel, Leaf, Target } from "lucide-react";
-import { LockedTooltip } from "@/components/ui/locked-tooltip";
+import { CalendarDays, CheckCircle2, HeartPulse, InspectionPanel, Leaf } from "lucide-react";
 import FlorabotLogo from "@/components/florabot/FlorabotLogo";
+import GoldGradientCard from "@/components/home/GoldGradientCard";
 
 const SWIPE_THRESHOLD_PX = 36;
 const SLIDE_DURATION_MS = 6500;
@@ -10,38 +10,26 @@ const PROGRESS_TICK_MS = 50;
 const OVERLAY_EXIT_FADE_MS = 350;
 const FLOW_TEXT_SINGLE_LINE_MAX_CHARS = 84;
 const BADGE_LOGO_MIN_SCALE = 0.24;
-const BADGE_LOGO_MAX_SCALE = 1.56;
-const BADGE_LOGO_FILL_HEIGHT_RATIO = 0.98;
-const BADGE_LOGO_FILL_WIDTH_RATIO = 0.96;
-const BADGE_LOGO_VISIBLE_HEIGHT_RATIO = 0.72;
+const BADGE_LOGO_MAX_SCALE = 2.3;
+const BADGE_LOGO_FILL_HEIGHT_RATIO = 0.76;
+const BADGE_LOGO_FILL_WIDTH_RATIO = 1.20;
+// FlorabotLogo now crops its baked-in top margin via translateY(-16%) (see LOGO_LAYER_TOP_MARGIN_PERCENT
+// in FlorabotLogo.jsx), so the visible artwork ends ~14pp earlier within the button's own height than
+// before that fix. This only affects how large the logo renders inside its own (already reserved)
+// viewport - it does NOT move the profile-badges panel below, since the badge/logo unit is absolutely
+// positioned and decoupled from layout flow. To shift the badges panel itself, adjust the flex-grow
+// ratio passed to HomeCollectionStripes vs. its sibling in Home.jsx (search "flex-[0.9]").
+const BADGE_LOGO_VISIBLE_HEIGHT_RATIO = 0.58;
 const BADGE_LOGO_UNIT_HEIGHT_REM = 10;
 const BADGE_LOGO_UNIT_MAX_WIDTH_REM = 22;
-const BADGE_ROW_HEIGHT_REM = 7.25;
-const LOGO_ROW_TOP_REM = 4.9;
-const BADGE_TOP_SIDE_REM = 2.9;
-const BADGE_TOP_CENTER_REM = 1.1;
-const FLORABOT_NAME_FALLBACK = "Florabot";
+// Only needs to clear the floating name/title overlay now that the badge arc no longer renders here.
+const LOGO_ROW_TOP_REM = .0;
 
 const clampIndex = (index, size) => {
   if (!Number.isFinite(index) || size <= 0) return 0;
   if (index < 0) return size - 1;
   if (index >= size) return 0;
   return index;
-};
-
-const formatCompactValue = (value) => {
-  const safeValue = Math.max(0, Number(value) || 0);
-  if (safeValue < 1000) return String(Math.round(safeValue));
-  if (safeValue < 1000000) return `${Math.round(safeValue / 1000)}k`;
-  return `${Math.round(safeValue / 1000000)}m`;
-};
-
-const BADGE_RANK_ICON_STYLE = {
-  gray: "text-[#9ca3af]",
-  white: "text-white",
-  bronze: "text-[#cd7f32]",
-  silver: "text-[#c0c7d1]",
-  gold: "text-[#f5c542]",
 };
 
 export function HomeMilestoneStripe({
@@ -442,8 +430,9 @@ export function HomeMilestoneStripe({
 
   return (
     <div ref={stripeRootRef} className={`relative min-h-0 flex-1 ${className}`}>
-      <div
-        className={`relative h-full flex flex-col overflow-hidden rounded-2xl border border-[#f0e5a5]/45 bg-black/52 text-stone-100 ${
+      <GoldGradientCard
+        className="h-full"
+        contentClassName={`relative h-full flex flex-col overflow-hidden text-stone-100 ${
           isCompactLayout ? "px-2.5 py-1.5" : "px-3 py-2.5"
         }`}
         style={isCompactLayout ? { height: `${compactStripeHeightRem.toFixed(2)}rem` } : undefined}
@@ -582,24 +571,22 @@ export function HomeMilestoneStripe({
           />
         </div>
 
-      </div>
+      </GoldGradientCard>
     </div>
   );
 }
 
 export default function HomeCollectionStripes({
-  isLightUi,
   profile,
   logoAssets = [],
-  selectedProfileBadges = [],
   onLogoClick,
   onBadgeClick,
   elevateLogo = false,
   showFloatingLogoNameBadge = true,
   playerSeeds = 0,
   className = "",
+  isHealthView = false,
 }) {
-  const collectionRootRef = useRef(/** @type {HTMLDivElement | null} */ (null));
   const badgeLogoViewportRef = useRef(/** @type {HTMLDivElement | null} */ (null));
   const badgeLogoUnitRef = useRef(/** @type {HTMLDivElement | null} */ (null));
   const logoButtonRef = useRef(/** @type {HTMLButtonElement | null} */ (null));
@@ -609,6 +596,9 @@ export default function HomeCollectionStripes({
   const [isFloatingLogoVisible, setIsFloatingLogoVisible] = useState(false);
   const [badgeLogoScale, setBadgeLogoScale] = useState(1);
   const badgeLogoScaleRef = useRef(1);
+  // Remembers the scale (and its rendered pixel height) computed for the default (content-stack)
+  // view, so the health-view logo permanently locks to that exact size instead of shrinking.
+  const contentStackMaxScaleRef = useRef(/** @type {number | null} */ (null));
 
   useEffect(() => {
     badgeLogoScaleRef.current = badgeLogoScale;
@@ -624,12 +614,15 @@ export default function HomeCollectionStripes({
     const currentUnitScale = Math.max(0.01, badgeLogoScaleRef.current || 1);
     const unitRect = unitNode.getBoundingClientRect();
     const unitHeight = Math.max(1, unitRect.height / currentUnitScale);
-    const unitWidth = Math.max(1, unitRect.width / currentUnitScale);
 
     const logoNode = logoButtonRef.current;
     const logoRect = logoNode?.getBoundingClientRect();
-    // logoHeight: height of logo button in unit-coordinate space (removes unit scale, keeps button's own scale-[1.24])
+    // logoHeight/logoWidth: size of the logo button in unit-coordinate space (removes unit scale,
+    // keeps button's own scale-[1.24]) - the actual rendered artwork footprint, not the unit box.
     const logoHeight = Math.max(1, (logoRect?.height || 0) / currentUnitScale);
+    // Using the unit box's own (fixed, oversized) width here instead of the real logo width used to
+    // deflate widthScale well below heightScale's headroom, silently capping growth on mobile.
+    const logoWidth = Math.max(1, (logoRect?.width || 0) / currentUnitScale);
 
     // Effective content bottom in unit's natural coordinate system:
     // = top offset of logo button + visible portion of logo height.
@@ -639,14 +632,21 @@ export default function HomeCollectionStripes({
     const effectiveUnitHeight = Math.max(1, logoRowTopPx + logoHeight * BADGE_LOGO_VISIBLE_HEIGHT_RATIO);
 
     const heightScale = (availableHeight * BADGE_LOGO_FILL_HEIGHT_RATIO) / effectiveUnitHeight;
-    const widthScale = (availableWidth * BADGE_LOGO_FILL_WIDTH_RATIO) / unitWidth;
-    const nextScale = Math.max(
+    const widthScale = (availableWidth * BADGE_LOGO_FILL_WIDTH_RATIO) / logoWidth;
+    let nextScale = Math.max(
       BADGE_LOGO_MIN_SCALE,
       Math.min(BADGE_LOGO_MAX_SCALE, heightScale, widthScale)
     );
 
+    if (!isHealthView) {
+      contentStackMaxScaleRef.current = nextScale;
+    } else if (contentStackMaxScaleRef.current !== null) {
+      // Lock to the exact content-stack size (not just a ceiling) so the logo never shrinks.
+      nextScale = contentStackMaxScaleRef.current;
+    }
+
     setBadgeLogoScale((prevScale) => (Math.abs(prevScale - nextScale) < 0.01 ? prevScale : nextScale));
-  }, []);
+  }, [isHealthView]);
 
   useEffect(() => {
     /** @type {number | null} */
@@ -807,30 +807,6 @@ export default function HomeCollectionStripes({
     };
   }, [badgeLogoScale, elevateLogo, updateFloatingLogoRect]);
 
-  const selectedBadges = Array.isArray(selectedProfileBadges)
-    ? selectedProfileBadges.filter(Boolean).slice(0, 3)
-    : [];
-  const badgeSlots = Array.from({ length: 3 }, (_, index) => selectedBadges[index] || null);
-  const badgeArcPositions = [
-    { left: "16.6667%", topRem: BADGE_TOP_SIDE_REM },
-    { left: "50%", topRem: BADGE_TOP_CENTER_REM },
-    { left: "83.3333%", topRem: BADGE_TOP_SIDE_REM },
-  ];
-  const badgeGlassClassName = "border-[#f0e5a5]/55 bg-black/88 text-stone-50 shadow-[inset_0_1px_0_rgba(255,255,255,0.24),0_12px_30px_rgba(0,0,0,0.4)] backdrop-blur-xl";
-  const florabotName = String(profile?.bot_name || FLORABOT_NAME_FALLBACK).trim() || FLORABOT_NAME_FALLBACK;
-  const florabotNameLabel = florabotName.length > 26 ? `${florabotName.slice(0, 25)}…` : florabotName;
-  const florabotNameBadgeClassName = `inline-flex max-w-[11.5rem] items-center justify-center rounded-full border px-3 py-1 text-[0.68rem] font-semibold uppercase tracking-[0.04em] ${badgeGlassClassName}`;
-
-  const renderFlorabotNameBadge = (extraClassName = "") => (
-    <div
-      className={`${florabotNameBadgeClassName} ${extraClassName}`.trim()}
-      aria-label={`Florabot Name: ${florabotName}`}
-      title={florabotName}
-    >
-      <span className="truncate">{florabotNameLabel}</span>
-    </div>
-  );
-
   const floatingLogoPortal =
     isFloatingLogoMounted &&
     floatingLogoRect &&
@@ -869,22 +845,11 @@ export default function HomeCollectionStripes({
         )
       : null;
 
-  const resolveBadgeValueLabel = (badge) => {
-    if (!badge) return "-";
-    if (badge.id === "seed_rank_medal") {
-      return formatCompactValue(playerSeeds);
-    }
-    if (badge.id === "distance_waypoints") {
-      return String(badge.valueLabel || "-").replace(/\s*km$/i, "").trim();
-    }
-    return String(badge.valueLabel || "-");
-  };
-
   return (
-    <div ref={collectionRootRef} className={`flex min-h-0 flex-col gap-2 ${className}`}>
+    <div className={`flex min-h-0 flex-col gap-2 ${className}`}>
       <div
         ref={badgeLogoViewportRef}
-        className="relative min-h-0 flex-1 overflow-hidden text-stone-100"
+        className="relative min-h-0 flex-1 overflow-visible text-stone-100"
         aria-label="Florabot und Abzeichen"
       >
         <div
@@ -969,25 +934,21 @@ export default function HomeCollectionStripes({
           </div>
 
           <div className="absolute inset-x-0 z-[120] flex justify-center" style={{ top: `${LOGO_ROW_TOP_REM}rem` }}>
-            <div className="flex flex-col items-center gap-2">
-              <button
-                type="button"
-                ref={logoButtonRef}
-                data-logo-click-target="true"
-                onClick={() => onLogoClick?.()}
-                className={`relative shrink-0 scale-[1.24] ${elevateLogo ? "z-[260]" : ""}`}
-                aria-label="Florabot Overlay öffnen"
-              >
-                <FlorabotLogo
-                  profile={profile}
-                  logoAssets={logoAssets}
-                  sizeClass="w-[12.75rem] h-[12.75rem] sm:w-[14.75rem] sm:h-[14.75rem]"
-                  padding="p-[7%]"
-                  className="drop-shadow-[0_0_28px_rgba(190,242,100,0.5)]"
-                />
-              </button>
-              {renderFlorabotNameBadge("pointer-events-auto")}
-            </div>
+            <button
+              type="button"
+              ref={logoButtonRef}
+              data-logo-click-target="true"
+              onClick={() => onLogoClick?.()}
+              className={`relative shrink-0 scale-[1.24] ${elevateLogo ? "z-[260]" : ""}`}
+              aria-label="Florabot Overlay öffnen"
+            >
+              <FlorabotLogo
+                profile={profile}
+                logoAssets={logoAssets}
+                sizeClass="w-[12.75rem] h-[12.75rem] sm:w-[14.75rem] sm:h-[14.75rem]"
+                padding="p-[7%]"
+              />
+            </button>
           </div>
           </div>
         </div>
