@@ -215,6 +215,15 @@ export function useAchievementsFeatureContent({
   const [newAchievements, setNewAchievements] = useState([]);
   const [currentAchievementIndex, setCurrentAchievementIndex] = useState(0);
   const [showCompleted, setShowCompleted] = useState(true);
+  const [expandedQuestIds, setExpandedQuestIds] = useState(() => new Set());
+  const toggleQuestExpanded = (id) => {
+    setExpandedQuestIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
   const [showGlobalComparisons, setShowGlobalComparisons] = useState(true);
   const [showWeeklyScore, setShowWeeklyScore] = useState(true);
   const [showPersonalStats, setShowPersonalStats] = useState(true);
@@ -424,7 +433,8 @@ export function useAchievementsFeatureContent({
 
   const { data: plants = [] } = useQuery({
     queryKey: ['plants'],
-    queryFn: () => Query.Plant.list(),
+    // listAll() - quest/species matching below needs the complete catalog, list() truncates at 1000 rows.
+    queryFn: () => Query.Plant.listAll(),
     staleTime: 10 * 60 * 1000, // 10 Minuten - ändert sich selten
   });
 
@@ -1107,7 +1117,7 @@ export function useAchievementsFeatureContent({
             type: "questCompleted",
             questTitle,
             rewardName: rewardLabel,
-            seedReward: totalSeedReward,
+            seedReward: questSeedReward,
           },
         },
       });
@@ -1234,6 +1244,8 @@ export function useAchievementsFeatureContent({
       {questFeedback && (
         <ScanFeedbackNotification
           feedback={questFeedback}
+          profile={user}
+          logoAssets={logoAssets}
           shareSnapshotBackgroundImageUrl={user?.background_image_url || null}
           shareSnapshotBackgroundColor={user?.background_color || null}
           onComplete={() => {
@@ -2571,6 +2583,7 @@ export function useAchievementsFeatureContent({
                   : null;
 
                 const QuestIcon = quest.isCompleted ? CheckCircle2 : Target;
+                const isExpanded = expandedQuestIds.has(quest.id);
 
                 return (
                   <motion.div
@@ -2580,7 +2593,16 @@ export function useAchievementsFeatureContent({
                     transition={{ delay: index * 0.05 }}
                   >
                     <div
-                      className="relative w-full rounded-[1.35rem] border shadow-[0_16px_42px_rgba(0,0,0,0.34)] overflow-hidden"
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => toggleQuestExpanded(quest.id)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          toggleQuestExpanded(quest.id);
+                        }
+                      }}
+                      className="relative w-full rounded-[1.35rem] border shadow-[0_16px_42px_rgba(0,0,0,0.34)] overflow-hidden cursor-pointer"
                       style={{
                         background: `linear-gradient(145deg, ${accent.tint} 0%, rgba(10,13,19,0.86) 58%, rgba(7,10,16,0.94) 100%)`,
                         borderColor: accent.border,
@@ -2615,7 +2637,7 @@ export function useAchievementsFeatureContent({
                           <h3 className="text-lg font-semibold text-white leading-tight tracking-[0.01em]">{quest.title}</h3>
 
                           {/* Description */}
-                          <p className="text-sm text-white/80 mt-0.5 line-clamp-2 leading-snug">{quest.description}</p>
+                          <p className={`text-sm text-white/80 mt-0.5 leading-snug ${isExpanded ? "" : "line-clamp-2"}`}>{quest.description}</p>
 
                           {/* Target badge */}
                           {(quest.target_species_name || quest.target_genus_name) && (
@@ -2672,7 +2694,8 @@ export function useAchievementsFeatureContent({
                                 )}
                                 {quest.canRedeem ? (
                                   <Button
-                                    onClick={() => {
+                                    onClick={(e) => {
+                                      e.stopPropagation();
                                       const allCompleted = [...userQuests, ...userWeeklyQuests, ...userMonthlyQuests, ...userCollectionQuests].filter((q) => q.redeemed);
                                       redeemQuestMutation.mutate({
                                         userQuestId: quest.userQuestId,

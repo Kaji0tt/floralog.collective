@@ -2,34 +2,31 @@ import { useEffect } from "react";
 import { motion, AnimatePresence, useAnimationControls } from "framer-motion";
 import { LockedTooltip } from "@/components/ui/locked-tooltip";
 import { useUiTheme } from "@/lib/UiThemeContext";
+import ScanStreakRewardTrack from "@/components/home/ScanStreakRewardTrack";
 
 const HEALTH_TOOLTIP_TEXT = {
   de: {
     status:
       "Der Pflanzenstatus ist der Gesamtzustand aus Energie, Datenqualitaet und Pflege. Er beeinflusst, wie stabil und lohnend dein taeglicher Fortschritt ist.",
-    watering:
-      "Giessen erhoeht Pflege. Tippe auf den Giessen-Button, solange taegliche Versuche verfuegbar sind. Mehr Pflege verbessert Multiplikatoren und Belohnungen.",
     stat: {
       energy:
         "Energie bekommst du vor allem durch gelaufene Scan-Distanz. Mehr Energie vergroessert deine Zone und verbessert den taeglichen Energiegewinn.",
       "data-quality":
         "Datenqualitaet bekommst du durch Scans innerhalb aktiver Zonen. Mehr Datenqualitaet erhoeht die Anzahl deiner taeglichen Zonen.",
       care:
-        "Pflege bekommst du durch Giessen und zusaetzliche Interaktionen. Mehr Pflege verbessert Belohnungs-Multiplikatoren und taegliche Zone-Rerolls.",
+        "Pflege bekommst du durch deinen taeglichen Scan-Streak sowie erhaltene Likes. Mehr Pflege verbessert Belohnungs-Multiplikatoren und taegliche Zone-Rerolls.",
     },
   },
   en: {
     status:
       "Plant status is your overall state from Energy, Data Quality, and Care. It affects how stable and rewarding your daily progress is.",
-    watering:
-      "Watering increases Care. Tap the watering button while daily attempts are available. More Care improves multipliers and rewards.",
     stat: {
       energy:
         "You gain Energy mainly from scanned walking distance. More Energy expands your zone and improves daily energy gain.",
       "data-quality":
         "You gain Data Quality by scanning within active zones. Higher Data Quality increases your daily zone count.",
       care:
-        "You gain Care through watering and additional interactions. Higher Care improves reward multipliers and daily zone rerolls.",
+        "You gain Care through your daily scan streak and likes received. Higher Care improves reward multipliers and daily zone rerolls.",
     },
   },
 };
@@ -57,24 +54,8 @@ export default function PlantHeroHealthPanel({
   healthStateBonus,
   healthStats,
   isLoading = false,
-  isDailyCareLoading = false,
-  wateringCountToday = 0,
-  wateringLimitPerDay = 0,
-  remainingWatersToday = 0,
-  isWateringPending = false,
-  isFertilizerPending = false,
-  isFertilizerInventoryLoading = false,
-  fertilizerInventoryItems = [],
-  activeFertilizerItemId = null,
-  activeFertilizerRemainingDays = 0,
-  activeDecayEffects: _activeDecayEffects = [],
-  activeDecayPercent = 0,
-  careActionMessage = null,
   careGainFeedback = null,
-  onWaterPlant = () => {},
-  onUseFertilizerItem = () => {},
-  onOpenFertilizerShop = () => {},
-  showCareActions = true,
+  scanStreakStatus = null,
 }) {
   const { isLightUi } = useUiTheme();
   const tooltipLanguage = resolveTooltipLanguage(
@@ -86,18 +67,18 @@ export default function PlantHeroHealthPanel({
   );
   const tooltipText = HEALTH_TOOLTIP_TEXT[tooltipLanguage] || HEALTH_TOOLTIP_TEXT.de;
   const safeHealthStats = Array.isArray(healthStats) ? healthStats : [];
-  const wateringPulseControls = useAnimationControls();
+  const careGainPulseControls = useAnimationControls();
 
   useEffect(() => {
     if (!careGainFeedback?.id || Number(careGainFeedback?.delta || 0) <= 0) {
       return;
     }
 
-    wateringPulseControls.start({
+    careGainPulseControls.start({
       scale: [1, 1.06, 0.98, 1],
       transition: { duration: 0.34, ease: "easeOut" },
     });
-  }, [careGainFeedback?.id, careGainFeedback?.delta, wateringPulseControls]);
+  }, [careGainFeedback?.id, careGainFeedback?.delta, careGainPulseControls]);
 
   return (
     <motion.div
@@ -201,38 +182,11 @@ export default function PlantHeroHealthPanel({
           </div>
         ))}
 
-        {showCareActions && (
-          <div className="grid grid-cols-2 gap-2 pt-1">
-            <LockedTooltip
-              contentClassName={isLightUi ? "" : "text-white/90"}
-              content={<span className="text-xs leading-relaxed">{tooltipText.watering}</span>}
-            >
-              <motion.button
-                type="button"
-                onClick={onWaterPlant}
-                disabled={isLoading || isDailyCareLoading || isWateringPending || remainingWatersToday <= 0}
-                animate={wateringPulseControls}
-                className={`h-14 rounded-xl border flex flex-col items-center justify-center disabled:opacity-60 ${
-                  isLightUi
-                    ? "border-[#c8ac62]/55 bg-white/60 text-stone-800"
-                    : "border-[#f0e5a5]/45 bg-black/40 text-stone-100"
-                }`}
-              >
-                <span className="text-[11px] md:text-xs font-semibold leading-none">
-                  Gießen
-                </span>
-                <span className="text-[10px] md:text-[11px] mt-1 leading-none opacity-90">
-                  {(isLoading || isDailyCareLoading) ? "..." : `${wateringCountToday}/${wateringLimitPerDay}`}
-                </span>
-              </motion.button>
-            </LockedTooltip>
-          </div>
-        )}
-
-        {!!careActionMessage && (
-          <div className={`text-[10px] md:text-[11px] ${isLightUi ? "text-stone-700/90" : "text-stone-200/90"}`}>
-            {careActionMessage}
-          </div>
+        {scanStreakStatus && (
+          <ScanStreakRewardTrack
+            streakDays={scanStreakStatus.streakDays}
+            jokerCount={scanStreakStatus.jokerCount}
+          />
         )}
         </>)
       }

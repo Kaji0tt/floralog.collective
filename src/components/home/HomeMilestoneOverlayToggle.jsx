@@ -18,15 +18,16 @@ export default function HomeMilestoneOverlayToggle({
   ambientMessage,
   quizAvailable = false,
   onQuizClick,
-  wateringCountToday = 0,
-  wateringLimitPerDay = 3,
-  remainingWatersToday = 0,
+  scanStreakStatus = null,
+  careInteractionCountToday = 0,
+  careInteractionLimitPerDay = 3,
+  remainingCareInteractionsToday = 0,
   isDailyCareLoading = false,
-  isWateringPending = false,
-  onWaterPlant = () => {},
+  isCareInteractionPending = false,
   onSpawnBubble,
   onCustomize,
   onUserUpdated,
+  onHealthDetailsChange,
   onClose,
 }) {
   return (
@@ -47,15 +48,16 @@ export default function HomeMilestoneOverlayToggle({
           ambientMessage={ambientMessage}
           quizAvailable={quizAvailable}
           onQuizClick={onQuizClick}
-          wateringCountToday={wateringCountToday}
-          wateringLimitPerDay={wateringLimitPerDay}
-          remainingWatersToday={remainingWatersToday}
+          scanStreakStatus={scanStreakStatus}
+          careInteractionCountToday={careInteractionCountToday}
+          careInteractionLimitPerDay={careInteractionLimitPerDay}
+          remainingCareInteractionsToday={remainingCareInteractionsToday}
           isDailyCareLoading={isDailyCareLoading}
-          isWateringPending={isWateringPending}
-          onWaterPlant={onWaterPlant}
+          isCareInteractionPending={isCareInteractionPending}
           onSpawnBubble={onSpawnBubble}
           onCustomize={onCustomize}
           onUserUpdated={onUserUpdated}
+          onHealthDetailsChange={onHealthDetailsChange}
           onClose={() => onClose?.()}
         />
       ) : null}

@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { AlertCircle, RotateCcw, Volume2, VolumeX, Sparkles, ChevronLeft, ChevronRight, Search, Check, Loader2 } from "lucide-react";
+import { AlertCircle, RotateCcw, Volume2, VolumeX, Sparkles, ChevronLeft, ChevronRight, Search, Check, Loader2, Plus } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -10,6 +10,7 @@ import { motion, useMotionValue, useTransform } from "framer-motion";
 // import ShareScanDialog from "./ShareScanDialog";
 import { Query } from "@/api/entities";
 import SpeciesInfoCard from "@/components/collection/SpeciesInfoCard";
+import CustomLogoAvatar from "@/components/profile/CustomLogoAvatar";
 import ThreatLevelSparks from "@/components/effects/ThreatLevelSparks";
 import {
   buildCollectionMembershipIndex,
@@ -17,6 +18,7 @@ import {
 import {
   getConservationFromPlant,
 } from "@/lib/conservationStatus";
+import { resolveEquippedLogoAssetsWithCatalog } from "@/lib/logoAccessoryAssets";
 import {
   getRarityBorderClass,
   getRarityGlowColor,
@@ -31,6 +33,7 @@ import {
 export default function ScanResults({
   plant,
   imageUrl,
+  scanImageUrls = [],
   onRescan,
   onBackToIntro,
   isSaving,
@@ -38,6 +41,10 @@ export default function ScanResults({
   allResults = [],
   onDeleteResult,
   onChangeResult,
+  onAddSupplementaryPhoto,
+  canAddSupplementaryPhoto = true,
+  maxScanImages = 5,
+  currentUserId,
   latestDiscoveryId,
   isPendingConfirmation = false,
   onResultIndexChange,
@@ -59,6 +66,7 @@ export default function ScanResults({
   const x = useMotionValue(0);
   const constraintsRef = useRef(null);
   const cardRef = useRef(null);
+  const playerButtonRefs = useRef([]);
 
   useEffect(() => {
     const loadCollectionData = async () => {
@@ -93,6 +101,106 @@ export default function ScanResults({
   const results = allResults.length > 0 ? allResults : plant ? [plant] : [];
   const currentPlant = results[currentResultIndex] || plant;
 
+  const [logoAssetsCatalog, setLogoAssetsCatalog] = useState([]);
+  const [communityState, setCommunityState] = useState({ loading: false, otherPlayers: [], ownProfile: null });
+  const [activePlayerIndex, setActivePlayerIndex] = useState(0);
+
+  useEffect(() => {
+    Query.LogoAsset.list().then(setLogoAssetsCatalog).catch(() => setLogoAssetsCatalog([]));
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    setActivePlayerIndex(0);
+
+    // Community-Scans nur moeglich, wenn die aktuell angezeigte Art bereits im Floralog existiert.
+    if (!currentPlant?.id) {
+      setCommunityState({ loading: false, otherPlayers: [], ownProfile: null });
+      return () => { cancelled = true; };
+    }
+
+    const loadCommunityScans = async () => {
+      setCommunityState((prev) => ({ ...prev, loading: true }));
+      try {
+        const [discoveries, publicProfiles] = await Promise.all([
+          Query.UserPlantDiscovery.filter({ plant_id: currentPlant.id }),
+          Query.PublicProfile.list(),
+        ]);
+
+        const profileByAuthId = new Map(
+          (publicProfiles || []).filter((p) => p?.auth_id).map((p) => [p.auth_id, p])
+        );
+        const ownProfile = currentUserId ? profileByAuthId.get(currentUserId) || null : null;
+
+        const discoveriesByAuthId = {};
+        (discoveries || []).forEach((d) => {
+          if (!d?.auth_id || !d?.image_url) return;
+          const profile = profileByAuthId.get(d.auth_id);
+          const isSelf = d.auth_id === currentUserId;
+          const isPublic = profile?.public_profile !== false;
+          if (isSelf || !isPublic) return;
+          if (!discoveriesByAuthId[d.auth_id]) discoveriesByAuthId[d.auth_id] = [];
+          discoveriesByAuthId[d.auth_id].push(d);
+        });
+
+        const otherPlayers = Object.entries(discoveriesByAuthId)
+          .map(([authId, discs]) => {
+            const profile = profileByAuthId.get(authId);
+            const sortedDiscs = [...discs].sort(
+              (a, b) => new Date(b.discovered_date || b.created_date || 0) - new Date(a.discovered_date || a.created_date || 0)
+            );
+            // Alle Fotos aller Funde dieser Art (Haupt- + Zusatzfotos je Fund) zu einem Stack zusammenfassen.
+            const images = sortedDiscs.flatMap((d) =>
+              [d?.image_url, ...(Array.isArray(d?.additional_image_urls) ? d.additional_image_urls : [])].filter(Boolean)
+            );
+            return {
+              authId,
+              isOwn: false,
+              name: profile?.display_name || profile?.full_name || profile?.user_email || "Spieler",
+              logoAssets: resolveEquippedLogoAssetsWithCatalog(profile || {}, logoAssetsCatalog),
+              images,
+            };
+          })
+          .sort((a, b) => a.name.localeCompare(b.name, "de"));
+
+        if (!cancelled) {
+          setCommunityState({ loading: false, otherPlayers, ownProfile });
+        }
+      } catch (error) {
+        console.error("Fehler beim Laden der Community-Scans:", error);
+        if (!cancelled) setCommunityState({ loading: false, otherPlayers: [], ownProfile: null });
+      }
+    };
+
+    loadCommunityScans();
+    return () => { cancelled = true; };
+  }, [currentPlant?.id, currentUserId, logoAssetsCatalog]);
+
+  const ownImages = scanImageUrls.length > 0 ? scanImageUrls : (imageUrl ? [imageUrl] : []);
+  const players = [
+    {
+      authId: currentUserId || "self",
+      isOwn: true,
+      name: "Du",
+      logoAssets: resolveEquippedLogoAssetsWithCatalog(communityState.ownProfile || {}, logoAssetsCatalog),
+      images: ownImages,
+    },
+    ...communityState.otherPlayers,
+  ];
+  const safeActivePlayerIndex = Math.min(activePlayerIndex, players.length - 1);
+  const activePlayer = players[safeActivePlayerIndex] || players[0];
+  const activePlayerImages = activePlayer?.images || [];
+  const hasMultiplePlayers = players.length > 1;
+
+  useEffect(() => {
+    if (!hasMultiplePlayers) return;
+    playerButtonRefs.current[safeActivePlayerIndex]?.scrollIntoView({
+      behavior: "smooth",
+      block: "nearest",
+      inline: "center",
+    });
+  }, [hasMultiplePlayers, safeActivePlayerIndex]);
+
   const { membershipsByPlantId } = buildCollectionMembershipIndex({
     plants: results,
     collectionItems: collectionState.collectionItems,
@@ -113,14 +221,10 @@ export default function ScanResults({
   const handleDragEnd = (event, info) => {
     const threshold = 100;
 
-    if (info.offset.x > threshold && currentResultIndex > 0) {
-      const newIndex = currentResultIndex - 1;
-      setCurrentResultIndex(newIndex);
-      if (onResultIndexChange) onResultIndexChange(newIndex);
-    } else if (info.offset.x < -threshold && currentResultIndex < results.length - 1) {
-      const newIndex = currentResultIndex + 1;
-      setCurrentResultIndex(newIndex);
-      if (onResultIndexChange) onResultIndexChange(newIndex);
+    if (info.offset.x > threshold && activePlayerIndex > 0) {
+      setActivePlayerIndex(activePlayerIndex - 1);
+    } else if (info.offset.x < -threshold && activePlayerIndex < players.length - 1) {
+      setActivePlayerIndex(activePlayerIndex + 1);
     }
   };
 
@@ -296,7 +400,7 @@ export default function ScanResults({
 
         <div className="relative flex items-center gap-4 overflow-visible">
           <motion.div
-            key={currentResultIndex}
+            key={`${currentResultIndex}-${safeActivePlayerIndex}`}
             ref={constraintsRef}
             className="flex-1 w-full overflow-visible"
             initial={{ opacity: 1 }}
@@ -304,10 +408,10 @@ export default function ScanResults({
 
             <motion.div
               ref={cardRef}
-              drag={hasMultipleResults ? "x" : false}
+              drag={hasMultiplePlayers ? "x" : false}
               dragConstraints={{ left: 0, right: 0 }}
               dragElastic={
-                currentResultIndex === 0 || currentResultIndex === results.length - 1 
+                safeActivePlayerIndex === 0 || safeActivePlayerIndex === players.length - 1
                   ? 0.05 
                   : 0.7
               }
@@ -317,71 +421,9 @@ export default function ScanResults({
 
               <Card className="shadow-2xl bg-black/30 overflow-hidden border border-[#f0e5a5]/30 backdrop-blur-sm rounded-3xl">
                 <CardContent className="p-4 md:p-6 space-y-3 bg-gradient-to-br from-black/35 via-emerald-950/20 to-black/35">
-                  <div
-                    className={`relative rounded-2xl p-2 border-2 ${rarityBorderClass} ${rarityBackgroundClass} ${threatAnimationClass} ${threatGlowClass}`}
-                    style={{
-                      boxShadow: '8px 8px 24px rgba(0, 0, 0, 0.15)',
-                      "--threat-glow-color": rarityGlowColor,
-                      "--rarity-reflection-color": rarityReflectionColor,
-                    }}
-                  >
-                    <ThreatLevelSparks active={getRarityLevelFromLabel(plantRarityLabel) >= 4} count={18} className="z-40" />
-                    {isBlockedResult && (
-                      <div className="absolute top-3 left-1/2 -translate-x-1/2 z-10">
-                        <Badge variant="secondary" className="bg-red-700/90 text-white border border-red-200/35 shadow-md hover:bg-red-700/90">
-                          Nicht speicherbar
-                        </Badge>
-                      </div>
-                    )}
-                    <SpeciesInfoCard
-                      plant={currentPlant}
-                      imageUrl={imageUrl}
-                      compact={false}
-                      showPrimaryImage={true}
-                      showScientificMeta={true}
-                      showNarrative={!isBlockedResult}
-                      isLightUi={false}
-                      disableThreatEffects={true}
-                      topRight={confidencePercentage ? (
-                        <Badge className="bg-black/50 border border-stone-500/60 text-stone-100">{confidencePercentage}%</Badge>
-                      ) : null}
-                    />
-
-                    {(latestDiscoveryId || isPendingConfirmation) &&
-                    <div className="flex justify-evenly items-center mt-4 pb-2">
-                      <motion.button
-                        onClick={handleVerifyResult}
-                        className="w-11 h-11 bg-cyan-700 rounded-full flex items-center justify-center shadow-lg hover:bg-cyan-800 transition-all border border-cyan-200/25"
-                        whileHover={{ scale: 1.1 }}
-                        whileTap={{ scale: 0.95 }}>
-                        <Search className="w-5 h-5 text-white" />
-                      </motion.button>
-
-                      <motion.button
-                        onClick={() => speakText(getDescriptionText(currentPlant))}
-                        className="w-11 h-11 bg-emerald-700 rounded-full flex items-center justify-center shadow-lg hover:bg-emerald-800 transition-all border border-lime-200/25"
-                        whileHover={{ scale: 1.1 }}
-                        whileTap={{ scale: 0.95 }}>
-                        {isSpeaking ?
-                          <VolumeX className="w-5 h-5 text-white" /> :
-                          <Volume2 className="w-5 h-5 text-white" />
-                        }
-                      </motion.button>
-
-                      <motion.button
-                        onClick={onRescan}
-                        className="w-11 h-11 bg-stone-700 rounded-full flex items-center justify-center shadow-lg hover:bg-stone-800 transition-all border border-stone-200/20"
-                        whileHover={{ scale: 1.1 }}
-                        whileTap={{ scale: 0.95 }}>
-                        <RotateCcw className="w-5 h-5 text-white" />
-                      </motion.button>
-                    </div>
-                    }
-                  </div>
-
-                  {/* Navigation unterhalb der Rarität-Kachel - nur bei mehreren Ergebnissen */}
+                  {/* Navigation für alternative Bestimmungsergebnisse - oberhalb des Bildes */}
                   {hasMultipleResults && (
-                    <div className="flex justify-center items-center gap-3 mt-4">
+                    <div className="flex justify-center items-center gap-3 mb-1">
                       {/* Linker Pfeil */}
                       <motion.button
                         onClick={() => currentResultIndex > 0 && handleResultIndexChange(currentResultIndex - 1)}
@@ -419,6 +461,154 @@ export default function ScanResults({
                     </div>
                   )}
 
+                  <div
+                    className={`relative rounded-2xl p-2 border-2 ${rarityBorderClass} ${rarityBackgroundClass} ${threatAnimationClass} ${threatGlowClass}`}
+                    style={{
+                      boxShadow: '8px 8px 24px rgba(0, 0, 0, 0.15)',
+                      "--threat-glow-color": rarityGlowColor,
+                      "--rarity-reflection-color": rarityReflectionColor,
+                    }}
+                  >
+                    <ThreatLevelSparks active={getRarityLevelFromLabel(plantRarityLabel) >= 4} count={18} className="z-40" />
+                    {isBlockedResult && (
+                      <div className="absolute top-3 left-1/2 -translate-x-1/2 z-10">
+                        <Badge variant="secondary" className="bg-red-700/90 text-white border border-red-200/35 shadow-md hover:bg-red-700/90">
+                          Nicht speicherbar
+                        </Badge>
+                      </div>
+                    )}
+                    <SpeciesInfoCard
+                      plant={currentPlant}
+                      imageUrl={activePlayerImages[0] || imageUrl}
+                      compact={false}
+                      showPrimaryImage={true}
+                      showScientificMeta={true}
+                      showNarrative={!isBlockedResult}
+                      isLightUi={false}
+                      disableThreatEffects={true}
+                      previewStackImages={activePlayerImages.length > 1 ? activePlayerImages : []}
+                      topRight={confidencePercentage ? (
+                        <Badge className="bg-black/50 border border-stone-500/60 text-stone-100">{confidencePercentage}%</Badge>
+                      ) : null}
+                    />
+
+                    {(latestDiscoveryId || isPendingConfirmation) &&
+                    <div className="flex justify-evenly items-center mt-4 pb-2">
+                      <motion.button
+                        onClick={handleVerifyResult}
+                        className="w-11 h-11 bg-cyan-700 rounded-full flex items-center justify-center shadow-lg hover:bg-cyan-800 transition-all border border-cyan-200/25"
+                        whileHover={{ scale: 1.1 }}
+                        whileTap={{ scale: 0.95 }}>
+                        <Search className="w-5 h-5 text-white" />
+                      </motion.button>
+
+                      <motion.button
+                        onClick={() => speakText(getDescriptionText(currentPlant))}
+                        className="w-11 h-11 bg-emerald-700 rounded-full flex items-center justify-center shadow-lg hover:bg-emerald-800 transition-all border border-lime-200/25"
+                        whileHover={{ scale: 1.1 }}
+                        whileTap={{ scale: 0.95 }}>
+                        {isSpeaking ?
+                          <VolumeX className="w-5 h-5 text-white" /> :
+                          <Volume2 className="w-5 h-5 text-white" />
+                        }
+                      </motion.button>
+
+                      <motion.button
+                        onClick={onRescan}
+                        className="w-11 h-11 bg-stone-700 rounded-full flex items-center justify-center shadow-lg hover:bg-stone-800 transition-all border border-stone-200/20"
+                        whileHover={{ scale: 1.1 }}
+                        whileTap={{ scale: 0.95 }}>
+                        <RotateCcw className="w-5 h-5 text-white" />
+                      </motion.button>
+
+                      {onAddSupplementaryPhoto && (
+                        <motion.button
+                          onClick={() => {
+                            if (!canAddSupplementaryPhoto) {
+                              alert(`Maximal ${maxScanImages} Fotos können zur Identifikation verwendet werden.`);
+                              return;
+                            }
+                            onAddSupplementaryPhoto();
+                          }}
+                          title={
+                            canAddSupplementaryPhoto
+                              ? "Zusatzfoto hinzufügen für mehr Sicherheit"
+                              : `Maximal ${maxScanImages} Fotos möglich`
+                          }
+                          className={`w-11 h-11 rounded-full flex items-center justify-center shadow-lg transition-all border ${
+                            !canAddSupplementaryPhoto
+                              ? "bg-stone-700/60 border-stone-500/30 opacity-50"
+                              : isBlockedResult || isLowConfidenceAlt
+                                ? "bg-amber-600 hover:bg-amber-700 border-amber-200/60 threat-glow-border threat-effect-level-4"
+                                : "bg-amber-800/70 hover:bg-amber-800 border-amber-200/25"
+                          }`}
+                          style={canAddSupplementaryPhoto && (isBlockedResult || isLowConfidenceAlt) ? { "--threat-glow-color": "rgba(245,158,11,0.85)" } : undefined}
+                          whileHover={{ scale: canAddSupplementaryPhoto ? 1.1 : 1 }}
+                          whileTap={{ scale: canAddSupplementaryPhoto ? 0.95 : 1 }}>
+                          <Plus className="w-5 h-5 text-white" />
+                        </motion.button>
+                      )}
+                    </div>
+                    }
+                  </div>
+
+                  {/* Spieler-Auswahl: eigener Scan + andere Spieler mit Scans dieser Art (Swipe wechselt Spieler) */}
+                  {hasMultiplePlayers && (
+                    <div className="flex items-center gap-2 mt-4">
+                      <motion.button
+                        type="button"
+                        onClick={() => safeActivePlayerIndex > 0 && setActivePlayerIndex(safeActivePlayerIndex - 1)}
+                        disabled={safeActivePlayerIndex === 0}
+                        className={`shrink-0 flex items-center justify-center transition-all ${
+                          safeActivePlayerIndex === 0 ? 'opacity-20 cursor-not-allowed' : 'opacity-50 hover:opacity-80'
+                        }`}
+                        whileHover={safeActivePlayerIndex > 0 ? { scale: 1.2 } : {}}
+                        whileTap={safeActivePlayerIndex > 0 ? { scale: 0.9 } : {}}>
+                        <ChevronLeft className="w-8 h-8 text-stone-300" />
+                      </motion.button>
+
+                      <div
+                        className="flex-1 min-w-0 overflow-x-auto overflow-y-hidden [&::-webkit-scrollbar]:hidden"
+                        style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+                      >
+                        <div className="flex items-center justify-start gap-2 flex-nowrap px-1 py-1">
+                          {players.map((player, index) => (
+                            <button
+                              key={player.authId}
+                              ref={(node) => { playerButtonRefs.current[index] = node; }}
+                              type="button"
+                              onClick={() => setActivePlayerIndex(index)}
+                              title={player.isOwn ? "Deine Scans" : player.name}
+                              className={`rounded-full overflow-hidden bg-black/35 border shrink-0 transition-all duration-200 ${
+                                index === safeActivePlayerIndex ? "w-9 h-9 ring-2 ring-emerald-400/70 border-white/60" : "w-7 h-7 border-white/20 opacity-70 hover:opacity-100"
+                              }`}
+                            >
+                              <CustomLogoAvatar
+                                logoAssets={player.logoAssets}
+                                className="w-full h-full"
+                                tooltipText={player.name}
+                                fallbackText={(player.name || "?").charAt(0).toUpperCase()}
+                                fallbackClassName="text-[9px] font-bold text-white"
+                              />
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      <motion.button
+                        type="button"
+                        onClick={() => safeActivePlayerIndex < players.length - 1 && setActivePlayerIndex(safeActivePlayerIndex + 1)}
+                        disabled={safeActivePlayerIndex === players.length - 1}
+                        className={`shrink-0 flex items-center justify-center transition-all ${
+                          safeActivePlayerIndex === players.length - 1 ? 'opacity-20 cursor-not-allowed' : 'opacity-50 hover:opacity-80'
+                        }`}
+                        whileHover={safeActivePlayerIndex < players.length - 1 ? { scale: 1.2 } : {}}
+                        whileTap={safeActivePlayerIndex < players.length - 1 ? { scale: 0.9 } : {}}>
+                        <ChevronRight className="w-8 h-8 text-stone-300" />
+                      </motion.button>
+                    </div>
+                  )}
+
                   {/* Informations-Container - direkt unter dem Hauptcontainer */}
                   <div className="space-y-3 bg-black/30 backdrop-blur-md rounded-xl p-4 border border-[#f0e5a5]/20">
 
@@ -451,7 +641,7 @@ export default function ScanResults({
                           </h4>
                           <p className="text-stone-100/95 leading-relaxed text-sm">
                             {currentPlant?.metadata_failed
-                              ? 'Pflanzendaten oder Verbreitungsinformationen sind unvollständig. Bitte versuche es mit einem klareren Foto erneut.'
+                              ? 'Pflanzendaten oder Verbreitungsinformationen sind unvollständig. Bitte versuche es mit einem klareren Foto erneut. Möglicherweise ist aktuell das Guthaben für die KI-/LLM-Nutzung von floralog.collective ausgelaufen – in diesem Fall bitte später erneut versuchen.'
                               : 'Diese Pflanze kommt nicht in europäischen Ökosystemen vor und kann daher nicht ins Floralog aufgenommen werden. Floralog sammelt Pflanzen, die in Europa heimisch oder dauerhaft eingebürgert sind.'}
                           </p>
                         </div>

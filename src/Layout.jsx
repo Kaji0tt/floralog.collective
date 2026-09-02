@@ -5,6 +5,7 @@ import { encodeReferralCode } from "@/lib/referralCode";
 import NotificationManager from "./components/notifications/NotificationManager";
 import ToastNotificationManager from "./components/notifications/ToastNotificationManager";
 import UserNotificationManager from "./components/notifications/UserNotificationManager";
+import WeeklyRankingResultModal from "./components/notifications/WeeklyRankingResultModal";
 import QuestAutoAccepter from "./components/quests/QuestAutoAccepter";
 import { Toaster } from "@/components/ui/toaster";
 
@@ -118,6 +119,9 @@ export default function Layout({ children, currentPageName }) {
 
       {/* Quest Auto-Accepter */}
       {user && <QuestAutoAccepter user={user} />}
+
+      {/* Weekly ranking result modal - opened via notification actionUrl, works on any page */}
+      {user && <WeeklyRankingResultModal user={user} />}
 
       <Toaster />
     </>

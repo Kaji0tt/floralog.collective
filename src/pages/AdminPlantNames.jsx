@@ -15,7 +15,8 @@ export default function AdminPlantNames() {
 
   const { data: plants = [], isLoading } = useQuery({
     queryKey: ['plants'],
-    queryFn: () => Query.Plant.list(),
+    // listAll() - admin tool needs the complete catalog, list() truncates at 1000 rows.
+    queryFn: () => Query.Plant.listAll(),
   });
 
   const { data: genera = [] } = useQuery({

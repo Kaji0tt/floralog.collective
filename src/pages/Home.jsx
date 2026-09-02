@@ -8,14 +8,11 @@ import { supabase } from "@/api/supabaseClient";
 import { connectViaReferral } from "@/api/friendService";
 import {
   getRobotPlantDailyZones,
-  listRobotPlantShopItems,
-  listRobotPlantInventory,
-  listRobotPlantActiveEffects,
+  getScanStreakStatus,
   getRobotPlantDailyCareStatus,
-  useRobotPlantInventoryItem as activateRobotPlantInventoryItem,
-  waterRobotPlant,
+  performRobotPlantCareInteraction,
 } from "@/api/robotPlantService";
-import { claimDailyLoginSparks, getUserWallet } from "@/api/walletService";
+import { getUserWallet } from "@/api/walletService";
 import {
   ensureUserStoryRow,
   getUserStory,
@@ -42,6 +39,7 @@ import {
   computeFirstScanOfDayMultiplier,
   computeOverallPlantHealth,
   computePlantHealthState,
+  computeScanStreakPreview,
 } from "@/lib/robotPlantEconomy";
 import { calculateDistanceMetersRaw, NEARBY_DISCOVERY_RADIUS_METERS, parseDiscoveryCoordinates } from "@/lib/discoveryMap";
 import { Button } from "@/components/ui/button";
@@ -128,7 +126,6 @@ const clampDiscoveryMarkerScale = (value) => {
   if (!Number.isFinite(numeric)) return DISCOVERY_MARKER_SCALE_DEFAULT;
   return Math.min(DISCOVERY_MARKER_SCALE_MAX, Math.max(DISCOVERY_MARKER_SCALE_MIN, numeric));
 };
-const PORTAL_CARE_DEBUG_PREFIX = "[PortalCareDebug]";
 const SOCIAL_NEWS_NOTIFICATION_TYPES = [
   "gift_received",
   "collection_followed",
@@ -473,9 +470,8 @@ function HomeContent() {
   };
   const [activePanel, setActivePanel] = useState(null);
   const [shopOpenCategory, setShopOpenCategory] = useState("root");
-  const [careActionMessage, setCareActionMessage] = useState(null);
-  const [careGainFeedback, setCareGainFeedback] = useState(null);
-  const [dailySparkClaimFeedback, setDailySparkClaimFeedback] = useState(null);
+  const [scanStreakStatus, setScanStreakStatus] = useState(null);
+  const [scanStreakNotice, setScanStreakNotice] = useState(null);
   const [showAmberPurchaseModal, setShowAmberPurchaseModal] = useState(false);
   const [embeddedHeaderMeta, setEmbeddedHeaderMeta] = useState(null);
   const [embeddedFriendsAddDialogNonce, setEmbeddedFriendsAddDialogNonce] = useState(0);
@@ -644,7 +640,8 @@ function HomeContent() {
 
   const { data: plants = [] } = useQuery({
     queryKey: ['plants'],
-    queryFn: () => Query.Plant.list(),
+    // listAll() - list() truncates at Supabase's 1000-row default (Plant table has 1800+ rows).
+    queryFn: () => Query.Plant.listAll(),
     initialData: [],
     staleTime: 10 * 60 * 1000,
     refetchOnWindowFocus: false,
@@ -891,6 +888,8 @@ function HomeContent() {
     queryFn: () => Query.PublicProfile.list(),
     initialData: [],
     staleTime: 5 * 60 * 1000,
+    // Custom logo/avatar changes by other players must show up on re-entering Home.
+    refetchOnMount: 'always',
     refetchOnWindowFocus: true,
   });
 
@@ -1034,122 +1033,23 @@ function HomeContent() {
     refetchOpenPlantQuiz();
   }, [user?.id, refetchOpenPlantQuiz]);
 
-  const {
-    data: robotPlantShopItems = [],
-    isPending: isRobotPlantShopItemsPending,
-    isFetching: isRobotPlantShopItemsFetching,
-  } = useQuery({
-    queryKey: ['robotPlantShopItems', user?.id],
-    queryFn: () => listRobotPlantShopItems(),
-    enabled: !!user?.id,
-    staleTime: 60 * 1000,
-    refetchOnWindowFocus: true,
-  });
+  // Deep link from the "Florabot braucht Hilfe" quiz notification (actionUrl "Home?quiz=open"):
+  // open the Florabot HomeOverlay with the quiz dialog on top.
+  useEffect(() => {
+    if (!user?.id) return;
+    const params = new URLSearchParams(location.search);
+    if (params.get('quiz') !== 'open') return;
 
-  const {
-    data: robotPlantInventory = [],
-    isPending: isRobotPlantInventoryPending,
-    isFetching: isRobotPlantInventoryFetching,
-  } = useQuery({
-    queryKey: ['robotPlantInventory', user?.id],
-    queryFn: () => listRobotPlantInventory(user?.id),
-    enabled: !!user?.id,
-    staleTime: 30 * 1000,
-    refetchOnWindowFocus: true,
-  });
+    setIsMilestoneOverlayToggled(true);
+    setShowPlantQuizDialog(true);
 
-  const { data: robotPlantActiveEffects = [] } = useQuery({
-    queryKey: ['robotPlantActiveEffects', user?.id],
-    queryFn: () => listRobotPlantActiveEffects(user?.id),
-    enabled: !!user?.id,
-    staleTime: 30 * 1000,
-    refetchOnWindowFocus: true,
-  });
-
-  const {
-    data: robotPlantDailyCareStatus = null,
-    isPending: isRobotPlantDailyCareStatusPending,
-    isFetching: isRobotPlantDailyCareStatusFetching,
-    refetch: refetchRobotPlantDailyCareStatus,
-  } = useQuery({
-    queryKey: ['robotPlantDailyCareStatus', user?.id],
-    queryFn: () => getRobotPlantDailyCareStatus(user?.id),
-    enabled: !!user?.id,
-    initialData: null,
-    staleTime: 30 * 1000,
-    refetchOnWindowFocus: true,
-  });
-
-  const useInventoryItemMutation = useMutation({
-    mutationFn: ({ itemId }) => activateRobotPlantInventoryItem({ itemId }),
-    onSuccess: async (result) => {
-      if (!result?.applied) {
-        const errorCode = String(result?.error_code || "");
-        if (errorCode === "inventory_empty") {
-          setCareActionMessage('Dieser Dünger ist im Inventar nicht mehr verfügbar.');
-          await queryClient.invalidateQueries({ queryKey: ['robotPlantInventory'] });
-          return;
-        }
-        if (errorCode === "item_not_found") {
-          setCareActionMessage('Dünger konnte nicht gefunden werden.');
-          return;
-        }
-        if (errorCode === "item_has_no_effect") {
-          setCareActionMessage('Dieses Item hat keinen aktivierbaren Effekt.');
-          return;
-        }
-        setCareActionMessage('Aktivierung fehlgeschlagen.');
-        return;
-      }
-
-      setCareActionMessage('Duenger aktiviert.');
-      await queryClient.invalidateQueries({ queryKey: ['robotPlantInventory'] });
-      await queryClient.invalidateQueries({ queryKey: ['robotPlantActiveEffects'] });
-    },
-    onError: (error) => {
-      const rawMessage = String(error?.message || '').trim();
-      setCareActionMessage(rawMessage ? `Aktivierung fehlgeschlagen: ${rawMessage}` : 'Aktivierung fehlgeschlagen.');
-    },
-  });
-
-  const waterPlantMutation = useMutation({
-    mutationFn: async () => {
-      console.log(`${PORTAL_CARE_DEBUG_PREFIX} water mutation start`);
-      const mutationResult = await waterRobotPlant();
-      console.log(`${PORTAL_CARE_DEBUG_PREFIX} water mutation response`, mutationResult);
-      return mutationResult;
-    },
-    onSuccess: async (result) => {
-      console.log(`${PORTAL_CARE_DEBUG_PREFIX} water mutation success`, result);
-      if (!result?.applied) {
-        setCareActionMessage('Heute wurde bereits 3x gegossen.');
-        setCareGainFeedback(null);
-      } else {
-        const careDelta = Math.max(0, Number(result?.care_delta ?? 0));
-        setCareActionMessage(`Gegossen: +${result?.care_delta ?? 0} Pflege (${result?.remaining_waters_today ?? 0} uebrig)`);
-        if (careDelta > 0) {
-          const feedbackId = Date.now();
-          setCareGainFeedback({ id: feedbackId, delta: careDelta });
-          window.setTimeout(() => {
-            setCareGainFeedback((prev) => (prev?.id === feedbackId ? null : prev));
-          }, 1300);
-        }
-      }
-
-      await queryClient.invalidateQueries({ queryKey: ['robotPlantState'] });
-      await queryClient.invalidateQueries({ queryKey: ['robotPlantDailyCareStatus'] });
-    },
-    onError: (error) => {
-      console.log(`${PORTAL_CARE_DEBUG_PREFIX} water mutation error`, {
-        message: String(error?.message || "unknown_error"),
-        error,
-      });
-      setCareActionMessage('Giessen fehlgeschlagen.');
-    },
-    onSettled: () => {
-      console.log(`${PORTAL_CARE_DEBUG_PREFIX} water mutation settled`);
-    },
-  });
+    params.delete('quiz');
+    const cleanedSearch = params.toString();
+    navigate(location.pathname + (cleanedSearch ? `?${cleanedSearch}` : ''), {
+      replace: true,
+      state: location.state,
+    });
+  }, [user?.id, location.search, location.pathname, location.state, navigate]);
 
   const submitPlantQuizMutation = useMutation({
     mutationFn: ({ quizId, selectedPlantId }) => submitPlantQuizAnswer({ quizId, selectedPlantId }),
@@ -1366,47 +1266,84 @@ function HomeContent() {
     runQuestProgressUpdate();
   }, [user?.id]);
 
+  const {
+    data: robotPlantDailyCareStatus = null,
+    isPending: isRobotPlantDailyCareStatusPending,
+    refetch: refetchRobotPlantDailyCareStatus,
+  } = useQuery({
+    queryKey: ['robotPlantDailyCareStatus', user?.id],
+    queryFn: () => getRobotPlantDailyCareStatus(user?.id),
+    enabled: !!user?.id,
+    initialData: null,
+    staleTime: 30 * 1000,
+    refetchOnWindowFocus: true,
+  });
+
+  // Playful Pflege-Interaktion (tap the soap bubble spawned from the Florabot logo) -
+  // deliberately NOT "Gießen": a fun, spontaneous interaction with the Florabot,
+  // gated to a few times per day like before.
+  const careInteractionMutation = useMutation({
+    mutationFn: () => performRobotPlantCareInteraction(),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['robotPlantState'] });
+      await queryClient.invalidateQueries({ queryKey: ['robotPlantDailyCareStatus'] });
+    },
+    onError: (error) => {
+      console.warn('[Home] Care interaction failed:', error?.message || error);
+    },
+  });
+
+  // Read-only Scan-Streak status (no reward is ever granted here - only the first
+  // scan of the day grants Pflege/Funken/Bernstein, via robotPlantGrantReward).
   useEffect(() => {
     let isCancelled = false;
 
-    const claimDailySparks = async () => {
+    const loadScanStreakStatus = async () => {
       if (!user?.id) return;
 
       try {
-        const claimResult = await claimDailyLoginSparks({
-          metadata: {
-            source: 'home_open',
-            user_email: user?.email || null,
-          },
-        });
+        const status = await getScanStreakStatus(user.id);
+        if (isCancelled) return;
+        setScanStreakStatus(status);
 
-        if (isCancelled || !claimResult?.applied) {
-          return;
+        const todayKey = new Date().toISOString().slice(0, 10);
+        const noticeStorageKey = `scan_streak_notice_seen_v1:${user.id}:${todayKey}`;
+        let alreadySeenToday = false;
+        try {
+          alreadySeenToday = localStorage.getItem(noticeStorageKey) === '1';
+        } catch {
+          alreadySeenToday = false;
         }
 
-        const award = Math.max(0, Number(claimResult?.awarded_amount ?? 0));
-        const streakDays = Math.max(0, Number(claimResult?.streak_days ?? 0));
-        if (award <= 0) {
-          return;
+        if (!alreadySeenToday) {
+          const previewDay = status.streakDays > 0 ? status.streakDays : 1;
+          const preview = computeScanStreakPreview(previewDay);
+          setScanStreakNotice({
+            mode: status.todayRewardClaimed ? 'claimed' : 'preview',
+            streakDays: preview.streakDays,
+            jokerCount: status.jokerCount,
+            pflegeDelta: preview.pflegeDelta,
+            funkenDelta: preview.funkenDelta,
+            bernsteinDelta: preview.bernsteinDelta,
+            isBoundaryDay: preview.isBoundaryDay,
+          });
+          try {
+            localStorage.setItem(noticeStorageKey, '1');
+          } catch {
+            // localStorage optional - notice will simply reappear next open.
+          }
         }
-
-        setDailySparkClaimFeedback({
-          awardedAmount: award,
-          streakDays,
-          sparksBalance: Math.max(0, Number(claimResult?.sparks_balance ?? 0)),
-        });
-        await queryClient.invalidateQueries({ queryKey: ['userWallet'] });
       } catch (error) {
-        console.warn('[Home] Daily spark claim failed:', error?.message || error);
+        console.warn('[Home] Scan streak status fetch failed:', error?.message || error);
       }
     };
 
-    claimDailySparks();
+    loadScanStreakStatus();
 
     return () => {
       isCancelled = true;
     };
-  }, [user?.id, user?.email, queryClient]);
+  }, [user?.id]);
 
   // Consume transient navigation state exactly once per navigation
   useEffect(() => {
@@ -2225,75 +2162,13 @@ function HomeContent() {
     Math.min(100, Number(robotPlantState?.care ?? robotPlantState?.care_value ?? 0))
   );
 
-  const inventoryByItemId = Object.fromEntries(
-    robotPlantInventory.map((entry) => [entry.item_id, entry.quantity || 0])
+  const careInteractionCountToday = Math.max(0, Number(robotPlantDailyCareStatus?.careInteractionCountToday ?? 0));
+  const careInteractionLimitPerDay = Math.max(1, Number(robotPlantDailyCareStatus?.careInteractionLimitPerDay ?? 3));
+  const remainingCareInteractionsToday = Math.max(
+    0,
+    Number(robotPlantDailyCareStatus?.remainingCareInteractionsToday ?? (careInteractionLimitPerDay - careInteractionCountToday))
   );
-
-  const fertilizerItems = robotPlantShopItems.filter((item) => item.item_type === "fertilizer");
-  const ownedFertilizerItems = fertilizerItems
-    .map((item) => ({ ...item, ownedQuantity: inventoryByItemId[item.id] || 0 }))
-    .filter((item) => item.ownedQuantity > 0)
-    .sort((a, b) => Number(b.effect_value || 0) - Number(a.effect_value || 0));
-
-  const activeDecayEffects = robotPlantActiveEffects
-    .filter((effect) => effect.effect_type === "decay_reduction")
-    .sort((a, b) => new Date(a.expires_at).getTime() - new Date(b.expires_at).getTime());
-
-  const countRemainingUtcDaySwitches = (expiresAtIso) => {
-    const expiryMs = new Date(expiresAtIso || 0).getTime();
-    if (!Number.isFinite(expiryMs)) return 0;
-
-    const now = new Date();
-    const nextUtcMidnightMs = Date.UTC(
-      now.getUTCFullYear(),
-      now.getUTCMonth(),
-      now.getUTCDate() + 1,
-      0,
-      0,
-      0,
-      0
-    );
-
-    // Effect can only influence decay on daily rollover; if it ends before next rollover, it contributes 0 days.
-    if (expiryMs <= nextUtcMidnightMs) {
-      return 0;
-    }
-
-    return Math.floor((expiryMs - nextUtcMidnightMs) / (24 * 60 * 60 * 1000)) + 1;
-  };
-
-  const decayEffectsWithDaySwitches = activeDecayEffects.map((effect) => ({
-    ...effect,
-    remainingDaySwitches: countRemainingUtcDaySwitches(effect?.expires_at),
-  }));
-
-  const effectiveDecayEffects = decayEffectsWithDaySwitches.filter(
-    (effect) => Number(effect.remainingDaySwitches || 0) > 0
-  );
-
-  const activeDecayPercent = effectiveDecayEffects.reduce(
-    (acc, effect) => acc + Number(effect.effect_value || 0),
-    0
-  );
-  const activeFertilizerItemId = effectiveDecayEffects[0]?.item_id || null;
-  const activeFertilizerRemainingDays = effectiveDecayEffects.reduce(
-    (maxValue, effect) => Math.max(maxValue, Number(effect.remainingDaySwitches || 0)),
-    0
-  );
-  const isFertilizerInventoryLoading =
-    Boolean(user?.id) &&
-    (isRobotPlantShopItemsPending ||
-      isRobotPlantShopItemsFetching ||
-      isRobotPlantInventoryPending ||
-      isRobotPlantInventoryFetching);
-  const fertilizerTitleById = Object.fromEntries(
-    fertilizerItems.map((item) => [item.id, item.title || item.item_key || "Dünger"])
-  );
-
-  const wateringCountToday = Math.max(0, Number(robotPlantDailyCareStatus?.wateringCountToday ?? 0));
-  const wateringLimitPerDay = Math.max(1, Number(robotPlantDailyCareStatus?.wateringLimitPerDay ?? 3));
-  const remainingWatersToday = Math.max(0, Number(robotPlantDailyCareStatus?.remainingWatersToday ?? (wateringLimitPerDay - wateringCountToday)));
-  // Only treat the first fetch as loading; background refetches should not disable care taps.
+  // Only treat the first fetch as loading; background refetches should not disable the bubble tap.
   const isDailyCareStatusLoading = Boolean(user?.id) && isRobotPlantDailyCareStatusPending;
 
   const currentWeeklyQuest = getCurrentWeeklyQuest(weeklyQuests);
@@ -3551,53 +3426,9 @@ function HomeContent() {
     return { x: bx + bRadius, y: by + bRadius };
   };
 
-  const handleWaterPlantClick = () => {
-    console.log(`${PORTAL_CARE_DEBUG_PREFIX} handleWaterPlantClick`, {
-      mutationPending: waterPlantMutation.isPending,
-      wateringCountToday,
-      wateringLimitPerDay,
-      remainingWatersToday,
-      isDailyCareStatusLoading,
-    });
-    setCareActionMessage(null);
-    waterPlantMutation.mutate();
-  };
-
-  const handleUseFertilizerItem = async (itemId) => {
-    setCareActionMessage(null);
-    if (!itemId) return false;
-
-    if (activeFertilizerItemId && activeFertilizerItemId === itemId) {
-      const currentLabel = fertilizerTitleById[itemId] || "Dünger";
-      setCareActionMessage(`${currentLabel} ist bereits ausgerüstet.`);
-      return false;
-    }
-
-    if (activeFertilizerItemId && activeFertilizerItemId !== itemId) {
-      const currentLabel = fertilizerTitleById[activeFertilizerItemId] || "Dünger";
-      const nextLabel = fertilizerTitleById[itemId] || "Dünger";
-      const shouldReplace = window.confirm(
-        `${currentLabel} ist bereits ausgerüstet - stattdessen lieber ${nextLabel} anwenden?`
-      );
-
-      if (!shouldReplace) {
-        return false;
-      }
-    }
-
-    try {
-      const result = await useInventoryItemMutation.mutateAsync({ itemId });
-      return Boolean(result?.applied);
-    } catch {
-      return false;
-    }
-  };
-
-  const handleOpenFertilizerShop = () => {
-    const opened = openShop("backgrounds");
-    if (opened) {
-      setCareActionMessage("Der Shop zeigt aktuell freigeschaltete Profil-Anpassungen.");
-    }
+  // Bubble burst -> the actual Pflege-Interaktion (server RPC, not "Gießen").
+  const handleCareInteractionClick = () => {
+    careInteractionMutation.mutate();
   };
 
   return (
@@ -3622,6 +3453,8 @@ function HomeContent() {
         {scanFeedback && showScanFeedback && (
           <ScanFeedbackNotification
             feedback={scanFeedback}
+            profile={user}
+            logoAssets={logoAssets}
             shareSnapshotBackgroundImageUrl={user?.background_image_url || null}
             shareSnapshotBackgroundColor={user?.background_color || null}
             onComplete={() => {
@@ -3699,10 +3532,10 @@ function HomeContent() {
       </AnimatePresence>
 
       <AnimatePresence>
-        {dailySparkClaimFeedback && (
+        {scanStreakNotice && (
           <DailyLoginSparkNotification
-            feedback={dailySparkClaimFeedback}
-            onComplete={() => setDailySparkClaimFeedback(null)}
+            feedback={scanStreakNotice}
+            onComplete={() => setScanStreakNotice(null)}
           />
         )}
       </AnimatePresence>
@@ -3807,14 +3640,14 @@ function HomeContent() {
         ambientMessage={homeOverlayAmbientMessage}
         quizAvailable={quizAvailable}
         onQuizClick={() => setShowPlantQuizDialog(true)}
-        wateringCountToday={wateringCountToday}
-        wateringLimitPerDay={wateringLimitPerDay}
-        remainingWatersToday={remainingWatersToday}
+        scanStreakStatus={scanStreakStatus}
+        careInteractionCountToday={careInteractionCountToday}
+        careInteractionLimitPerDay={careInteractionLimitPerDay}
+        remainingCareInteractionsToday={remainingCareInteractionsToday}
         isDailyCareLoading={isDailyCareStatusLoading}
-        isWateringPending={waterPlantMutation.isPending}
-        onWaterPlant={handleWaterPlantClick}
+        isCareInteractionPending={careInteractionMutation.isPending}
         onSpawnBubble={() => {
-          if (wateringCountToday >= wateringLimitPerDay) return;
+          if (remainingCareInteractionsToday <= 0) return;
           if (careBubble) return;
           const pos = pickCareBubblePosition();
           if (pos) setCareBubble({ ...pos, key: Date.now() });
@@ -3823,6 +3656,7 @@ function HomeContent() {
           setIsHomeOverlayShopOpen(Boolean(isCustomizeOpen));
         }}
         onUserUpdated={(freshUser) => setUser(freshUser)}
+        onHealthDetailsChange={(isOpen) => setIsHomeOverlayHealthDetailsOpen(Boolean(isOpen))}
         onClose={() => {
           setIsHomeOverlayShopOpen(false);
           setIsMilestoneOverlayToggled(false);
@@ -3835,7 +3669,7 @@ function HomeContent() {
         key={careBubble?.key ?? 0}
         isActive={Boolean(careBubble)}
         position={careBubble ?? { x: 0, y: 0 }}
-        onBurst={handleWaterPlantClick}
+        onBurst={handleCareInteractionClick}
         onDismiss={() => setCareBubble(null)}
       />
 
@@ -4178,8 +4012,8 @@ function HomeContent() {
                           setIsMilestoneOverlayToggled(true);
                           setIsHomeOverlayShopOpen(false);
 
-                          // Spawn a floating care bubble only if daily care is still available
-                          if (wateringCountToday < wateringLimitPerDay) {
+                          // Spawn a floating Pflege-Interaktion bubble only if daily interactions are still available
+                          if (careInteractionCountToday < careInteractionLimitPerDay) {
                             const pos = pickCareBubblePosition();
                             if (pos) setCareBubble({ ...pos, key: Date.now() });
                           }

@@ -61,7 +61,6 @@ export const simulateRobotPlantDecay = (state, hoursSinceLastDecay, decayReducti
 export const estimateRewardForEvent = ({
   eventSource = ROBOT_PLANT_EVENT_SOURCES.scan,
   duplicateScanCount,
-  streakDays,
   energyValue,
   dataQualityValue,
   careValue,
@@ -71,7 +70,6 @@ export const estimateRewardForEvent = ({
   return computeRobotPlantReward({
     eventSource,
     duplicateScanCount,
-    streakDays,
     energyValue,
     dataQualityValue,
     careValue,
@@ -97,8 +95,29 @@ export const getScanRewardDetails = async ({
     energyValue: robotPlantState?.energy,
     dataQualityValue: robotPlantState?.dataQuality ?? robotPlantState?.data_quality,
     careValue: robotPlantState?.care,
-    streakDays: robotPlantState?.streakDays ?? robotPlantState?.streak_days,
   });
+};
+
+// Read-only status/preview for the Scan-Streak retention system (never grants anything).
+export const getScanStreakStatus = async (authId) => {
+  const resolvedAuthId = authId || (await getCurrentAuthContext()).authId;
+
+  const { data, error } = await supabase.rpc("get_scan_streak_status", {
+    p_auth_id: resolvedAuthId,
+  });
+
+  if (error) {
+    throw error;
+  }
+
+  const row = Array.isArray(data) ? data[0] : data;
+
+  return {
+    streakDays: Math.max(0, Number(row?.streak_days ?? 0)),
+    jokerCount: Math.max(0, Number(row?.joker_count ?? 0)),
+    lastStreakScanDate: row?.last_streak_scan_date ?? null,
+    todayRewardClaimed: Boolean(row?.today_reward_claimed),
+  };
 };
 
 export const grantRobotPlantRewardServerSide = async ({
@@ -258,41 +277,14 @@ export const getRobotPlantDailyZones = async ({
   };
 };
 
-export const listRobotPlantShopItems = async () => {
-  const items = await Query.RobotPlantShopItem.list("created_at");
-  return Array.isArray(items) ? items : [];
-};
-
-export const listRobotPlantInventory = async (authId) => {
-  if (!authId) return [];
-  const inventory = await Query.RobotPlantUserInventory.filter({ auth_id: authId });
-  return Array.isArray(inventory) ? inventory : [];
-};
-
-export const listRobotPlantActiveEffects = async (authId) => {
-  if (!authId) return [];
-  const nowIso = new Date().toISOString();
-  const { data, error } = await supabase
-    .from("RobotPlantActiveEffect")
-    .select("*")
-    .eq("auth_id", authId)
-    .gt("expires_at", nowIso)
-    .order("expires_at", { ascending: true });
-
-  if (error) {
-    throw error;
-  }
-
-  const effects = data || [];
-  return Array.isArray(effects) ? effects : [];
-};
-
+// Daily count/limit for the playful Pflege-Interaktion (soap bubble on the Florabot logo).
+// DB table/column names stay as-is (schema, unrelated to any "Gießen" wording in the app).
 export const getRobotPlantDailyCareStatus = async (authId) => {
   const fallback = {
     dayKey: new Date().toISOString().slice(0, 10),
-    wateringCountToday: 0,
-    wateringLimitPerDay: 3,
-    remainingWatersToday: 3,
+    careInteractionCountToday: 0,
+    careInteractionLimitPerDay: 3,
+    remainingCareInteractionsToday: 3,
   };
 
   if (!authId) return fallback;
@@ -321,13 +313,30 @@ export const getRobotPlantDailyCareStatus = async (authId) => {
     throw error;
   }
 
-  const wateringCountToday = Math.max(0, Math.min(3, Number(data?.watering_count ?? 0)));
+  const careInteractionCountToday = Math.max(0, Math.min(3, Number(data?.watering_count ?? 0)));
   return {
     dayKey,
-    wateringCountToday,
-    wateringLimitPerDay: 3,
-    remainingWatersToday: Math.max(0, 3 - wateringCountToday),
+    careInteractionCountToday,
+    careInteractionLimitPerDay: 3,
+    remainingCareInteractionsToday: Math.max(0, 3 - careInteractionCountToday),
   };
+};
+
+// Playful daily Pflege-Interaktion (tap the soap bubble spawned from the Florabot logo).
+// Server RPC name stays "robot_plant_water_plant" (DB schema), not exposed to the app/UI.
+export const performRobotPlantCareInteraction = async ({ eventReference = null } = {}) => {
+  const { authId } = await getCurrentAuthContext();
+
+  const { data, error } = await supabase.rpc("robot_plant_water_plant", {
+    p_auth_id: authId,
+    p_event_reference: eventReference,
+  });
+
+  if (error) {
+    throw error;
+  }
+
+  return Array.isArray(data) ? data[0] : data;
 };
 
 export const purchaseRobotPlantShopItem = async ({ itemId, quantity = 1, eventReference = null }) => {
@@ -347,33 +356,3 @@ export const purchaseRobotPlantShopItem = async ({ itemId, quantity = 1, eventRe
   return Array.isArray(data) ? data[0] : data;
 };
 
-export const useRobotPlantInventoryItem = async ({ itemId, eventReference = null }) => {
-  const { authId } = await getCurrentAuthContext();
-
-  const { data, error } = await supabase.rpc("robot_plant_use_inventory_item", {
-    p_auth_id: authId,
-    p_item_id: itemId,
-    p_event_reference: eventReference,
-  });
-
-  if (error) {
-    throw error;
-  }
-
-  return Array.isArray(data) ? data[0] : data;
-};
-
-export const waterRobotPlant = async ({ eventReference = null } = {}) => {
-  const { authId } = await getCurrentAuthContext();
-
-  const { data, error } = await supabase.rpc("robot_plant_water_plant", {
-    p_auth_id: authId,
-    p_event_reference: eventReference,
-  });
-
-  if (error) {
-    throw error;
-  }
-
-  return Array.isArray(data) ? data[0] : data;
-};

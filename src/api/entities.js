@@ -104,9 +104,14 @@ function createEntity(tableName) {
       return allRows;
     },
     filter: async (filters) => {
+      // Array values use .in() (e.g. { id: [...] }) so callers can fetch only the rows they
+      // need instead of pulling the whole table client-side. An empty array short-circuits to [].
+      if (Object.values(filters).some((value) => Array.isArray(value) && value.length === 0)) {
+        return [];
+      }
       let query = supabase.from(tableName).select('*');
       for (const [key, value] of Object.entries(filters)) {
-        query = query.eq(key, value);
+        query = Array.isArray(value) ? query.in(key, value) : query.eq(key, value);
       }
       const { data, error } = await query;
       if (error) return handleMissingTable(tableName, error);

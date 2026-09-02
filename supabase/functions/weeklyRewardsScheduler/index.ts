@@ -92,9 +92,10 @@ async function sendNotification(
     message: string;
     description?: string;
     priority?: string;
+    actionUrl?: string;
   },
 ): Promise<void> {
-  const { authId, notificationType, title, message, description, priority } = params;
+  const { authId, notificationType, title, message, description, priority, actionUrl } = params;
   const { error } = await db.functions.invoke("createNotification", {
     body: {
       authId,
@@ -104,6 +105,7 @@ async function sendNotification(
       description: description ?? "",
       displayLocation: "banner",
       priority: priority ?? "medium",
+      actionUrl: actionUrl ?? "",
     },
     headers: {
       // Service-role key as Bearer – createNotification recognises this via
@@ -226,6 +228,14 @@ Deno.serve(async (req) => {
         }
 
         // Notification + Push via createNotification (handles FCM & Web-Push)
+        // actionUrl deep-links into the WeeklyRankingResultModal (mounted globally in Layout.jsx)
+        // instead of just landing on a plain Home screen.
+        const modalParams = new URLSearchParams({
+          weeklyRankModal: weekKey,
+          rank: String(rank),
+          sparks: String(sparks),
+          weekStart,
+        });
         await sendNotification(db, serviceRoleKey, {
           authId,
           notificationType: "weekly_ranking_reward",
@@ -233,6 +243,7 @@ Deno.serve(async (req) => {
           message: `Du hast diese Woche Platz ${rank} in der Rangliste belegt und erhältst +${sparks} Funken als Belohnung! Weiter so! ⚡`,
           description: `${weekKey} · +${sparks} Funken`,
           priority: rank === 1 ? "high" : "medium",
+          actionUrl: `Home?${modalParams.toString()}`,
         });
 
         rankingResults.push({ rank, authId, displayName, sparks });
@@ -313,6 +324,8 @@ Deno.serve(async (req) => {
               errors.push(msg);
             } else {
               // Notification + Push via createNotification (handles FCM & Web-Push)
+              // actionUrl opens the Explorer Log with the Community (SOTW) tab pre-selected
+              // instead of leading nowhere.
               await sendNotification(db, serviceRoleKey, {
                 authId: topDisc.auth_id,
                 notificationType: "weekly_likes_reward",
@@ -320,6 +333,7 @@ Deno.serve(async (req) => {
                 message: `Dein Scan von der Pflanze ${plantName} hat letzte Woche die meisten Likes erhalten (${topCount} ♥). Du erhältst +${LIKES_WINNER_FUNKEN} Funken als Belohnung!`,
                 description: `${weekKey} · ${topCount} ♥ · +${LIKES_WINNER_FUNKEN} Funken`,
                 priority: "high",
+                actionUrl: "Friends?tab=explorer&explorerView=sotw",
               });
 
               likesResult = { discoveryId: topDiscId, authId: topDisc.auth_id, likeCount: topCount, funken: LIKES_WINNER_FUNKEN, plantName };

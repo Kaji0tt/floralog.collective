@@ -30,7 +30,8 @@ export async function updateQuestProgress(user) {
       Query.CollectionQuest.list(),
       Query.UserCollectionQuest.filter({ auth_id: user.id }),
       Query.UserPlantDiscovery.filter({ auth_id: user.id }),
-      Query.Plant.list(),
+      // listAll() - quest target species can be any plant, list() truncates at 1000 rows.
+      Query.Plant.listAll(),
       Query.PlantGenus.list()
     ]);
 

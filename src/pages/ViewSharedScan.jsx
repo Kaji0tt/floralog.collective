@@ -51,9 +51,10 @@ export default function ViewSharedScan() {
 
   const { data: plant } = useQuery({
     queryKey: ['plant', sharedScan?.plant_id],
+    // Fetch only the single referenced plant instead of the whole (1800+ row) catalog.
     queryFn: async () => {
-      const plants = await Query.Plant.list();
-      return plants.find(p => p.id === sharedScan.plant_id);
+      const plants = await Query.Plant.filter({ id: [sharedScan.plant_id] });
+      return plants[0] || null;
     },
     enabled: !!sharedScan?.plant_id,
   });

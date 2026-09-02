@@ -70,10 +70,15 @@ export default function ToastNotificationManager({ user }) {
     staleTime: 5 * 60 * 1000, // 5 Minuten Cache
   });
 
-  // Plants für Pflanzennamen
+  // Plants für Pflanzennamen - nur die tatsächlich für geteilte Scans benötigten laden
+  const sharedScanPlantIds = React.useMemo(
+    () => [...new Set(sharedScans.map((s) => s.plant_id).filter(Boolean))],
+    [sharedScans]
+  );
   const { data: plants = [] } = useQuery({
-    queryKey: ['plants'],
-    queryFn: () => Query.Plant.list(),
+    queryKey: ['plants', sharedScanPlantIds],
+    queryFn: () => Query.Plant.filter({ id: sharedScanPlantIds }),
+    enabled: sharedScanPlantIds.length > 0,
     staleTime: 10 * 60 * 1000, // 10 Minuten Cache
   });
 

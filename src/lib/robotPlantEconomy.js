@@ -5,6 +5,7 @@ import {
   ROBOT_PLANT_VALUES,
   ROBOT_PLANT_GAIN_RULES,
   ROBOT_PLANT_GEO_ZONE_CONFIG,
+  SCAN_STREAK_CONFIG,
   clampRobotPlantValue,
 } from "@/lib/robotPlantConfig";
 
@@ -161,15 +162,6 @@ export const computeHealthStateScanBonus = ({
   }).scanEventBonus;
 };
 
-export const computeStreakMultiplier = (streakDays = 0) => {
-  const safeDays = Math.max(0, Number(streakDays ?? 0));
-  return clamp(
-    safeDays <= 1 ? 1 : safeDays,
-    REWARD_FORMULA_CONFIG.streakMultiplier.min,
-    REWARD_FORMULA_CONFIG.streakMultiplier.max
-  );
-};
-
 export const computeFirstScanOfDayMultiplier = (isFirstScanOfDay = false) => {
   return isFirstScanOfDay
     ? REWARD_FORMULA_CONFIG.firstScanOfDayMultiplier.max
@@ -178,6 +170,41 @@ export const computeFirstScanOfDayMultiplier = (isFirstScanOfDay = false) => {
 
 export const computeDailyFirstScanMultiplier = (isFirstScanOfDay = false) => {
   return computeFirstScanOfDayMultiplier(isFirstScanOfDay);
+};
+
+// Read-only client preview of the Scan-Streak retention reward, mirrors
+// computeScanStreakOutcome in supabase/functions/robotPlantGrantReward/index.ts.
+// Used only for UI previews (login hint, reward track) - never grants anything itself.
+export const computeScanStreakPreview = (streakDays = 0) => {
+  const safeStreakDays = Math.max(1, Number(streakDays ?? 1));
+
+  const pflegeDelta = Math.min(safeStreakDays + SCAN_STREAK_CONFIG.pflegeBaseOffset, SCAN_STREAK_CONFIG.pflegeCap);
+
+  const isBoundaryDay =
+    safeStreakDays >= SCAN_STREAK_CONFIG.weekBoundaryStartDay &&
+    (safeStreakDays - SCAN_STREAK_CONFIG.weekBoundaryStartDay) % SCAN_STREAK_CONFIG.weekBoundaryIntervalDays === 0;
+  const boundaryIndex = isBoundaryDay
+    ? (safeStreakDays - SCAN_STREAK_CONFIG.weekBoundaryStartDay) / SCAN_STREAK_CONFIG.weekBoundaryIntervalDays
+    : -1;
+
+  const funkenDelta = isBoundaryDay
+    ? SCAN_STREAK_CONFIG.boundaryFunken[Math.min(boundaryIndex, SCAN_STREAK_CONFIG.boundaryFunken.length - 1)]
+    : Math.min(safeStreakDays, SCAN_STREAK_CONFIG.funkenCap);
+  const bernsteinDelta =
+    isBoundaryDay && boundaryIndex >= SCAN_STREAK_CONFIG.boundaryBernsteinFromIndex
+      ? SCAN_STREAK_CONFIG.boundaryBernsteinAmount
+      : 0;
+
+  const willGrantJoker = safeStreakDays === SCAN_STREAK_CONFIG.jokerGrantDay || isBoundaryDay;
+
+  return {
+    streakDays: safeStreakDays,
+    pflegeDelta,
+    funkenDelta,
+    bernsteinDelta,
+    isBoundaryDay,
+    willGrantJoker,
+  };
 };
 
 export const computeDecayReductionFromCare = () => {
@@ -218,7 +245,6 @@ export const computeRobotPlantRewardBreakdown = ({
   energyValue = ROBOT_PLANT_VALUES.energy.initial,
   dataQualityValue = ROBOT_PLANT_VALUES.dataQuality.initial,
   careValue = ROBOT_PLANT_VALUES.care.initial,
-  streakDays = 0,
   isInActiveZone = true,
   rarity = null,
   isFirstScanOfDay = false,
@@ -238,7 +264,6 @@ export const computeRobotPlantRewardBreakdown = ({
       rarityMultiplier: 1,
       noveltyMultiplier: 1,
       careMultiplier: 1,
-      streakMultiplier: 1,
       firstScanOfDayMultiplier: 1,
       preStreakReward: 0,
       finalReward: 0,
@@ -263,7 +288,6 @@ export const computeRobotPlantRewardBreakdown = ({
       rarityMultiplier: 1,
       noveltyMultiplier: 1,
       careMultiplier: 1,
-      streakMultiplier: 1,
       firstScanOfDayMultiplier: 1,
       preStreakReward: reward,
       finalReward: reward,
@@ -277,7 +301,6 @@ export const computeRobotPlantRewardBreakdown = ({
   const healthState = computePlantHealthState({ energyValue, dataQualityValue, careValue });
   const healthStateBonus = healthState.scanEventBonus;
   const adjustedBaseReward = baseReward + healthStateBonus;
-  const streakMultiplier = computeStreakMultiplier(streakDays);
   const firstScanOfDayMultiplier = computeFirstScanOfDayMultiplier(isFirstScanOfDay);
 
   const rawPreStreakReward =
@@ -286,7 +309,7 @@ export const computeRobotPlantRewardBreakdown = ({
     REWARD_FORMULA_CONFIG.absoluteMinReward,
     roundReward(rawPreStreakReward)
   );
-  const finalReward = roundReward(preStreakReward * streakMultiplier);
+  const finalReward = preStreakReward;
 
   return {
     eventSource,
@@ -300,7 +323,6 @@ export const computeRobotPlantRewardBreakdown = ({
     rarityMultiplier,
     noveltyMultiplier: roundMultiplier(noveltyMultiplier),
     careMultiplier: roundMultiplier(careMultiplier),
-    streakMultiplier: roundMultiplier(streakMultiplier),
     firstScanOfDayMultiplier: roundMultiplier(firstScanOfDayMultiplier),
     preStreakReward,
     finalReward,
@@ -313,7 +335,6 @@ export const computeRobotPlantReward = ({
   energyValue = ROBOT_PLANT_VALUES.energy.initial,
   dataQualityValue = ROBOT_PLANT_VALUES.dataQuality.initial,
   careValue = ROBOT_PLANT_VALUES.care.initial,
-  streakDays = 0,
   isInActiveZone = true,
   rarity = null,
 }) => {
@@ -323,7 +344,6 @@ export const computeRobotPlantReward = ({
     energyValue,
     dataQualityValue,
     careValue,
-    streakDays,
     isInActiveZone,
     rarity,
   }).finalReward;

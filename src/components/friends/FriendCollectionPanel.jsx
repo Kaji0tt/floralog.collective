@@ -28,7 +28,8 @@ export default function FriendCollectionPanel({ friendEmail, friendUser, average
 
   const { data: plants = [], isLoading: plantsLoading } = useQuery({
     queryKey: ["plants"],
-    queryFn: () => Query.Plant.list(),
+    // listAll() - genus totalSpecies counts below need the complete catalog, list() truncates at 1000 rows.
+    queryFn: () => Query.Plant.listAll(),
   });
 
   const { data: friendDiscoveries = [], isLoading: discoveriesLoading } = useQuery({

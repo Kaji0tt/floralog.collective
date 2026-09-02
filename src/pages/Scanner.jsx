@@ -7,7 +7,7 @@ import { supabase } from "@/api/supabaseClient";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Camera, Loader2, MapPin, AlertTriangle, ArrowLeft, Sparkles } from "lucide-react";
+import { Camera, Loader2, MapPin, AlertTriangle, ArrowLeft, Sparkles, X } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { useNavigate } from "react-router-dom";
@@ -31,6 +31,8 @@ import { ROBOT_PLANT_EVENT_SOURCES } from "@/lib/robotPlantConfig";
 import { getActiveSeason, classifyScan } from "@/lib/seasonConfig";
 import { updateQuestProgress } from "@/components/utils/questProgress";
 const LOGO_URL = "https://blauzahn.eu/PlantDexIcon.png";
+// PlantNet erlaubt maximal 5 Bilder pro Identifikationsanfrage.
+const MAX_SCAN_IMAGES = 5;
 
 /**
  * Verwendet ausschließlich die harten GBIF-Daten – kein LLM.
@@ -68,6 +70,9 @@ export default function Scanner() {
   const [allScanResults, setAllScanResults] = useState([]);
   const [latestDiscoveryId, setLatestDiscoveryId] = useState(null);
   const [imageUrl, setImageUrl] = useState(null);
+  const [scanImageUrls, setScanImageUrls] = useState([]);
+  const [scanOrgans, setScanOrgans] = useState([]);
+  const [showSupplementaryCamera, setShowSupplementaryCamera] = useState(false);
   const [showCamera, setShowCamera] = useState(true);
   const [user, setUser] = useState(null);
   const [userLocation, setUserLocation] = useState(null);
@@ -224,6 +229,7 @@ export default function Scanner() {
         activeZone: null,
         energyDelta: 0,
         dataQualityDelta: 0,
+        scanStreak: null,
       };
     }
 
@@ -243,13 +249,25 @@ export default function Scanner() {
     const activeZone = rewardDetails?.isInActiveZone ? { serverComputed: true } : null;
     const energyDelta = Number(grantResult?.energyDelta ?? 0);
     const dataQualityDelta = Number(grantResult?.dataQualityDelta ?? 0);
+    const scanStreak = grantResult?.scanStreakDays != null
+      ? {
+          streakDays: Number(grantResult.scanStreakDays ?? 0),
+          jokerCount: Number(grantResult.scanStreakJokerCount ?? 0),
+          isBoundaryDay: Boolean(grantResult.scanStreakIsBoundaryDay),
+          wasHardReset: Boolean(grantResult.scanStreakWasHardReset),
+          funkenDelta: Number(grantResult.scanStreakFunkenDelta ?? 0),
+          bernsteinDelta: Number(grantResult.scanStreakBernsteinDelta ?? 0),
+          pflegeDelta: Number(grantResult.careDelta ?? 0),
+        }
+      : null;
 
-    return { rewardDetails, activeZone, energyDelta, dataQualityDelta };
+    return { rewardDetails, activeZone, energyDelta, dataQualityDelta, scanStreak };
   };
 
   const { data: plants = [] } = useQuery({
     queryKey: ['plants'],
-    queryFn: () => Query.Plant.list()
+    // listAll() - scan matching needs the complete catalog, list() truncates at 1000 rows.
+    queryFn: () => Query.Plant.listAll()
   });
 
   const { data: genera = [] } = useQuery({
@@ -479,7 +497,10 @@ export default function Scanner() {
     setScanningPhase(phase);
   };
 
-  const identifyPlant = async (file, organ = "auto") => {
+  const identifyPlant = async (filesOrUrls, organs = []) => {
+    const itemList = Array.isArray(filesOrUrls) ? filesOrUrls : [filesOrUrls];
+    const organList = itemList.map((_, index) => organs[index] || "auto");
+
     setScanning(true);
     updateScanningProgress(0, "📦 Packe die Lupe aus und bereite dein Bild vor...");
     setMatchedPlant(null);
@@ -491,18 +512,25 @@ export default function Scanner() {
 
       console.log("📤 Starte Upload...");
       updateScanningProgress(0, "📦 Komprimiere Bild fuer eine schnelle Analyse...");
-      const { file_url } = await uploadFile({ file });
-      console.log("✅ Upload erfolgreich:", file_url);
+      // Bereits hochgeladene Bilder (URL-Strings, z.B. bei Zusatzfoto-Rescan) werden nicht erneut hochgeladen.
+      const uploads = await Promise.all(
+        itemList.map((item) => (item instanceof File ? uploadFile({ file: item }) : Promise.resolve({ file_url: item })))
+      );
+      const fileUrls = uploads.map((upload) => upload.file_url);
+      console.log("✅ Upload erfolgreich:", fileUrls);
+      const file_url = fileUrls[0];
       setImageUrl(file_url);
+      setScanImageUrls(fileUrls);
+      setScanOrgans(organList);
 
-      console.log(`🌿 Starte Pflanzenerkennung mit organ: ${organ}...`);
+      console.log(`🌿 Starte Pflanzenerkennung mit ${fileUrls.length} Bild(ern), organs: ${organList.join(", ")}...`);
       updateScanningProgress(1, "🌿 Sende den Fund an PlantNet...");
 
       try {
         const response = await supabase.functions.invoke('identifyPlant', {
           body: {
-            image_url: file_url,
-            organ: organ
+            image_urls: fileUrls,
+            organs: organList
           }
         });
 
@@ -514,7 +542,7 @@ export default function Scanner() {
         if (result.error_type === 'PLANTNET_RATE_LIMIT') {
           console.warn("⚠️ PlantNet Rate-Limit erreicht");
           // Speichere Bild-Daten für späteren LLM-Versuch
-          setPendingImageData({ file_url, organ });
+          setPendingImageData({ file_urls: fileUrls, organs: organList });
           setShowRateLimitDialog(true);
           setScanning(false);
           return;
@@ -777,6 +805,7 @@ export default function Scanner() {
             setPendingScanData({
               plant: firstResult,
               imageUrl: file_url,
+              scanImageUrls: fileUrls,
               allResults: processedResults,
               isInDatabase: firstResult.inDatabase,
               scanLocationSnapshot,
@@ -901,7 +930,8 @@ export default function Scanner() {
       discovered_date: new Date().toISOString(),
       discovery_location: locationString,
       discovery_notes: "",
-      image_url: imageUrl
+      image_url: imageUrl,
+      additional_image_urls: scanImageUrls.slice(1)
     });
 
     setLatestDiscoveryId(newDiscovery.id);
@@ -920,6 +950,7 @@ export default function Scanner() {
     let activeZone = null;
     let energyDelta = 0;
     let dataQualityDelta = 0;
+    let scanStreak = null;
     try {
       const rewardFeedback = await buildScanRewardFeedback({
         eventSource,
@@ -933,6 +964,7 @@ export default function Scanner() {
       activeZone = rewardFeedback.activeZone;
       energyDelta = Number(rewardFeedback.energyDelta ?? 0);
       dataQualityDelta = Number(rewardFeedback.dataQualityDelta ?? 0);
+      scanStreak = rewardFeedback.scanStreak;
     } catch (error) {
       console.error("Fehler bei Robot-Plant-Reward-Auszahlung:", error);
     }
@@ -989,7 +1021,7 @@ export default function Scanner() {
 
     setScanning(false);
 
-    return { alreadyDiscovered, rewardDetails, activeZone, energyDelta, dataQualityDelta, scanZoneUnlocks, randomRewards, seasonScanType };
+    return { alreadyDiscovered, rewardDetails, activeZone, energyDelta, dataQualityDelta, scanStreak, scanZoneUnlocks, randomRewards, seasonScanType };
   };
 
   const handleAutoAddNewPlant = async (plantData, imageUrl, allResults = [], options = {}) => {
@@ -1032,6 +1064,7 @@ export default function Scanner() {
             naturadb_url: plantData.naturadb_url || null,
           },
           image_url: imageUrl,
+          additional_image_urls: scanImageUrls.slice(1),
           discovery_location: locationString
         }
       });
@@ -1054,6 +1087,7 @@ export default function Scanner() {
       let activeZone = null;
       let energyDelta = 0;
       let dataQualityDelta = 0;
+      let scanStreak = null;
       try {
         const rewardFeedback = await buildScanRewardFeedback({
           eventSource: ROBOT_PLANT_EVENT_SOURCES.newGlobalScan,
@@ -1067,6 +1101,7 @@ export default function Scanner() {
         activeZone = rewardFeedback.activeZone;
         energyDelta = Number(rewardFeedback.energyDelta ?? 0);
         dataQualityDelta = Number(rewardFeedback.dataQualityDelta ?? 0);
+        scanStreak = rewardFeedback.scanStreak;
       } catch (rewardError) {
         console.error("Fehler bei Robot-Plant-Reward-Auszahlung fuer neue Global-Pflanze:", rewardError);
       }
@@ -1122,7 +1157,7 @@ export default function Scanner() {
       });
       setScanning(false);
 
-      return { newPlant, rewardDetails, activeZone, energyDelta, dataQualityDelta, scanZoneUnlocks, randomRewards };
+      return { newPlant, rewardDetails, activeZone, energyDelta, dataQualityDelta, scanStreak, scanZoneUnlocks, randomRewards };
     } catch (error) {
       console.error("Fehler beim Hinzufügen der Pflanze:", error);
       setScanning(false);
@@ -1130,9 +1165,17 @@ export default function Scanner() {
     }
   };
 
-  const handleCameraCapture = (file, organ = "auto") => {
+  const handleCameraCapture = (files, organs = []) => {
     setShowCamera(false);
-    identifyPlant(file, organ);
+    identifyPlant(files, organs);
+  };
+
+  // Ergaenzt bestehende Scan-Bilder um ein Zusatzfoto und startet einen vollstaendigen Re-Scan.
+  const handleAddSupplementaryPhoto = (files, organs = []) => {
+    setShowSupplementaryCamera(false);
+    const combinedItems = [...scanImageUrls, ...files].slice(0, MAX_SCAN_IMAGES);
+    const combinedOrgans = [...scanOrgans, ...organs].slice(0, MAX_SCAN_IMAGES);
+    identifyPlant(combinedItems, combinedOrgans);
   };
 
   const handleLLMFallback = () => {
@@ -1149,6 +1192,9 @@ export default function Scanner() {
     setAllScanResults([]);
     setLatestDiscoveryId(null);
     setImageUrl(null);
+    setScanImageUrls([]);
+    setScanOrgans([]);
+    setShowSupplementaryCamera(false);
     setPendingScanData(null);
     setCurrentResultIndex(0);
     setShowRateLimitDialog(false);
@@ -1197,7 +1243,6 @@ export default function Scanner() {
             noveltyMultiplier: 1,
             careMultiplier: 1,
             firstScanOfDayMultiplier: 1,
-            streakMultiplier: 1,
           },
         });
         return;
@@ -1207,7 +1252,7 @@ export default function Scanner() {
 
       if (selectedPlant.inDatabase) {
         // Pflanze existiert bereits im Floralog
-        const { alreadyDiscovered, rewardDetails, activeZone, energyDelta, dataQualityDelta, scanZoneUnlocks, randomRewards, seasonScanType } = await handleAutoSave(
+        const { alreadyDiscovered, rewardDetails, activeZone, energyDelta, dataQualityDelta, scanStreak, scanZoneUnlocks, randomRewards, seasonScanType } = await handleAutoSave(
           selectedPlant,
           imageUrl,
           selectedPlant.aiData || plant?.aiData,
@@ -1231,6 +1276,7 @@ export default function Scanner() {
               isInActiveZone: !!activeZone,
               energyDelta,
               dataQualityDelta,
+              scanStreak,
             },
             scanZoneUnlocks,
             randomRewards: Array.isArray(randomRewards) ? randomRewards : [],
@@ -1249,6 +1295,7 @@ export default function Scanner() {
               isInActiveZone: !!result.activeZone,
               energyDelta: Number(result.energyDelta ?? 0),
               dataQualityDelta: Number(result.dataQualityDelta ?? 0),
+              scanStreak: result.scanStreak,
               scanZoneUnlocks: Array.isArray(result.scanZoneUnlocks) ? result.scanZoneUnlocks : [],
               randomRewards: Array.isArray(result.randomRewards) ? result.randomRewards : [],
             });
@@ -1467,7 +1514,7 @@ export default function Scanner() {
               <DialogDescription className="text-base pt-4 text-stone-200">
                 {selectedPendingResult?.notInDex && selectedPendingResult?.is_european === false
                   ? `${selectedPendingResult?.species_name || "Diese Pflanze"} kommt nicht in europäischen Ökosystemen vor und kann daher nicht ins Floralog aufgenommen werden. Floralog sammelt Pflanzen, die in Europa heimisch oder dauerhaft eingebürgert sind.`
-                  : "Dieser Vorschlag kann nicht gespeichert werden, da Pflanzendaten oder Verbreitungsinformationen unvollständig sind. Bitte wähle ein anderes Ergebnis oder scanne erneut mit einem klareren Foto."}
+                  : "Dieser Vorschlag kann nicht gespeichert werden, da Pflanzendaten oder Verbreitungsinformationen unvollständig sind. Bitte wähle ein anderes Ergebnis oder scanne erneut mit einem klareren Foto. Möglicherweise ist aktuell das Guthaben für die KI-/LLM-Nutzung von floralog.collective ausgelaufen – in diesem Fall bitte später erneut versuchen."}
               </DialogDescription>
             </DialogHeader>
             <DialogFooter>
@@ -1611,6 +1658,7 @@ export default function Scanner() {
         {guestScanFeedback && (
           <ScanFeedbackNotification
             feedback={guestScanFeedback}
+            profile={user}
             shareSnapshotBackgroundImageUrl={user?.background_image_url || null}
             shareSnapshotBackgroundColor={user?.background_color || null}
             onComplete={() => {
@@ -1632,18 +1680,27 @@ export default function Scanner() {
                   onClose={() => setShowCamera(false)}
                 />
               ) : (
-                <button
-                  onClick={() => setShowCamera(true)}
-                  className="w-full group relative overflow-hidden rounded-2xl bg-black/40 backdrop-blur-md border border-[#f0e5a5]/35 p-8 hover:bg-black/50 shadow-lg hover:shadow-xl transition-all duration-300"
-                >
-                  <div className="flex flex-col items-center">
-                    <div className="w-20 h-20 bg-gradient-to-br from-emerald-600 to-emerald-800 rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300 shadow-lg border border-lime-200/30">
-                      <Camera className="w-10 h-10 text-white" />
+                <div className="relative w-full">
+                  <button
+                    onClick={() => navigate(createPageUrl("Home"))}
+                    aria-label="Zurück zur Startseite"
+                    className="absolute -top-2 -right-2 z-10 w-9 h-9 rounded-full bg-red-600 hover:bg-red-700 flex items-center justify-center shadow-lg border-2 border-white transition-colors"
+                  >
+                    <X className="w-5 h-5 text-white" />
+                  </button>
+                  <button
+                    onClick={() => setShowCamera(true)}
+                    className="w-full group relative overflow-hidden rounded-2xl bg-black/40 backdrop-blur-md border border-[#f0e5a5]/35 p-8 hover:bg-black/50 shadow-lg hover:shadow-xl transition-all duration-300"
+                  >
+                    <div className="flex flex-col items-center">
+                      <div className="w-20 h-20 bg-gradient-to-br from-emerald-600 to-emerald-800 rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300 shadow-lg border border-lime-200/30">
+                        <Camera className="w-10 h-10 text-white" />
+                      </div>
+                      <h3 className="text-2xl font-bold mb-2 text-stone-100">Foto aufnehmen</h3>
+                      <p className="text-stone-200/85 text-base">Mit der Kamera scannen</p>
                     </div>
-                    <h3 className="text-2xl font-bold mb-2 text-stone-100">Foto aufnehmen</h3>
-                    <p className="text-stone-200/85 text-base">Mit der Kamera scannen</p>
-                  </div>
-                </button>
+                  </button>
+                </div>
               )}
             </CardContent>
           </Card>
@@ -1679,6 +1736,8 @@ export default function Scanner() {
             <ScanResults
             plant={matchedPlant}
             imageUrl={imageUrl}
+            scanImageUrls={scanImageUrls}
+            currentUserId={user?.id}
             onRescan={handleBackToIntro}
             onBackToIntro={handleBackToIntro}
             onResultIndexChange={setCurrentResultIndex}
@@ -1689,10 +1748,23 @@ export default function Scanner() {
             latestDiscoveryId={latestDiscoveryId}
             isPendingConfirmation={!!pendingScanData}
             onConfirmSave={handleConfirmSave}
-            isSavingPlant={isSavingPlant} />
+            isSavingPlant={isSavingPlant}
+            onAddSupplementaryPhoto={() => setShowSupplementaryCamera(true)}
+            canAddSupplementaryPhoto={scanImageUrls.length < MAX_SCAN_IMAGES}
+            maxScanImages={MAX_SCAN_IMAGES} />
 
           </div>
         }
+
+        {showSupplementaryCamera && (
+          <div className="fixed inset-0 bg-black/95 z-[60] flex items-center justify-center p-4">
+            <CameraCapture
+              maxPhotos={Math.max(1, MAX_SCAN_IMAGES - scanImageUrls.length)}
+              onCapture={handleAddSupplementaryPhoto}
+              onClose={() => setShowSupplementaryCamera(false)}
+            />
+          </div>
+        )}
       </div>
       </div>
       </motion.div>

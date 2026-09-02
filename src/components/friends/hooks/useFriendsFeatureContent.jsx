@@ -132,6 +132,36 @@ const EXPLORER_ZONE_THEME_LABELS = {
 const getExplorerZoneThemeMeta = (theme) =>
   theme ? (EXPLORER_ZONE_THEME_LABELS[theme] ?? null) : null;
 
+const toNormalizedDexNumber = (value) => {
+  if (value === null || value === undefined || value === "") return null;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+};
+
+const resolveGenusForPlant = (plant, allGenera) => {
+  if (!plant || !Array.isArray(allGenera) || allGenera.length === 0) return null;
+
+  const genusById = plant.genus_id
+    ? allGenera.find((genus) => genus.id === plant.genus_id)
+    : null;
+  if (genusById) return genusById;
+
+  const plantCategory = String(plant.genus_category || "").trim().toLowerCase();
+  const plantDexNumber = toNormalizedDexNumber(plant.genus_number);
+
+  return allGenera.find((genus) => {
+    const genusCategory = String(genus.category || "").trim().toLowerCase();
+    if (plantCategory && genusCategory !== plantCategory) return false;
+
+    const genusDexNumber = toNormalizedDexNumber(genus.category_dex_number);
+    if (plantDexNumber !== null && genusDexNumber !== null) {
+      return genusDexNumber === plantDexNumber;
+    }
+
+    return String(genus.category_dex_number || "").trim() === String(plant.genus_number || "").trim();
+  }) || null;
+};
+
 export function useFriendsFeatureContent({
   embedded = false,
   onHeaderMetaChange,
@@ -156,7 +186,9 @@ export function useFriendsFeatureContent({
       _prevActiveTabRef.current = activeTab;
     }
   }, [activeTab]);
-  const [explorerViewMode, setExplorerViewMode] = useState("all");
+  const [explorerViewMode, setExplorerViewMode] = useState(() =>
+    searchParams.get("explorerView") === "sotw" ? "sotw" : "all"
+  );
   const explorerSentinelRef = useRef(null);
   const explorerContainerRef = useRef(null);
   const explorerTouchStartYRef = useRef(0);
@@ -248,13 +280,19 @@ export function useFriendsFeatureContent({
   const { data: allUsers = [] } = useQuery({
     queryKey: ['allUsers'],
     queryFn: () => Query.PublicProfile.list(),
-    staleTime: 60000 // 1 Minute Cache
+    staleTime: 60000, // 1 Minute Cache
+    // Custom logo/avatar changes by other players must show up on re-entering this tab,
+    // not just after a manual pull-to-refresh.
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: true,
   });
 
   const { data: allPublicProfiles = [] } = useQuery({
     queryKey: ['allPublicProfiles'],
     queryFn: () => Query.PublicProfile.list(),
-    staleTime: 30000 // 30 Sekunden Cache
+    staleTime: 30000, // 30 Sekunden Cache
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: true,
   });
 
   // Referrals, bei denen der aktuelle User der Werber ist (für Handshake-Markierung)
@@ -414,10 +452,25 @@ export function useFriendsFeatureContent({
     staleTime: 60 * 1000,
   });
 
-  // Lade alle Plants
+  // Lade nur die Plants, die in den aktuell geladenen Discoveries tatsächlich vorkommen,
+  // statt der kompletten (1800+ Zeilen) Plant-Tabelle.
+  const explorerPlantIds = useMemo(
+    () => explorerDiscoveries.map((d) => d.plant_id).filter(Boolean),
+    [explorerDiscoveries]
+  );
+  const friendActivityPlantIds = useMemo(
+    () => friendActivityDiscoveries.map((d) => d.plant_id).filter(Boolean),
+    [friendActivityDiscoveries]
+  );
+  const neededPlantIds = useMemo(
+    () => [...new Set([...explorerPlantIds, ...friendActivityPlantIds])],
+    [explorerPlantIds, friendActivityPlantIds]
+  );
+
   const { data: allPlants = [] } = useQuery({
-    queryKey: ['allPlants'],
-    queryFn: () => Query.Plant.list()
+    queryKey: ['allPlants', neededPlantIds],
+    queryFn: () => Query.Plant.filter({ id: neededPlantIds }),
+    enabled: neededPlantIds.length > 0,
   });
 
   // Lade alle Genera (für genus_id-Auflösung in Social Feed Deeplinks)
@@ -936,13 +989,8 @@ Viel Spaß beim Entdecken! 🌿`;
 
         const likerName = user.display_name || user.full_name || user.email;
         // genus_id über genus_category + genus_number auflösen, da Plant-Tabelle kein genus_id hat
-        let likeGenusId = entry.plant?.genus_id;
-        if (!likeGenusId && entry.plant?.genus_category && entry.plant?.genus_number != null) {
-          const matchedGenus = allGenera.find(
-            (g) => g.category === entry.plant.genus_category && g.category_dex_number === entry.plant.genus_number
-          );
-          likeGenusId = matchedGenus?.id || null;
-        }
+        const matchedGenus = resolveGenusForPlant(entry.plant, allGenera);
+        const likeGenusId = matchedGenus?.id || null;
         const actionParams = new URLSearchParams();
         if (likeGenusId) actionParams.set("id", likeGenusId);
         if (entry.actorEmail) actionParams.set("email", entry.actorEmail);
@@ -992,17 +1040,17 @@ Viel Spaß beim Entdecken! 🌿`;
 
   const openExplorerDiscoveryInFriendCollection = useCallback((entry) => {
     const plant = entry?.plant;
-    if (!plant) return;
+    const plantId = plant?.id || entry?.plant_id || entry?.discovery?.plant_id;
+    if (!plant && !plantId) return;
 
-    // Plant-Tabelle hat keine genus_id-Spalte – über genus_category + genus_number auflösen
-    let genusId = plant.genus_id;
-    if (!genusId && plant.genus_category && plant.genus_number != null) {
-      const matchedGenus = allGenera.find(
-        (g) => g.category === plant.genus_category && g.category_dex_number === plant.genus_number
-      );
-      genusId = matchedGenus?.id || null;
+    const matchedGenus = resolveGenusForPlant(plant, allGenera);
+    const genusId = matchedGenus?.id || null;
+
+    if (!genusId) {
+      if (!plantId) return;
+      navigate(createPageUrl(`PlantDetail?id=${encodeURIComponent(plantId)}`));
+      return;
     }
-    if (!genusId) return;
 
     const params = new URLSearchParams();
     params.set("id", genusId);
@@ -1351,9 +1399,7 @@ Viel Spaß beim Entdecken! 🌿`;
           if (!plant || !q) return false;
           if (q.target_species_name) return plant.species_name === q.target_species_name;
           if (q.target_genus_name) {
-            const genus = allGenera.find(
-              (g) => g.category === plant.genus_category && g.category_dex_number === plant.genus_number
-            );
+            const genus = resolveGenusForPlant(plant, allGenera);
             return genus?.genus_name === q.target_genus_name;
           }
           if (q.category && q.category !== 'Alle') return plant.genus_category === q.category;
@@ -1913,14 +1959,23 @@ Viel Spaß beim Entdecken! 🌿`;
                         <div className="relative z-10 px-3 pt-3 pb-1 flex items-center gap-2">
                           {/* Left: plant names */}
                           <div className="flex-1 min-w-0">
-                            <p className={`text-sm font-bold leading-tight truncate ${titleTextClass}`}>
-                              {entry.plant?.species_name || "Unbekannte Pflanze"}
-                            </p>
-                            {(entry.plant?.scientific_name || entry.plant?.aiData?.scientific_name) && (
-                              <div className="flex items-center gap-1 min-w-0 mt-0.5">
-                                <p className={`text-[10px] italic truncate ${mutedTextClass}`}>
+                            <button
+                              type="button"
+                              className="text-left w-full"
+                              onClick={() => openExplorerDiscoveryInFriendCollection(entry)}
+                              onMouseDown={(e) => e.stopPropagation()}
+                            >
+                              <p className={`text-sm font-bold leading-tight truncate ${titleTextClass}`}>
+                                {entry.plant?.species_name || "Unbekannte Pflanze"}
+                              </p>
+                              {(entry.plant?.scientific_name || entry.plant?.aiData?.scientific_name) && (
+                                <p className={`text-[10px] italic truncate mt-0.5 ${mutedTextClass}`}>
                                   {entry.plant.scientific_name || entry.plant.aiData?.scientific_name}
                                 </p>
+                              )}
+                            </button>
+                            {(entry.plant?.scientific_name || entry.plant?.aiData?.scientific_name) && (
+                              <div className="flex items-center gap-1 min-w-0 mt-0.5">
                                 <a
                                   href={buildExplorerNaturaDbUrl(entry.plant)}
                                   target="_blank"

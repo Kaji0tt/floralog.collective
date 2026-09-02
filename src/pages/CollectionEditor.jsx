@@ -109,7 +109,8 @@ export default function CollectionEditor() {
 
   const { data: plants = [] } = useQuery({
     queryKey: ["plants"],
-    queryFn: () => Query.Plant.list(),
+    // listAll() - collection editing needs to pick from the complete catalog, list() truncates at 1000 rows.
+    queryFn: () => Query.Plant.listAll(),
   });
 
   const { data: publicProfiles = [] } = useQuery({

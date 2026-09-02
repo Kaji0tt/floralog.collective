@@ -16,8 +16,10 @@ export default function PlantDetail() {
   const plantId = urlParams.get('id');
 
   const { data: plants = [], isLoading } = useQuery({
-    queryKey: ['plants'],
-    queryFn: () => Query.Plant.list(),
+    queryKey: ['plant', plantId],
+    // Fetch only the single requested plant instead of the whole (1800+ row) catalog.
+    queryFn: () => Query.Plant.filter({ id: plantId ? [plantId] : [] }),
+    enabled: !!plantId,
   });
 
   const plant = plants.find(p => p.id === plantId);
