@@ -706,4 +706,3 @@ export default function ScanResults({
 
   return null;
 }
-

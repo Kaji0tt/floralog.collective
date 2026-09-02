@@ -125,6 +125,10 @@ export default function HomeFlorabotOverlay({
     canGoBack: false,
     onBack: () => {},
   });
+  // Draft/save state for the flat, "anprobieren"-style shop restructure (mirrors Home.jsx's hero stack).
+  const [shopSaveNonce, setShopSaveNonce] = useState(0);
+  const [shopHasUnsavedChanges, setShopHasUnsavedChanges] = useState(false);
+  const [shopDraftOverrides, setShopDraftOverrides] = useState(null);
   const [shopViewportHeight, setShopViewportHeight] = useState(/** @type {number | null} */ (null));
   const onCustomizeRef = useRef(onCustomize);
 
@@ -724,15 +728,23 @@ export default function HomeFlorabotOverlay({
             <ShopFeatureRoot
               embedded
               showEmbeddedBottomDivider={false}
+              flatMode
+              draftMode
               authId={authId}
               currentUser={currentUser || profile}
               badgeMetrics={badgeMetrics}
               onHeaderMetaChange={() => {}}
               onUserUpdated={onUserUpdated}
-              initialCategory={activeShopCategory}
-              externalActionMode
-              onActionStateChange={setShopActionState}
-              onBackStateChange={setShopBackState}
+              saveNonce={shopSaveNonce}
+              onDraftPreviewChange={setShopDraftOverrides}
+              onUnsavedChange={setShopHasUnsavedChanges}
+              onSaveComplete={(success) => {
+                if (success) {
+                  setIsShopOpen(false);
+                  setShopDraftOverrides(null);
+                  onCustomizeRef.current?.(false);
+                }
+              }}
             />
           </div>
         </motion.div>

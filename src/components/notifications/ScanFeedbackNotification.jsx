@@ -36,7 +36,6 @@ const MULTIPLIER_STEP_TOOLTIPS = {
   firstScan: "Bonus fuer deinen ersten Scan des heutigen Tages.",
   tiles: "Bonus durch beanspruchte Kartenkacheln in deiner Zone.",
 };
-
 // Nativ (Android/iOS) via Capacitor Haptics vibrieren, im Browser per Vibration API.
 async function triggerDeviceVibration(durationMs) {
   if (Capacitor.isNativePlatform()) {
@@ -761,7 +760,6 @@ export default function ScanFeedbackNotification({
                   : ""}
               </div>
             )}
-
               <div className="relative min-h-[5rem] flex items-center justify-center">
                 <AnimatePresence mode="wait" initial={false}>
                   {isNegativeSwap && previousReward !== null ? (

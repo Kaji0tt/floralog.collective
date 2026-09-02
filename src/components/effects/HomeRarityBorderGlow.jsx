@@ -1,5 +1,3 @@
-import React from "react";
-
 /**
  * Converts a hex color string to an rgb object.
  * Returns null if the input is not a valid hex color.
@@ -26,11 +24,23 @@ const FALLBACK_RGB = { r: 200, g: 172, b: 98 };
  * Color is driven by the player's selected border color (borderColor prop).
  * Falls back to warm gold when none is set.
  */
-export default function HomeRarityBorderGlow({ active = false, borderColor = null }) {
+export default function HomeRarityBorderGlow({ active = false, borderColor = null, borderImageUrl = null }) {
   if (!active) return null;
 
   const { r, g, b } = hexToRgb(borderColor) || FALLBACK_RGB;
   const color = `rgba(${r},${g},${b},0.88)`;
+
+  if (borderImageUrl) {
+    return (
+      <img
+        src={borderImageUrl}
+        alt=""
+        aria-hidden="true"
+        className="rarity-profile-logo-glow"
+        style={{ '--rarity-profile-color': color }}
+      />
+    );
+  }
 
   return (
     <>

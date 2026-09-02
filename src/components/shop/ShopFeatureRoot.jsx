@@ -17,6 +17,7 @@ import {
   ScanSearch,
   Leaf,
   Frame,
+  ShoppingCart,
 } from "lucide-react";
 import { HexColorPicker } from "react-colorful";
 import { Query } from "@/api/entities";
@@ -42,6 +43,7 @@ import {
 } from "@/lib/profileBadges";
 import { getProfileBadgeIconComponent } from "@/lib/profileBadgeIcons";
 import { resolveOwnedUniqueBadges } from "@/lib/profileUniqueBadges";
+import GoldGradientCard from "@/components/home/GoldGradientCard";
 
 const CATEGORY_META = {
   backgrounds: {
@@ -84,18 +86,25 @@ const CATEGORY_META = {
     subtitle: "Austauschbare Teile für dein Home-Logo",
     emptyLabel: "Noch keine Accessoires verfügbar.",
   },
-  bernstein: {
-    title: "Bernstein",
-    subtitle: "Bernstein-Pakete kaufen",
-    emptyLabel: "Keine Bernstein-Pakete verfügbar.",
-  },
 };
+
+// Flat category list shared by the flatMode content switcher and the vertical carousel
+// rendered in Home.jsx's "Anpassen" header (see `ShopCategoryVerticalCarousel` below).
+export const FLAT_CATEGORY_ENTRIES = [
+  { key: "titles", title: "Titel" },
+  { key: "badges", title: "Badges" },
+  { key: "backgrounds", title: "Hintergründe" },
+  { key: "effects", title: "Effekte" },
+  { key: "plant", title: "Pflanze" },
+  { key: "border", title: "Rahmen" },
+  { key: "face", title: "Gesicht" },
+];
 
 const ROOT_CATEGORY_META = {
   shop: {
     key: "shop",
     title: "Shop",
-    subtitle: "Bernstein kaufen und Gegenstände mit Bernstein oder Funken freischalten.",
+    subtitle: "Gegenstände mit Bernstein oder Funken freischalten.",
     accent: "global",
     icon: Gem,
   },
@@ -122,7 +131,7 @@ const ROOT_DEFAULT_SUBCATEGORY = {
 };
 
 const ROOT_SUBCATEGORY_ORDER = {
-  shop: ["backgrounds", "face", "plant", "border", "effects", "scans", "bernstein"],
+  shop: ["backgrounds", "face", "plant", "border", "effects", "scans"],
   florabot: ["accessories", "effects"],
   profile: ["badges", "backgrounds", "titles", "effects"],
 };
@@ -133,7 +142,6 @@ const ROOT_SHOP_CATEGORY_MAP = {
   face: "shop",
   effects: "shop",
   scans: "shop",
-  bernstein: "shop",
   titles: "profile",
   badges: "profile",
   shop: "shop",
@@ -290,6 +298,19 @@ const getBackgroundSelectionState = (user, option) => {
   return user?.background_image_url === option.value;
 };
 
+const buildDraftSnapshotFromUser = (user, selectedBadgeIds) => ({
+  background_image_url: user?.background_image_url ?? null,
+  background_color: user?.background_color ?? null,
+  selected_title: user?.selected_title ?? null,
+  selected_badge_ids: Array.isArray(selectedBadgeIds) ? [...selectedBadgeIds] : [],
+  selected_profile_effect: user?.selected_profile_effect ?? null,
+  selected_logo_effect: user?.selected_logo_effect ?? null,
+  selected_border_asset: user?.selected_border_asset ?? null,
+  selected_plant_asset: user?.selected_plant_asset ?? null,
+  selected_face_asset: user?.selected_face_asset ?? null,
+  selected_border_color: user?.selected_border_color ?? null,
+});
+
 const getBackgroundButtonStyle = ({ isActive, isLightUi }) => {
   if (isActive) {
     return isLightUi
@@ -302,7 +323,7 @@ const getBackgroundButtonStyle = ({ isActive, isLightUi }) => {
     : "border-[#f0e5a5]/25 hover:border-[#f0e5a5]/45";
 };
 
-const BackgroundOptionCard = ({ option, user, isLightUi, isPending, isSelected = false, onSelect }) => {
+const BackgroundOptionCard = ({ option, user, isLightUi, isPending, isSelected = false, compact = false, onSelect, onRequestPurchase }) => {
   const isActive = getBackgroundSelectionState(user, option);
   const isLocked = Boolean(option?.isLocked);
   const sparkPrice = Math.max(0, Number(option?.sparkPrice || 0));
@@ -312,7 +333,7 @@ const BackgroundOptionCard = ({ option, user, isLightUi, isPending, isSelected =
   const buttonContent = (
     <button
       type="button"
-      disabled={isPending || (isLocked && !isPurchasable)}
+      disabled={isPending || (isLocked && !isPurchasable && !onRequestPurchase)}
       onClick={() => onSelect(option)}
       className={`relative overflow-hidden rounded-2xl border text-left transition-all duration-200 disabled:opacity-60 ${isLocked && !isPurchasable ? "cursor-help" : ""} ${getBackgroundButtonStyle({ isActive, isLightUi })} ${
         isSelected
@@ -320,7 +341,7 @@ const BackgroundOptionCard = ({ option, user, isLightUi, isPending, isSelected =
           : ""
       }`}
     >
-      <div className="aspect-[1.1/1] w-full">
+      <div className={`${compact ? "aspect-[4/3]" : "aspect-[1.1/1]"} w-full`}>
         {option.type === "color" ? (
           <div className="h-full w-full" style={{ backgroundColor: option.value }} />
         ) : (
@@ -328,8 +349,21 @@ const BackgroundOptionCard = ({ option, user, isLightUi, isPending, isSelected =
         )}
       </div>
       {isLocked && <div className="absolute inset-0 bg-black/45" />}
+      {compact && isLocked && !isPurchasable && (
+        <Lock className={`absolute bottom-1.5 right-1.5 z-[1] h-5 w-5 ${isLightUi ? "text-white" : "text-stone-100"}`} />
+      )}
+      {isPurchasable && onRequestPurchase && (
+        <button
+          type="button"
+          onClick={(event) => { event.stopPropagation(); onRequestPurchase(option); }}
+          aria-label="Kaufen"
+          className={`absolute right-1.5 top-1.5 z-[1] flex ${compact ? "h-6 w-6" : "h-7 w-7"} items-center justify-center rounded-full border ${isLightUi ? "border-white/70 bg-white/85 text-[#8f6b22]" : "border-white/15 bg-black/55 text-[#f0e5a5]"}`}
+        >
+          <ShoppingCart className="h-3.5 w-3.5" />
+        </button>
+      )}
       <div className={`absolute inset-0 ${isActive ? (isLightUi ? "bg-white/10" : "bg-black/10") : "bg-transparent"}`} />
-      <div className="absolute inset-x-0 bottom-0 p-2">
+      {!compact && <div className="absolute inset-x-0 bottom-0 p-2">
         <div className={`rounded-xl border px-2 py-2 backdrop-blur-md ${
           isLightUi
             ? "border-white/65 bg-white/75 text-stone-800"
@@ -353,7 +387,7 @@ const BackgroundOptionCard = ({ option, user, isLightUi, isPending, isSelected =
             </div>
           )}
         </div>
-      </div>
+      </div>}
     </button>
   );
 
@@ -371,7 +405,7 @@ const BackgroundOptionCard = ({ option, user, isLightUi, isPending, isSelected =
   );
 };
 
-const TitleOptionRow = ({ option, user, isLightUi, isPending, isSelected = false, onSelect }) => {
+const TitleOptionRow = ({ option, user, isLightUi, isPending, isSelected = false, compact = false, onSelect }) => {
   const isActive = resolveTitleValue(user?.selected_title) === resolveTitleValue(option?.value, option?.label);
 
   return (
@@ -379,7 +413,7 @@ const TitleOptionRow = ({ option, user, isLightUi, isPending, isSelected = false
       type="button"
       disabled={isPending}
       onClick={() => onSelect(option)}
-      className={`w-full rounded-2xl border px-3 py-3 text-left transition-colors disabled:opacity-60 ${
+      className={`w-full ${compact ? "rounded-xl px-2.5 py-2" : "rounded-2xl px-3 py-3"} border text-left transition-colors disabled:opacity-60 ${
         isActive
           ? (isLightUi
             ? "border-[#c8ac62]/75 bg-white/85 text-stone-900 shadow-[0_10px_24px_rgba(162,129,48,0.16)]"
@@ -391,8 +425,8 @@ const TitleOptionRow = ({ option, user, isLightUi, isPending, isSelected = false
     >
       <div className="flex items-center justify-between gap-2">
         <div className="min-w-0">
-          <div className="truncate text-sm font-semibold">{option.label}</div>
-          <div className={`mt-1 text-[11px] ${isLightUi ? "text-stone-500" : "text-stone-300/75"}`}>
+          <div className={`${compact ? "text-xs" : "text-sm"} truncate font-semibold`}>{option.label}</div>
+          <div className={`${compact ? "mt-0.5" : "mt-1"} text-[11px] ${isLightUi ? "text-stone-500" : "text-stone-300/75"}`}>
             {option.source === "achievement" ? "Freigeschaltet durch Erfolg" : "Freigeschaltet als Belohnung"}
           </div>
         </div>
@@ -424,7 +458,7 @@ const formatAccessoryPriceLabel = (sparkPrice, amberPrice) => {
   return parts.join(" oder ");
 };
 
-const AccessoryOptionCard = ({ option, user, isLightUi, isPending, isSelected = false, onSelect }) => {
+const AccessoryOptionCard = ({ option, user, isLightUi, isPending, isSelected = false, compact = false, onSelect, onRequestPurchase }) => {
   const isActive = getAccessorySelectionState(user, option);
   const isLocked = Boolean(option?.isLocked);
   const sparkPrice = Math.max(0, Number(option?.sparkPrice || 0));
@@ -447,7 +481,7 @@ const AccessoryOptionCard = ({ option, user, isLightUi, isPending, isSelected = 
           : ""
       }`}
     >
-      <div className="aspect-square w-full p-2">
+      <div className={`${compact ? "aspect-[4/3] p-1" : "aspect-square p-2"} w-full`}>
         <img
           src={option.imageUrl}
           alt={option.label}
@@ -456,8 +490,21 @@ const AccessoryOptionCard = ({ option, user, isLightUi, isPending, isSelected = 
         />
       </div>
       {isLocked && <div className="absolute inset-0 bg-black/45" />}
+      {compact && isLocked && !isPurchasable && (
+        <Lock className={`absolute bottom-1.5 right-1.5 z-[1] h-5 w-5 ${isLightUi ? "text-white" : "text-stone-100"}`} />
+      )}
+      {isPurchasable && onRequestPurchase && (
+        <button
+          type="button"
+          onClick={(event) => { event.stopPropagation(); onRequestPurchase(option); }}
+          aria-label="Kaufen"
+          className={`absolute right-1.5 top-1.5 z-[1] flex ${compact ? "h-6 w-6" : "h-7 w-7"} items-center justify-center rounded-full border ${isLightUi ? "border-white/70 bg-white/85 text-[#8f6b22]" : "border-white/15 bg-black/55 text-[#f0e5a5]"}`}
+        >
+          <ShoppingCart className="h-3.5 w-3.5" />
+        </button>
+      )}
       <div className={`absolute inset-0 ${isActive ? (isLightUi ? "bg-white/10" : "bg-black/10") : "bg-transparent"}`} />
-      <div className="absolute inset-x-0 bottom-0 p-2">
+      {!compact && <div className="absolute inset-x-0 bottom-0 p-2">
         <div className={`rounded-xl border px-2 py-2 backdrop-blur-md ${
           isLightUi
             ? "border-white/65 bg-white/75 text-stone-800"
@@ -481,7 +528,7 @@ const AccessoryOptionCard = ({ option, user, isLightUi, isPending, isSelected = 
             </div>
           )}
         </div>
-      </div>
+      </div>}
     </button>
   );
 
@@ -495,7 +542,7 @@ const AccessoryOptionCard = ({ option, user, isLightUi, isPending, isSelected = 
   );
 };
 
-const ProfileEffectOptionCard = ({ option, user, isLightUi, isPending, isSelected = false, onSelect }) => {
+const ProfileEffectOptionCard = ({ option, user, isLightUi, isPending, isSelected = false, compact = false, onSelect, onRequestPurchase }) => {
   const isActive = getProfileEffectSelectionState(user, option);
   const isLocked = Boolean(option?.isLocked);
   const sparkPrice = Math.max(0, Number(option?.sparkPrice || 0));
@@ -517,7 +564,7 @@ const ProfileEffectOptionCard = ({ option, user, isLightUi, isPending, isSelecte
           : ""
       }`}
     >
-      <div className="relative aspect-[1.1/1] w-full p-3">
+      <div className={`relative ${compact ? "aspect-[4/3] p-1.5" : "aspect-[1.1/1] p-3"} w-full`}>
         <div
           className={`absolute inset-0 ${
             isLightUi
@@ -526,7 +573,7 @@ const ProfileEffectOptionCard = ({ option, user, isLightUi, isPending, isSelecte
           }`}
         />
         <div className={`absolute inset-[16%] rounded-full border ${isLightUi ? "border-[#c8ac62]/55" : "border-[#f0e5a5]/60"}`} />
-        <div className="absolute inset-0 flex items-end justify-center pb-3">
+        {!compact && <div className="absolute inset-0 flex items-end justify-center pb-3">
           <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold ${
             isLightUi
               ? "border-[#c8ac62]/45 bg-[#f4e7bf]/70 text-stone-700"
@@ -534,11 +581,24 @@ const ProfileEffectOptionCard = ({ option, user, isLightUi, isPending, isSelecte
           }`}>
             Effekt
           </span>
-        </div>
+        </div>}
       </div>
       {isLocked && <div className="absolute inset-0 bg-black/45" />}
+      {compact && isLocked && !isPurchasable && (
+        <Lock className={`absolute bottom-1.5 right-1.5 z-[1] h-5 w-5 ${isLightUi ? "text-white" : "text-stone-100"}`} />
+      )}
+      {isPurchasable && onRequestPurchase && (
+        <button
+          type="button"
+          onClick={(event) => { event.stopPropagation(); onRequestPurchase(option); }}
+          aria-label="Kaufen"
+          className={`absolute right-1.5 top-1.5 z-[1] flex ${compact ? "h-6 w-6" : "h-7 w-7"} items-center justify-center rounded-full border ${isLightUi ? "border-white/70 bg-white/85 text-[#8f6b22]" : "border-white/15 bg-black/55 text-[#f0e5a5]"}`}
+        >
+          <ShoppingCart className="h-3.5 w-3.5" />
+        </button>
+      )}
       <div className={`absolute inset-0 ${isActive ? (isLightUi ? "bg-white/10" : "bg-black/10") : "bg-transparent"}`} />
-      <div className="absolute inset-x-0 bottom-0 p-2">
+      {!compact && <div className="absolute inset-x-0 bottom-0 p-2">
         <div className={`rounded-xl border px-2 py-2 backdrop-blur-md ${
           isLightUi
             ? "border-white/65 bg-white/75 text-stone-800"
@@ -566,7 +626,7 @@ const ProfileEffectOptionCard = ({ option, user, isLightUi, isPending, isSelecte
             </div>
           )}
         </div>
-      </div>
+      </div>}
     </button>
   );
 
@@ -962,9 +1022,9 @@ const ProfileCategorySnapCarousel = ({ categories, activeKey, isLightUi, onSelec
   );
 };
 
-const AccessoryOptionGrid = ({ options, user, isLightUi, isPending, onSelect, selectedOptionId = null }) => {
+const AccessoryOptionGrid = ({ options, user, isLightUi, isPending, onSelect, selectedOptionId = null, onRequestPurchase, compact = false }) => {
   return (
-    <div className="grid grid-cols-2 gap-2 md:gap-3">
+    <div className={`grid ${compact ? "grid-cols-3 gap-2" : "grid-cols-2 gap-2 md:gap-3"}`}>
       {(Array.isArray(options) ? options : []).map((option) => (
         <AccessoryOptionCard
           key={option.id}
@@ -973,200 +1033,11 @@ const AccessoryOptionGrid = ({ options, user, isLightUi, isPending, onSelect, se
           isLightUi={isLightUi}
           isPending={isPending}
           isSelected={selectedOptionId === option.id}
+          compact={compact}
           onSelect={onSelect}
+          onRequestPurchase={onRequestPurchase}
         />
       ))}
-    </div>
-  );
-};
-
-const AMBER_PACKAGES = [
-  { id: "amber-30", price: 1.30, amber: 30, label: "30 Bernstein" },
-  { id: "amber-100", price: 3.90, amber: 100, label: "100 Bernstein" },
-  { id: "amber-240", price: 7.90, amber: 240, label: "240 Bernstein" },
-];
-
-const BernsteinShopSection = ({ isLightUi }) => {
-  const [selectedPackage, setSelectedPackage] = React.useState(null);
-  const [loading, setLoading] = React.useState(false);
-  const [message, setMessage] = React.useState(null);
-  const paypalButtonsRendered = React.useRef(false);
-  const paypalClientId = (typeof import.meta !== "undefined" && import.meta.env?.VITE_PAYPAL_CLIENT_ID || "").trim();
-
-  React.useEffect(() => {
-    if (!paypalClientId) return;
-    if (!document.getElementById("paypal-sdk")) {
-      const script = document.createElement("script");
-      script.id = "paypal-sdk";
-      script.src = `https://www.paypal.com/sdk/js?client-id=${paypalClientId}&currency=EUR`;
-      script.async = true;
-      document.body.appendChild(script);
-    }
-  }, [paypalClientId]);
-
-  const handleBuyPackage = (pkg) => {
-    setSelectedPackage(pkg);
-    setMessage(null);
-
-    setTimeout(() => {
-      const container = document.getElementById("paypal-amber-button-container");
-      if (container && window.paypal && !paypalButtonsRendered.current) {
-        container.innerHTML = "";
-
-        window.paypal.Buttons({
-          createOrder: async () => {
-            setLoading(true);
-            try {
-              const response = await supabase.functions.invoke("createPayPalAmberOrder", {
-                body: { price: pkg.price },
-              });
-
-              if (response.error) {
-                let detailedMessage = response.error.message || "Bestellung fehlgeschlagen.";
-                try {
-                  const errorPayload = await response.error.context?.json?.();
-                  const parts = [errorPayload?.error, errorPayload?.details?.error].filter(Boolean);
-                  if (parts.length > 0) detailedMessage = parts.join(": ");
-                } catch (_) {}
-                throw new Error(detailedMessage);
-              }
-
-              if (!response.data?.orderID) {
-                throw new Error("Keine OrderID erhalten.");
-              }
-
-              return response.data.orderID;
-            } catch (error) {
-              setMessage(`Fehler: ${error.message}`);
-              setLoading(false);
-              throw error;
-            }
-          },
-          onApprove: async (data) => {
-            try {
-              const response = await supabase.functions.invoke("capturePayPalAmberPayment", {
-                body: { orderID: data.orderID, amber: pkg.amber },
-              });
-
-              if (response.error) {
-                let detailedMessage = response.error.message || "Zahlung fehlgeschlagen.";
-                try {
-                  const errorPayload = await response.error.context?.json?.();
-                  const parts = [errorPayload?.error, errorPayload?.details?.error].filter(Boolean);
-                  if (parts.length > 0) detailedMessage = parts.join(": ");
-                } catch (_) {}
-                throw new Error(detailedMessage);
-              }
-
-              if (response.data?.success) {
-                setMessage(`✅ ${response.data.message}`);
-                setSelectedPackage(null);
-                paypalButtonsRendered.current = false;
-              }
-            } catch (error) {
-              setMessage(`Fehler: ${error.message}`);
-            } finally {
-              setLoading(false);
-            }
-          },
-          onCancel: () => {
-            setLoading(false);
-            setSelectedPackage(null);
-            paypalButtonsRendered.current = false;
-            setMessage("Kauf abgebrochen.");
-          },
-          onError: (err) => {
-            setLoading(false);
-            setSelectedPackage(null);
-            paypalButtonsRendered.current = false;
-            setMessage(`PayPal Fehler: ${String(err)}`);
-          },
-        }).render("#paypal-amber-button-container");
-
-        paypalButtonsRendered.current = true;
-      }
-    }, 100);
-  };
-
-  return (
-    <div className="space-y-3">
-      <SectionCard title="Bernstein kaufen" icon={Gem} isLightUi={isLightUi}>
-        {message && (
-          <div className={`mb-3 rounded-xl border px-3 py-2 text-xs ${isLightUi ? "border-[#c8ac62]/35 bg-stone-50 text-stone-700" : "border-[#f0e5a5]/25 bg-black/25 text-stone-200"}`}>
-            {message}
-          </div>
-        )}
-
-        {selectedPackage ? (
-          <div className="space-y-3">
-            <div className={`rounded-xl border px-3 py-3 text-center ${isLightUi ? "border-[#c8ac62]/45 bg-white/80" : "border-[#f0e5a5]/35 bg-black/35"}`}>
-              <div className={`text-sm font-semibold ${isLightUi ? "text-stone-800" : "text-stone-100"}`}>
-                {selectedPackage.label}
-              </div>
-              <div className={`mt-1 text-lg font-bold ${isLightUi ? "text-[#8f6b22]" : "text-[#f0e5a5]"}`}>
-                {selectedPackage.price.toFixed(2).replace(".", ",")} €
-              </div>
-            </div>
-
-            {loading && (
-              <div className="flex items-center justify-center py-3">
-                <RefreshCw className={`w-5 h-5 animate-spin ${isLightUi ? "text-stone-600" : "text-stone-300"}`} />
-              </div>
-            )}
-
-            <div id="paypal-amber-button-container" className={loading ? "opacity-50 pointer-events-none" : ""} />
-
-            <button
-              type="button"
-              onClick={() => {
-                setSelectedPackage(null);
-                paypalButtonsRendered.current = false;
-              }}
-              className={`w-full h-9 rounded-xl border px-3 text-xs font-semibold ${isLightUi ? "border-[#c8ac62]/40 bg-white/75 text-stone-700 hover:bg-white" : "border-[#f0e5a5]/25 bg-black/35 text-stone-100 hover:bg-black/50"}`}
-            >
-              Abbrechen
-            </button>
-          </div>
-        ) : (
-          <div className="space-y-2">
-            {AMBER_PACKAGES.map((pkg) => (
-              <button
-                key={pkg.id}
-                type="button"
-                onClick={() => handleBuyPackage(pkg)}
-                className={`w-full flex items-center justify-between rounded-2xl border px-4 py-3 text-left transition-all ${
-                  isLightUi
-                    ? "border-[#c8ac62]/35 bg-white/70 hover:border-[#c8ac62]/60 hover:shadow-[0_6px_16px_rgba(162,129,48,0.12)]"
-                    : "border-[#f0e5a5]/25 bg-black/25 hover:border-[#f0e5a5]/50 hover:shadow-[0_6px_16px_rgba(0,0,0,0.3)]"
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${isLightUi ? "bg-amber-100 text-amber-700" : "bg-amber-500/20 text-amber-300"}`}>
-                    <Gem className="h-5 w-5" />
-                  </div>
-                  <div>
-                    <div className={`text-sm font-semibold ${isLightUi ? "text-stone-800" : "text-stone-100"}`}>
-                      {pkg.amber} Bernstein
-                    </div>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className={`text-sm font-bold ${isLightUi ? "text-[#8f6b22]" : "text-[#f0e5a5]"}`}>
-                    {pkg.price.toFixed(2).replace(".", ",")} €
-                  </span>
-                  <span className={`inline-flex h-8 items-center rounded-lg border px-3 text-xs font-semibold ${
-                    isLightUi
-                      ? "border-[#c8ac62]/50 bg-[#f4e7bf] text-stone-800"
-                      : "border-[#f0e5a5]/40 bg-[#4f4826] text-[#f7f0c1]"
-                  }`}>
-                    Kaufen
-                  </span>
-                </div>
-              </button>
-            ))}
-          </div>
-        )}
-      </SectionCard>
     </div>
   );
 };
@@ -1200,6 +1071,19 @@ export default function ShopFeatureRoot({
   externalActionMode = false,
   onActionStateChange,
   onBackStateChange,
+  // Flat/draft mode: renders every category in one compact stacked list (GoldGradientCard styled)
+  // instead of the root/subcategory carousel, and stages selections locally ("anprobieren") instead
+  // of persisting immediately. Used by the Home hero content-stack + HomeFlorabotOverlay entry points.
+  flatMode = false,
+  draftMode = false,
+  saveNonce = 0,
+  onDraftPreviewChange,
+  onUnsavedChange,
+  onSaveComplete,
+  // Optional external control of the active flat category (used by Home.jsx's own vertical
+  // carousel rendered in the header area, replacing the in-component horizontal carousel).
+  activeFlatCategoryKey: externalFlatCategoryKey,
+  onFlatCategoryKeyChange,
 }) {
   const { isLightUi } = useUiTheme();
   const queryClient = useQueryClient();
@@ -1211,6 +1095,8 @@ export default function ShopFeatureRoot({
     return getInitialSubcategoryForRoot(initialRoot, initialCategory);
   });
   const [shopMessage, setShopMessage] = useState(null);
+  // Active category for the flat/gold-carousel restructure (see `flatMode` below).
+  const [flatCategoryKey, setFlatCategoryKey] = useState("backgrounds");
   const { toast } = useToast();
   const [purchaseConfirmOption, setPurchaseConfirmOption] = useState(null);
   const [purchaseCurrency, setPurchaseCurrency] = useState(null); // "sparks" | "amber" | null
@@ -1600,14 +1486,6 @@ export default function ShopFeatureRoot({
       isPlaceholder: true,
     });
 
-    resolved.push({
-      key: "bernstein",
-      title: "Bernstein",
-      subtitle: "Bernstein-Pakete kaufen",
-      sections: [],
-      optionCount: 0,
-    });
-
     return orderByCategoryList(resolved, ROOT_SUBCATEGORY_ORDER.shop);
   }, [backgroundsCategory, effectsCategory, faceSection, plantSection, borderSection]);
 
@@ -1787,6 +1665,15 @@ export default function ShopFeatureRoot({
   });
 
   const handleSelectBackground = async (option) => {
+    if (draftMode) {
+      setDraftFields((prev) => ({
+        ...(prev || buildDraftSnapshotFromUser(resolvedCurrentUser, selectedBadgeIds)),
+        background_image_url: option?.type === "color" ? null : (option?.value || null),
+        background_color: option?.type === "color" ? option.value : null,
+      }));
+      return;
+    }
+
     if (externalActionMode) {
       if (option?.isLocked) {
         const sparkPrice = Math.max(0, Number(option?.sparkPrice || 0));
@@ -1877,6 +1764,15 @@ export default function ShopFeatureRoot({
   };
 
   const handleSelectTitle = async (option) => {
+    if (draftMode) {
+      const nextTitle = resolveTitleValue(option?.value, option?.label);
+      setDraftFields((prev) => ({
+        ...(prev || buildDraftSnapshotFromUser(resolvedCurrentUser, selectedBadgeIds)),
+        selected_title: nextTitle || null,
+      }));
+      return;
+    }
+
     if (externalActionMode) {
       setSelectedOptionForAction({
         kind: "title",
@@ -1904,6 +1800,14 @@ export default function ShopFeatureRoot({
   };
 
   const handleSelectProfileEffect = async (option) => {
+    if (draftMode) {
+      setDraftFields((prev) => ({
+        ...(prev || buildDraftSnapshotFromUser(resolvedCurrentUser, selectedBadgeIds)),
+        selected_profile_effect: option?.value || null,
+      }));
+      return;
+    }
+
     const sparkPrice = Math.max(0, Number(option?.sparkPrice || 0));
     const amberPrice = Math.max(0, Number(option?.amberPrice || 0));
     const canBeBought = Boolean(option?.isPurchasable) && (sparkPrice > 0 || amberPrice > 0);
@@ -1976,6 +1880,24 @@ export default function ShopFeatureRoot({
     const normalizedBadgeId = String(badgeId || "").trim();
     if (!normalizedBadgeId) return;
 
+    if (draftMode) {
+      const baseSelection = draftFields?.selected_badge_ids ?? selectedBadgeIds;
+      const isAlreadySelected = baseSelection.includes(normalizedBadgeId);
+      if (!isAlreadySelected && baseSelection.length >= PROFILE_BADGE_MAX_SELECTED) {
+        setShopMessage(`Maximal ${PROFILE_BADGE_MAX_SELECTED} Abzeichen gleichzeitig.`);
+        return;
+      }
+      const nextSelection = isAlreadySelected
+        ? baseSelection.filter((entry) => entry !== normalizedBadgeId)
+        : [...baseSelection, normalizedBadgeId].slice(0, PROFILE_BADGE_MAX_SELECTED);
+      setShopMessage(null);
+      setDraftFields((prev) => ({
+        ...(prev || buildDraftSnapshotFromUser(resolvedCurrentUser, selectedBadgeIds)),
+        selected_badge_ids: nextSelection,
+      }));
+      return;
+    }
+
     const isAlreadySelected = selectedBadgeIds.includes(normalizedBadgeId);
     const nextSelection = isAlreadySelected
       ? selectedBadgeIds.filter((entry) => entry !== normalizedBadgeId)
@@ -1991,6 +1913,15 @@ export default function ShopFeatureRoot({
   };
 
   const handleSelectAccessory = async (option) => {
+    if (draftMode) {
+      if (!option?.profileField) return;
+      setDraftFields((prev) => ({
+        ...(prev || buildDraftSnapshotFromUser(resolvedCurrentUser, selectedBadgeIds)),
+        [option.profileField]: option.value,
+      }));
+      return;
+    }
+
     if (externalActionMode) {
       const sparkPrice = Math.max(0, Number(option?.sparkPrice || 0));
       const amberPrice = Math.max(0, Number(option?.amberPrice || 0));
@@ -2047,6 +1978,14 @@ export default function ShopFeatureRoot({
   };
 
   const handleSelectBorderColor = async (hex) => {
+    if (draftMode) {
+      setDraftFields((prev) => ({
+        ...(prev || buildDraftSnapshotFromUser(resolvedCurrentUser, selectedBadgeIds)),
+        selected_border_color: hex || null,
+      }));
+      return;
+    }
+
     // Der BorderColorPicker hat bereits einen eigenen Bestätigungs-Dialog ("Festlegen"),
     // daher wird hier immer direkt gespeichert – unabhängig von externalActionMode.
     setShopMessage(null);
@@ -2067,6 +2006,164 @@ export default function ShopFeatureRoot({
       PROFILE_BADGE_MAX_SELECTED,
     );
   }, [resolvedCurrentUser?.selected_badge_ids]);
+
+  // Draft/preview state ("anprobieren"): while draftMode is active, selections are staged here
+  // instead of persisted immediately. Reset to null whenever draftMode turns off (host closes the view).
+  const [draftFields, setDraftFields] = useState(null);
+  useEffect(() => {
+    if (!draftMode) {
+      setDraftFields(null);
+      return;
+    }
+    if (draftFields === null && resolvedCurrentUser) {
+      setDraftFields(buildDraftSnapshotFromUser(resolvedCurrentUser, selectedBadgeIds));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draftMode, resolvedCurrentUser, draftFields]);
+
+  const previewUser = draftMode && draftFields ? { ...resolvedCurrentUser, ...draftFields } : resolvedCurrentUser;
+  const previewSelectedBadgeIds = draftMode && draftFields ? draftFields.selected_badge_ids : selectedBadgeIds;
+
+  useEffect(() => {
+    if (!draftMode || typeof onDraftPreviewChange !== "function") return;
+    onDraftPreviewChange(draftFields || null);
+  }, [draftMode, draftFields, onDraftPreviewChange]);
+
+  const hasUnsavedDraftChanges = useMemo(() => {
+    if (!draftMode || !draftFields || !resolvedCurrentUser) return false;
+    const baseline = buildDraftSnapshotFromUser(resolvedCurrentUser, selectedBadgeIds);
+    return Object.keys(baseline).some((field) => {
+      if (field === "selected_badge_ids") {
+        return JSON.stringify(baseline[field]) !== JSON.stringify(draftFields[field]);
+      }
+      return baseline[field] !== draftFields[field];
+    });
+  }, [draftMode, draftFields, resolvedCurrentUser, selectedBadgeIds]);
+
+  useEffect(() => {
+    if (!draftMode || typeof onUnsavedChange !== "function") return;
+    onUnsavedChange(hasUnsavedDraftChanges);
+  }, [draftMode, hasUnsavedDraftChanges, onUnsavedChange]);
+
+  const handleOpenPurchaseDialog = (option) => {
+    setShopMessage(null);
+    setPurchaseConfirmOption(option);
+    setPurchaseCurrency(null);
+    setPurchaseDialogStep("select");
+  };
+
+  const isBackgroundOptionLocked = (imageUrl, color) => {
+    const option = (backgroundsCategory?.sections || [])
+      .flatMap((section) => section?.options || [])
+      .find((entry) => (color ? (entry.type === "color" && entry.value === color) : (entry.type !== "color" && entry.value === imageUrl)));
+    return Boolean(option?.isLocked);
+  };
+
+  const isAccessoryOptionLocked = (profileField, value) => {
+    if (!value) return false;
+    const section = profileField === "selected_border_asset" ? borderSection
+      : profileField === "selected_plant_asset" ? plantSection
+      : profileField === "selected_face_asset" ? faceSection
+      : null;
+    const option = (section?.options || []).find((entry) => entry.value === value);
+    return Boolean(option?.isLocked);
+  };
+
+  const isProfileEffectOptionLocked = (value) => {
+    if (!value) return false;
+    const option = (profileEffectsSection?.options || []).find((entry) => entry.value === value);
+    return Boolean(option?.isLocked);
+  };
+
+  const isLogoEffectOptionLocked = (value) => {
+    if (!value) return false;
+    const option = (logoEffectsSection?.options || []).find((entry) => entry.value === value);
+    return Boolean(option?.isLocked);
+  };
+
+  const lastSaveNonceRef = React.useRef(saveNonce);
+  useEffect(() => {
+    if (saveNonce === lastSaveNonceRef.current) return;
+    lastSaveNonceRef.current = saveNonce;
+    if (!draftMode || !draftFields || !resolvedCurrentUser) return;
+
+    (async () => {
+      const baseline = buildDraftSnapshotFromUser(resolvedCurrentUser, selectedBadgeIds);
+      const updates = {};
+      const skippedLabels = [];
+
+      if (draftFields.background_image_url !== baseline.background_image_url || draftFields.background_color !== baseline.background_color) {
+        if (isBackgroundOptionLocked(draftFields.background_image_url, draftFields.background_color)) {
+          skippedLabels.push("Hintergrund");
+        } else {
+          updates.background_image_url = draftFields.background_image_url;
+          updates.background_color = draftFields.background_color;
+        }
+      }
+      if (draftFields.selected_title !== baseline.selected_title) {
+        updates.selected_title = draftFields.selected_title;
+      }
+      if (JSON.stringify(draftFields.selected_badge_ids) !== JSON.stringify(baseline.selected_badge_ids)) {
+        updates.selected_badge_ids = draftFields.selected_badge_ids;
+      }
+      if (draftFields.selected_profile_effect !== baseline.selected_profile_effect) {
+        if (isProfileEffectOptionLocked(draftFields.selected_profile_effect)) {
+          skippedLabels.push("Effekt");
+        } else {
+          updates.selected_profile_effect = draftFields.selected_profile_effect;
+        }
+      }
+      if (draftFields.selected_logo_effect !== baseline.selected_logo_effect) {
+        if (isLogoEffectOptionLocked(draftFields.selected_logo_effect)) {
+          skippedLabels.push("Florabot-Effekt");
+        } else {
+          updates.selected_logo_effect = draftFields.selected_logo_effect;
+        }
+      }
+      if (draftFields.selected_border_asset !== baseline.selected_border_asset) {
+        if (isAccessoryOptionLocked("selected_border_asset", draftFields.selected_border_asset)) {
+          skippedLabels.push("Rahmen");
+        } else {
+          updates.selected_border_asset = draftFields.selected_border_asset;
+        }
+      }
+      if (draftFields.selected_plant_asset !== baseline.selected_plant_asset) {
+        if (isAccessoryOptionLocked("selected_plant_asset", draftFields.selected_plant_asset)) {
+          skippedLabels.push("Pflanze");
+        } else {
+          updates.selected_plant_asset = draftFields.selected_plant_asset;
+        }
+      }
+      if (draftFields.selected_face_asset !== baseline.selected_face_asset) {
+        if (isAccessoryOptionLocked("selected_face_asset", draftFields.selected_face_asset)) {
+          skippedLabels.push("Gesicht");
+        } else {
+          updates.selected_face_asset = draftFields.selected_face_asset;
+        }
+      }
+      if (draftFields.selected_border_color !== baseline.selected_border_color) {
+        updates.selected_border_color = draftFields.selected_border_color;
+      }
+
+      if (skippedLabels.length > 0) {
+        toast({
+          title: "Nicht gespeichert",
+          description: `${skippedLabels.join(", ")} noch nicht freigeschaltet - zuerst kaufen.`,
+        });
+      }
+
+      try {
+        if (Object.keys(updates).length > 0) {
+          await updateCustomizationMutation.mutateAsync(updates);
+        }
+        onSaveComplete?.(true);
+      } catch {
+        onSaveComplete?.(false);
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [saveNonce]);
+
   const availableSparks = Math.max(0, Number(userWallet?.sparks_balance ?? 0));
   const availableAmber = Math.max(0, Number(userWallet?.amber_balance ?? 0));
   const activeRootMeta = ROOT_CATEGORY_META[shopRootCategory] || null;
@@ -2228,6 +2325,325 @@ export default function ShopFeatureRoot({
       // Die Fehlermeldung wird in onError/onSuccess gesetzt.
     }
   };
+
+  const renderPurchaseDialog = () => (
+    <Dialog open={Boolean(purchaseConfirmOption)} onOpenChange={(open) => {
+      if (!open) handleClosePurchaseDialog();
+    }}>
+      <DialogContent className={`max-w-[min(92vw,25rem)] rounded-2xl ${isLightUi ? "border-[#c8ac62]/45 bg-white" : "border-[#f0e5a5]/35 bg-[#1a1d1a]"}`}>
+        <DialogHeader>
+          <DialogTitle className={`${isLightUi ? "text-stone-900" : "text-stone-100"}`}>
+            {isPurchaseSafetyStep ? "Kauf bestätigen" : "Belohnung freischalten"}
+          </DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-3">
+          {purchaseConfirmOption?.imageUrl && (
+            <div className={`mx-auto flex h-28 w-28 items-center justify-center rounded-2xl border p-2 ${
+              isLightUi
+                ? "border-[#c8ac62]/40 bg-white"
+                : "border-[#f0e5a5]/35 bg-black/30"
+            }`}>
+              <img
+                src={purchaseConfirmOption.imageUrl}
+                alt={purchaseConfirmOption?.label || "Accessoire Vorschau"}
+                className="h-full w-full object-contain"
+              />
+            </div>
+          )}
+
+          <p className={`text-sm ${isLightUi ? "text-stone-700" : "text-stone-200"}`}>
+            {isPurchaseSafetyStep ? (
+              <>
+                Möchtest du <span className="font-semibold">{purchaseConfirmOption?.label || "diese Belohnung"}</span> wirklich mit {" "}
+                <span className="font-semibold">{selectedCurrencyPrice} {selectedCurrencyLabel}</span> kaufen?
+              </>
+            ) : (
+              <>
+                Möchtest du <span className="font-semibold">{purchaseConfirmOption?.label || "diese Belohnung"}</span> freischalten?
+              </>
+            )}
+          </p>
+
+          {purchaseDialogHasBothPrices ? (
+            <div className={`rounded-lg border px-3 py-2 text-xs space-y-2 ${isLightUi ? "border-[#c8ac62]/35 bg-stone-50 text-stone-700" : "border-[#f0e5a5]/25 bg-black/25 text-stone-200"}`}>
+              <p className="font-medium text-[11px] uppercase tracking-wide opacity-70">Bezahlen mit:</p>
+              <label className={`flex items-center justify-between gap-2 cursor-pointer rounded-md px-2 py-1.5 transition-colors ${effectivePurchaseCurrency === "sparks" ? (isLightUi ? "bg-amber-100/70 ring-1 ring-amber-300" : "bg-amber-900/30 ring-1 ring-amber-500/50") : ""}`}>
+                <span className="flex items-center gap-1.5">
+                  <input type="radio" name="purchaseCurrencyFlat" value="sparks" checked={effectivePurchaseCurrency === "sparks"} onChange={() => setPurchaseCurrency("sparks")} className="accent-amber-500" />
+                  <Sparkles className="w-3 h-3 opacity-80" /> {purchaseDialogSparkPrice} Funken
+                </span>
+                <span className={`font-semibold ${!canAffordDialogSparks ? (isLightUi ? "text-red-600" : "text-red-400") : ""}`}>
+                  (Guthaben: {availableSparks})
+                </span>
+              </label>
+              <label className={`flex items-center justify-between gap-2 cursor-pointer rounded-md px-2 py-1.5 transition-colors ${effectivePurchaseCurrency === "amber" ? (isLightUi ? "bg-amber-100/70 ring-1 ring-amber-300" : "bg-amber-900/30 ring-1 ring-amber-500/50") : ""}`}>
+                <span className="flex items-center gap-1.5">
+                  <input type="radio" name="purchaseCurrencyFlat" value="amber" checked={effectivePurchaseCurrency === "amber"} onChange={() => setPurchaseCurrency("amber")} className="accent-amber-500" />
+                  <span className="text-[11px]">🔸</span> {purchaseDialogAmberPrice} Bernstein
+                </span>
+                <span className={`font-semibold ${!canAffordDialogAmber ? (isLightUi ? "text-red-600" : "text-red-400") : ""}`}>
+                  (Guthaben: {availableAmber})
+                </span>
+              </label>
+            </div>
+          ) : (
+            <div className={`rounded-lg border px-3 py-2 text-xs space-y-1 ${isLightUi ? "border-[#c8ac62]/35 bg-stone-50 text-stone-700" : "border-[#f0e5a5]/25 bg-black/25 text-stone-200"}`}>
+              {purchaseDialogSparkPrice > 0 && (
+                <div className="flex items-center justify-between gap-2">
+                  <span className="flex items-center gap-1"><Sparkles className="w-3 h-3 opacity-80" /> Funken</span>
+                  <span className={`font-semibold ${!canAffordDialogSparks ? (isLightUi ? "text-red-600" : "text-red-400") : ""}`}>{availableSparks} / {purchaseDialogSparkPrice}</span>
+                </div>
+              )}
+              {purchaseDialogAmberPrice > 0 && (
+                <div className="flex items-center justify-between gap-2">
+                  <span className="flex items-center gap-1"><span className="text-[11px]">🔸</span> Bernstein</span>
+                  <span className={`font-semibold ${!canAffordDialogAmber ? (isLightUi ? "text-red-600" : "text-red-400") : ""}`}>{availableAmber} / {purchaseDialogAmberPrice}</span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {hasSelectedPurchaseCurrency && !canAffordPurchaseDialogOption && (
+            <div className={`rounded-lg border px-3 py-2 text-xs ${isLightUi ? "border-red-200 bg-red-50 text-red-700" : "border-red-500/35 bg-red-900/25 text-red-200"}`}>
+              {(effectivePurchaseCurrency || "sparks") === "sparks"
+                ? "Du hast nicht genug Funken für diesen Kauf."
+                : "Du hast nicht genug Bernstein für diesen Kauf."}
+            </div>
+          )}
+
+          {isPurchaseSafetyStep && hasSelectedPurchaseCurrency && (
+            <div className={`rounded-lg border px-3 py-2 text-xs space-y-1 ${isLightUi ? "border-[#c8ac62]/35 bg-stone-50 text-stone-700" : "border-[#f0e5a5]/25 bg-black/25 text-stone-200"}`}>
+              <p className="font-medium text-[11px] uppercase tracking-wide opacity-70">Kontostand nach dem Kauf</p>
+              <div className="flex items-center justify-between gap-2">
+                <span className="flex items-center gap-1"><Sparkles className="w-3 h-3 opacity-80" /> Funken</span>
+                <span className="font-semibold">{projectedSparksBalance}</span>
+              </div>
+              <div className="flex items-center justify-between gap-2">
+                <span className="flex items-center gap-1"><span className="text-[11px]">🔸</span> Bernstein</span>
+                <span className="font-semibold">{projectedAmberBalance}</span>
+              </div>
+            </div>
+          )}
+
+          {shopMessage && (
+            <div className={`rounded-lg border px-3 py-2 text-xs ${isLightUi ? "border-amber-200 bg-amber-50 text-amber-800" : "border-amber-500/35 bg-amber-900/25 text-amber-200"}`}>
+              {shopMessage}
+            </div>
+          )}
+
+          <div className="flex items-center justify-end gap-2">
+            <button
+              type="button"
+              disabled={purchaseAccessoryMutation.isPending}
+              onClick={isPurchaseSafetyStep ? handleBackToPurchaseSelectionStep : handleClosePurchaseDialog}
+              className={`h-9 rounded-lg border px-3 text-xs font-semibold whitespace-nowrap disabled:opacity-60 ${isLightUi ? "border-[#c8ac62]/45 bg-white/70 text-stone-700 hover:bg-white" : "border-[#f0e5a5]/25 bg-black/30 text-stone-200 hover:bg-black/50"}`}
+            >
+              {isPurchaseSafetyStep ? "Zurück" : "Abbrechen"}
+            </button>
+            <button
+              type="button"
+              disabled={purchaseAccessoryMutation.isPending || (isPurchaseSafetyStep ? !canAffordPurchaseDialogOption : (!hasSelectedPurchaseCurrency || !canAffordPurchaseDialogOption))}
+              onClick={isPurchaseSafetyStep ? handleConfirmAccessoryPurchase : handleProceedToPurchaseSafetyStep}
+              className={`h-9 rounded-lg border px-3 text-xs font-semibold whitespace-nowrap disabled:opacity-60 ${isLightUi ? "border-[#c8ac62]/50 bg-[#f4e7bf] text-stone-800 hover:bg-[#f7edd0]" : "border-[#f0e5a5]/40 bg-[#4f4826] text-[#f7f0c1] hover:bg-[#5a512b]"}`}
+            >
+              {purchaseAccessoryMutation.isPending
+                ? "Kaufe..."
+                : (isPurchaseSafetyStep ? "Jetzt kaufen" : "Weiter")}
+            </button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+
+  if (flatMode) {
+    const flatBackgroundOptions = (backgroundsCategory?.sections || []).flatMap((section) => section?.options || []);
+    const flatPlantOptions = plantSection?.options || [];
+    const flatBorderOptions = borderSection?.options || [];
+    const flatFaceOptions = faceSection?.options || [];
+    const flatProfileEffectOptions = profileEffectsSection?.options || [];
+    const flatLogoEffectOptions = logoEffectsSection?.options || [];
+    const flatTitleOptions = customizationCategories.find((category) => category.key === "titles")?.sections?.[0]?.options || [];
+    const emptyBlockClass = `rounded-2xl border border-dashed px-3 py-4 text-xs ${isLightUi ? "border-[#c8ac62]/30 text-stone-500" : "border-[#f0e5a5]/20 text-stone-300/75"}`;
+
+    const flatCategoryEntries = FLAT_CATEGORY_ENTRIES;
+    const isExternallyControlled = typeof onFlatCategoryKeyChange === "function";
+    const resolvedFlatCategoryKey = isExternallyControlled ? externalFlatCategoryKey : flatCategoryKey;
+    const activeFlatCategoryKey = flatCategoryEntries.some((entry) => entry.key === resolvedFlatCategoryKey)
+      ? resolvedFlatCategoryKey
+      : flatCategoryEntries[0].key;
+    const setActiveFlatCategoryKey = isExternallyControlled ? onFlatCategoryKeyChange : setFlatCategoryKey;
+
+    const renderActiveFlatCategoryContent = () => {
+      switch (activeFlatCategoryKey) {
+        case "titles":
+          return flatTitleOptions.length ? (
+            <div className="space-y-2">
+              {flatTitleOptions.map((option) => (
+                <TitleOptionRow key={option.id} option={option} user={previewUser} isLightUi={isLightUi} isPending={false} compact onSelect={handleSelectTitle} />
+              ))}
+            </div>
+          ) : (
+            <div className={emptyBlockClass}>{CATEGORY_META.titles.emptyLabel}</div>
+          );
+
+        case "badges":
+          return (
+            <div className="space-y-3">
+              <div className={`rounded-xl border px-3 py-2 text-xs ${isLightUi ? "border-[#c8ac62]/35 bg-stone-50 text-stone-700" : "border-[#f0e5a5]/25 bg-black/25 text-stone-200"}`}>
+                Bis zu {PROFILE_BADGE_MAX_SELECTED} Abzeichen auswählen. Aktuell: {previewSelectedBadgeIds.length}/{PROFILE_BADGE_MAX_SELECTED}.
+              </div>
+              {(badgeCategory.sections || []).map((section) => (
+                <div key={section.key}>
+                  {badgeCategory.sections.length > 1 && (
+                    <div className={`mb-2 text-xs font-semibold ${isLightUi ? "text-[#8f6b22]" : "text-stone-200/90"}`}>{section.title}</div>
+                  )}
+                  <div className="grid grid-cols-3 gap-2">
+                    {(section.options || []).map((badge) => {
+                      const Icon = getProfileBadgeIconComponent(badge.iconKey);
+                      const rankChipClass = BADGE_RANK_BADGE_STYLE[badge.rankKey] || BADGE_RANK_BADGE_STYLE.gray;
+                      const iconToneClass = BADGE_RANK_ICON_STYLE[badge.rankKey] || BADGE_RANK_ICON_STYLE.gray;
+                      const isSelected = previewSelectedBadgeIds.includes(badge.id);
+                      return (
+                        <button
+                          key={badge.id}
+                          type="button"
+                          onClick={() => handleSelectBadge(badge.id)}
+                          className={`relative rounded-xl border px-2 py-2 text-left transition-all ${getBadgeCardSurfaceClassName(badge.rankKey, isLightUi)} ${isSelected ? (isLightUi ? "ring-2 ring-[#c8ac62]/70" : "ring-2 ring-[#f0e5a5]/70") : ""}`}
+                        >
+                          {isSelected && (
+                            <span className={`absolute right-2 top-2 inline-flex h-5 w-5 items-center justify-center rounded-full border ${isLightUi ? "border-[#c8ac62]/60 bg-white/80 text-[#8f6b22]" : "border-[#f0e5a5]/45 bg-black/45 text-[#f0e5a5]"}`}>
+                              <Check className="h-3 w-3" />
+                            </span>
+                          )}
+                          <div className="flex items-start gap-2">
+                            <div className={`h-7 w-7 shrink-0 rounded-lg border flex items-center justify-center ${isLightUi ? "border-[#c8ac62]/35 bg-white/70" : "border-[#f0e5a5]/30 bg-black/35"} ${iconToneClass}`}>
+                              <Icon className="h-4 w-4" />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <div className={`truncate text-xs font-semibold ${isLightUi ? "text-[#8f6b22]" : "text-stone-100"}`}>{badge.label}</div>
+                              <div className={`mt-0.5 truncate text-[10px] ${isLightUi ? "text-[#b08a3a]" : "text-stone-300/80"}`}>{badge.valueLabel}</div>
+                            </div>
+                          </div>
+                          <div className="mt-1 flex items-center justify-between gap-2">
+                            <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold ${rankChipClass}`}>{badge.rankMeta?.label || "Grau"}</span>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+          );
+
+        case "backgrounds":
+          return flatBackgroundOptions.length ? (
+            <div className="grid grid-cols-3 gap-2">
+              {flatBackgroundOptions.map((option) => (
+                <BackgroundOptionCard key={option.id} option={option} user={previewUser} isLightUi={isLightUi} isPending={false} compact onSelect={handleSelectBackground} onRequestPurchase={handleOpenPurchaseDialog} />
+              ))}
+            </div>
+          ) : (
+            <div className={emptyBlockClass}>{CATEGORY_META.backgrounds.emptyLabel}</div>
+          );
+
+        case "effects":
+          return (
+            <div className="space-y-3">
+              <div>
+                <div className={`mb-2 text-xs font-semibold ${isLightUi ? "text-[#8f6b22]" : "text-stone-200/90"}`}>Profil-Effekte</div>
+                {flatProfileEffectOptions.length ? (
+                  <div className="grid grid-cols-3 gap-2">
+                    {flatProfileEffectOptions.map((option) => (
+                      <ProfileEffectOptionCard key={option.id} option={option} user={previewUser} isLightUi={isLightUi} isPending={false} compact onSelect={handleSelectProfileEffect} onRequestPurchase={handleOpenPurchaseDialog} />
+                    ))}
+                  </div>
+                ) : (
+                  <div className={emptyBlockClass}>{CATEGORY_META.effects.emptyLabel}</div>
+                )}
+              </div>
+              <div>
+                <div className={`mb-2 text-xs font-semibold ${isLightUi ? "text-[#8f6b22]" : "text-stone-200/90"}`}>Florabot-Effekte</div>
+                {flatLogoEffectOptions.length ? (
+                  <div className="grid grid-cols-3 gap-2">
+                    {flatLogoEffectOptions.map((option) => (
+                      <ProfileEffectOptionCard key={option.id} option={option} user={previewUser} isLightUi={isLightUi} isPending={false} compact onSelect={handleSelectAccessory} onRequestPurchase={handleOpenPurchaseDialog} />
+                    ))}
+                  </div>
+                ) : (
+                  <div className={emptyBlockClass}>Noch keine Florabot-Effekte freigeschaltet.</div>
+                )}
+              </div>
+            </div>
+          );
+
+        case "plant":
+          return flatPlantOptions.length ? (
+            <AccessoryOptionGrid options={flatPlantOptions} user={previewUser} isLightUi={isLightUi} isPending={false} compact onSelect={handleSelectAccessory} onRequestPurchase={handleOpenPurchaseDialog} />
+          ) : (
+            <div className={emptyBlockClass}>{CATEGORY_META.plant.emptyLabel}</div>
+          );
+
+        case "border":
+          return (
+            <div className="space-y-3">
+              {flatBorderOptions.length ? (
+                <AccessoryOptionGrid options={flatBorderOptions} user={previewUser} isLightUi={isLightUi} isPending={false} compact onSelect={handleSelectAccessory} onRequestPurchase={handleOpenPurchaseDialog} />
+              ) : (
+                <div className={emptyBlockClass}>{CATEGORY_META.border.emptyLabel}</div>
+              )}
+              <BorderColorPicker
+                currentColor={previewUser?.selected_border_color || null}
+                isLightUi={isLightUi}
+                isPending={false}
+                onSelectColor={handleSelectBorderColor}
+              />
+            </div>
+          );
+
+        case "face":
+          return flatFaceOptions.length ? (
+            <AccessoryOptionGrid options={flatFaceOptions} user={previewUser} isLightUi={isLightUi} isPending={false} compact onSelect={handleSelectAccessory} onRequestPurchase={handleOpenPurchaseDialog} />
+          ) : (
+            <div className={emptyBlockClass}>{CATEGORY_META.face.emptyLabel}</div>
+          );
+
+        default:
+          return null;
+      }
+    };
+
+    return (
+      <section
+        data-embedded-module="shop"
+        data-theme={isLightUi ? "light" : "dark"}
+        className="h-full flex-1 min-h-0 overflow-hidden flex flex-col"
+      >
+        {!isExternallyControlled && (
+          <div className="shrink-0 px-2 pt-1 pb-2">
+            <GoldGradientCard contentClassName="h-14 px-1 flex items-center">
+              <ProfileCategorySnapCarousel
+                categories={flatCategoryEntries}
+                activeKey={activeFlatCategoryKey}
+                isLightUi={isLightUi}
+                onSelect={setActiveFlatCategoryKey}
+              />
+            </GoldGradientCard>
+          </div>
+        )}
+
+        <div className={embedded ? "mt-0 px-1 pt-2 pb-4 flex-1 min-h-0 overflow-y-auto hide-scrollbar" : "px-4 pb-8 pt-4"}>
+          <div className="max-w-5xl mx-auto space-y-3">
+            {renderActiveFlatCategoryContent()}
+          </div>
+        </div>
+
+        {renderPurchaseDialog()}
+      </section>
+    );
+  }
 
   const embeddedDividerClass = isLightUi ? "border-[#b99a48]/30" : "border-[#f0e5a5]/20";
   const contentClass = embedded ? "mt-0 px-4 pb-4 flex-1 min-h-0 overflow-y-auto hide-scrollbar" : "px-4 pb-8 pt-4";
@@ -2538,8 +2954,6 @@ export default function ShopFeatureRoot({
                 </div>
               </SectionCard>
             </div>
-          ) : shopRootCategory === "shop" && currentCategory.key === "bernstein" ? (
-            <BernsteinShopSection isLightUi={isLightUi} />
           ) : currentCategory.key === "accessories" ? (
             <div className="space-y-3">
               {florabotAccessorySections.length > 1 && (
@@ -2715,134 +3129,7 @@ export default function ShopFeatureRoot({
 
       {embedded && showEmbeddedBottomDivider ? <div className={`relative left-1/2 right-1/2 -ml-[50vw] -mr-[50vw] w-screen shrink-0 border-t-2 ${embeddedDividerClass}`} aria-hidden="true" /> : null}
 
-      <Dialog open={Boolean(purchaseConfirmOption)} onOpenChange={(open) => {
-        if (!open) handleClosePurchaseDialog();
-      }}>
-        <DialogContent className={`max-w-[min(92vw,25rem)] rounded-2xl ${isLightUi ? "border-[#c8ac62]/45 bg-white" : "border-[#f0e5a5]/35 bg-[#1a1d1a]"}`}>
-          <DialogHeader>
-            <DialogTitle className={`${isLightUi ? "text-stone-900" : "text-stone-100"}`}>
-              {isPurchaseSafetyStep ? "Kauf bestätigen" : "Belohnung freischalten"}
-            </DialogTitle>
-          </DialogHeader>
-
-          <div className="space-y-3">
-            {purchaseConfirmOption?.imageUrl && (
-              <div className={`mx-auto flex h-28 w-28 items-center justify-center rounded-2xl border p-2 ${
-                isLightUi
-                  ? "border-[#c8ac62]/40 bg-white"
-                  : "border-[#f0e5a5]/35 bg-black/30"
-              }`}>
-                <img
-                  src={purchaseConfirmOption.imageUrl}
-                  alt={purchaseConfirmOption?.label || "Accessoire Vorschau"}
-                  className="h-full w-full object-contain"
-                />
-              </div>
-            )}
-
-            <p className={`text-sm ${isLightUi ? "text-stone-700" : "text-stone-200"}`}>
-              {isPurchaseSafetyStep ? (
-                <>
-                  Möchtest du <span className="font-semibold">{purchaseConfirmOption?.label || "diese Belohnung"}</span> wirklich mit {" "}
-                  <span className="font-semibold">{selectedCurrencyPrice} {selectedCurrencyLabel}</span> kaufen?
-                </>
-              ) : (
-                <>
-                  Möchtest du <span className="font-semibold">{purchaseConfirmOption?.label || "diese Belohnung"}</span> freischalten?
-                </>
-              )}
-            </p>
-
-            {purchaseDialogHasBothPrices ? (
-              <div className={`rounded-lg border px-3 py-2 text-xs space-y-2 ${isLightUi ? "border-[#c8ac62]/35 bg-stone-50 text-stone-700" : "border-[#f0e5a5]/25 bg-black/25 text-stone-200"}`}>
-                <p className="font-medium text-[11px] uppercase tracking-wide opacity-70">Bezahlen mit:</p>
-                <label className={`flex items-center justify-between gap-2 cursor-pointer rounded-md px-2 py-1.5 transition-colors ${effectivePurchaseCurrency === "sparks" ? (isLightUi ? "bg-amber-100/70 ring-1 ring-amber-300" : "bg-amber-900/30 ring-1 ring-amber-500/50") : ""}`}>
-                  <span className="flex items-center gap-1.5">
-                    <input type="radio" name="purchaseCurrency" value="sparks" checked={effectivePurchaseCurrency === "sparks"} onChange={() => setPurchaseCurrency("sparks")} className="accent-amber-500" />
-                    <Sparkles className="w-3 h-3 opacity-80" /> {purchaseDialogSparkPrice} Funken
-                  </span>
-                  <span className={`font-semibold ${!canAffordDialogSparks ? (isLightUi ? "text-red-600" : "text-red-400") : ""}`}>
-                    (Guthaben: {availableSparks})
-                  </span>
-                </label>
-                <label className={`flex items-center justify-between gap-2 cursor-pointer rounded-md px-2 py-1.5 transition-colors ${effectivePurchaseCurrency === "amber" ? (isLightUi ? "bg-amber-100/70 ring-1 ring-amber-300" : "bg-amber-900/30 ring-1 ring-amber-500/50") : ""}`}>
-                  <span className="flex items-center gap-1.5">
-                    <input type="radio" name="purchaseCurrency" value="amber" checked={effectivePurchaseCurrency === "amber"} onChange={() => setPurchaseCurrency("amber")} className="accent-amber-500" />
-                    <span className="text-[11px]">🔸</span> {purchaseDialogAmberPrice} Bernstein
-                  </span>
-                  <span className={`font-semibold ${!canAffordDialogAmber ? (isLightUi ? "text-red-600" : "text-red-400") : ""}`}>
-                    (Guthaben: {availableAmber})
-                  </span>
-                </label>
-              </div>
-            ) : (
-              <div className={`rounded-lg border px-3 py-2 text-xs space-y-1 ${isLightUi ? "border-[#c8ac62]/35 bg-stone-50 text-stone-700" : "border-[#f0e5a5]/25 bg-black/25 text-stone-200"}`}>
-                {purchaseDialogSparkPrice > 0 && (
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="flex items-center gap-1"><Sparkles className="w-3 h-3 opacity-80" /> Funken</span>
-                    <span className={`font-semibold ${!canAffordDialogSparks ? (isLightUi ? "text-red-600" : "text-red-400") : ""}`}>{availableSparks} / {purchaseDialogSparkPrice}</span>
-                  </div>
-                )}
-                {purchaseDialogAmberPrice > 0 && (
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="flex items-center gap-1"><span className="text-[11px]">🔸</span> Bernstein</span>
-                    <span className={`font-semibold ${!canAffordDialogAmber ? (isLightUi ? "text-red-600" : "text-red-400") : ""}`}>{availableAmber} / {purchaseDialogAmberPrice}</span>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {hasSelectedPurchaseCurrency && !canAffordPurchaseDialogOption && (
-              <div className={`rounded-lg border px-3 py-2 text-xs ${isLightUi ? "border-red-200 bg-red-50 text-red-700" : "border-red-500/35 bg-red-900/25 text-red-200"}`}>
-                {(effectivePurchaseCurrency || "sparks") === "sparks"
-                  ? "Du hast nicht genug Funken für diesen Kauf."
-                  : "Du hast nicht genug Bernstein für diesen Kauf."}
-              </div>
-            )}
-
-            {isPurchaseSafetyStep && hasSelectedPurchaseCurrency && (
-              <div className={`rounded-lg border px-3 py-2 text-xs space-y-1 ${isLightUi ? "border-[#c8ac62]/35 bg-stone-50 text-stone-700" : "border-[#f0e5a5]/25 bg-black/25 text-stone-200"}`}>
-                <p className="font-medium text-[11px] uppercase tracking-wide opacity-70">Kontostand nach dem Kauf</p>
-                <div className="flex items-center justify-between gap-2">
-                  <span className="flex items-center gap-1"><Sparkles className="w-3 h-3 opacity-80" /> Funken</span>
-                  <span className="font-semibold">{projectedSparksBalance}</span>
-                </div>
-                <div className="flex items-center justify-between gap-2">
-                  <span className="flex items-center gap-1"><span className="text-[11px]">🔸</span> Bernstein</span>
-                  <span className="font-semibold">{projectedAmberBalance}</span>
-                </div>
-              </div>
-            )}
-
-            {shopMessage && (
-              <div className={`rounded-lg border px-3 py-2 text-xs ${isLightUi ? "border-amber-200 bg-amber-50 text-amber-800" : "border-amber-500/35 bg-amber-900/25 text-amber-200"}`}>
-                {shopMessage}
-              </div>
-            )}
-
-            <div className="flex items-center justify-end gap-2">
-              <button
-                type="button"
-                disabled={purchaseAccessoryMutation.isPending}
-                onClick={isPurchaseSafetyStep ? handleBackToPurchaseSelectionStep : handleClosePurchaseDialog}
-                className={`h-9 rounded-lg border px-3 text-xs font-semibold whitespace-nowrap disabled:opacity-60 ${isLightUi ? "border-[#c8ac62]/45 bg-white/70 text-stone-700 hover:bg-white" : "border-[#f0e5a5]/25 bg-black/30 text-stone-200 hover:bg-black/50"}`}
-              >
-                {isPurchaseSafetyStep ? "Zurück" : "Abbrechen"}
-              </button>
-              <button
-                type="button"
-                disabled={purchaseAccessoryMutation.isPending || (isPurchaseSafetyStep ? !canAffordPurchaseDialogOption : (!hasSelectedPurchaseCurrency || !canAffordPurchaseDialogOption))}
-                onClick={isPurchaseSafetyStep ? handleConfirmAccessoryPurchase : handleProceedToPurchaseSafetyStep}
-                className={`h-9 rounded-lg border px-3 text-xs font-semibold whitespace-nowrap disabled:opacity-60 ${isLightUi ? "border-[#c8ac62]/50 bg-[#f4e7bf] text-stone-800 hover:bg-[#f7edd0]" : "border-[#f0e5a5]/40 bg-[#4f4826] text-[#f7f0c1] hover:bg-[#5a512b]"}`}
-              >
-                {purchaseAccessoryMutation.isPending
-                  ? "Kaufe..."
-                  : (isPurchaseSafetyStep ? "Jetzt kaufen" : "Weiter")}
-              </button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+      {renderPurchaseDialog()}
     </section>
   );
 }
