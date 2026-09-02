@@ -23,7 +23,7 @@ import { getOpenPlantQuiz, submitPlantQuizAnswer } from "@/api/plantQuizService"
 import { getTileClaims } from "@/api/tileClaimService";
 import { trackAction } from "@/api/analyticsService";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Camera, Loader2, Leaf, Users, Scroll, CheckCircle, AlertCircle, TreePine, Building2, Waves, Flower2, MapPin, Smartphone, Sparkles } from "lucide-react";
+import { Camera, Loader2, Leaf, Sprout, Users, Scroll, CheckCircle, AlertCircle, TreePine, Building2, Waves, Flower2, MapPin, Smartphone, Sparkles } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import AchievementNotification from "../components/achievements/AchievementNotification";
 import ScanFeedbackNotification from "../components/notifications/ScanFeedbackNotification";
@@ -50,13 +50,24 @@ import HomeHeaderBar from "@/components/navigation/HomeHeaderBar";
 import HomeBottomNavigation from "@/components/navigation/HomeBottomNavigation";
 import { getNavButtonStyle } from "@/components/navigation/navButtonStyles";
 import HomeBackgroundShell from "@/components/home/HomeBackgroundShell";
-import HomeCollectionStripes, { HomeMilestoneStripe } from "@/components/home/HomeCollectionStripes";
+import GoldGradientCard from "@/components/home/GoldGradientCard";
+import HomeCollectionStripes from "@/components/home/HomeCollectionStripes";
 import HomeMilestoneOverlayToggle from "@/components/home/HomeMilestoneOverlayToggle";
+import HomeHeroSideNav from "@/components/home/HomeHeroSideNav";
+import HomeProfileBadgesPanel from "@/components/home/HomeProfileBadgesPanel";
+import RewardCardWrapper from "@/components/home/RewardCardWrapper";
+import HomeEventStripe from "@/components/home/HomeEventStripe";
+import HomeScanInfoRow from "@/components/home/HomeScanInfoRow";
+import HomeCurrencyInfoRow from "@/components/home/HomeCurrencyInfoRow";
+import PlantHeroHealthPanel from "@/components/home/PlantHeroHealthPanel";
 import GreenCareBubble from "@/components/home/GreenCareBubble";
 import GuestHomeFlow from "@/components/home/GuestHomeFlow";
 import BugReportDialog from "@/components/home/BugReportDialog";
+import ServerNewsDialog from "@/components/home/ServerNewsDialog";
 import HomeOtaGate from "@/components/home/HomeOtaGate";
 import HomeMapFeatureRoot from "@/components/home/HomeMapFeatureRoot.jsx";
+import ShopCategoryVerticalCarousel from "@/components/home/ShopCategoryVerticalCarousel";
+import AmberPurchaseDialog from "@/components/home/AmberPurchaseDialog";
 
 import ShopFeatureRoot from "@/components/shop/ShopFeatureRoot";
 import PlantQuizDialog from "@/components/home/PlantQuizDialog";
@@ -82,8 +93,6 @@ import FlorabotIntroOverlay from "@/components/florabot/FlorabotIntroOverlay";
 import FlorabotMilestoneOverlay from "@/components/florabot/FlorabotMilestoneOverlay";
 import { getActiveSeason } from "@/lib/seasonConfig";
 import FlorabotContextBubble from "@/components/florabot/FlorabotContextBubble";
-import HomeShellBorderGlow from "@/components/effects/HomeShellBorderGlow";
-import HomeRarityBorderGlow from "@/components/effects/HomeRarityBorderGlow";
 import {
   pickRandomPhaseAmbientComment,
   interpolatePercentVariables,
@@ -405,19 +414,26 @@ function HomeContent() {
   const [isResolvingHeroMapLocation, setIsResolvingHeroMapLocation] = useState(false);
   const [hasResolvedZoneBootstrap, setHasResolvedZoneBootstrap] = useState(false);
   const [showHealthStatsPanel, setShowHealthStatsPanel] = useState(false);
-  // Bot name overlay hides while the Home Overlay Stat-Health panel is expanded (avoids overlap).
-  const [isHomeOverlayHealthDetailsOpen, setIsHomeOverlayHealthDetailsOpen] = useState(false);
+  // "Anpassen" content-stack view: opened via HomeHeroSideNav's palette button, renders the
+  // flat/draft ShopFeatureRoot in place of badges/reward-cards while staying in the hero section.
+  const [showShopStack, setShowShopStack] = useState(false);
+  const [shopStackDraftOverrides, setShopStackDraftOverrides] = useState(null);
+  const [shopStackHasUnsavedChanges, setShopStackHasUnsavedChanges] = useState(false);
+  const [shopStackActiveCategory, setShopStackActiveCategory] = useState("backgrounds");
+  const [shopStackSaveNonce, setShopStackSaveNonce] = useState(0);
   const [showWeeklyQuestTooltip, setShowWeeklyQuestTooltip] = useState(false);
-  const [isNavVisible, setIsNavVisible] = useState(true);
   const [showPlantQuizDialog, setShowPlantQuizDialog] = useState(false);
   const [plantQuizResult, setPlantQuizResult] = useState(null);
   const [weeklyQuestSeen, setWeeklyQuestSeen] = useState(() => {
     try { return localStorage.getItem('weeklyQuestSeen') || ''; } catch { return ''; }
   });
   const healthStatsPanelRef = useRef(null);
+  const eventStripeContainerRef = useRef(null);
+  const [eventStripeHeightPx, setEventStripeHeightPx] = useState(null);
   const [heroStageSizePx, setHeroStageSizePx] = useState(0);
   const [heroMapInstance, setHeroMapInstance] = useState(null);
   const [bugReportDialogOpen, setBugReportDialogOpen] = useState(false);
+  const [serverNewsDialogOpen, setServerNewsDialogOpen] = useState(false);
   const [showFlorabotIntro, setShowFlorabotIntro] = useState(false);
   const [activeMilestone, setActiveMilestone] = useState(null);
   const [isMilestoneOverlayToggled, setIsMilestoneOverlayToggled] = useState(false);
@@ -665,6 +681,14 @@ function HomeContent() {
   const { data: quests = [] } = useQuery({
     queryKey: ['quests'],
     queryFn: () => Query.Quest.list('quest_number'),
+    initialData: [],
+    staleTime: 10 * 60 * 1000,
+    refetchOnWindowFocus: false,
+  });
+
+  const { data: achievements = [] } = useQuery({
+    queryKey: ['achievements'],
+    queryFn: () => Query.Achievement.list('achievement_number'),
     initialData: [],
     staleTime: 10 * 60 * 1000,
     refetchOnWindowFocus: false,
@@ -1750,6 +1774,13 @@ function HomeContent() {
   }, [user?.id, hasCalledZoneGenerationToday, zoneGenerationDay, setZoneGenerationDayForUser, todayKey]);
 
   useEffect(() => {
+    if (activePanel !== null || showHealthStatsPanel) {
+      setShowShopStack(false);
+      setShopStackHasUnsavedChanges(false);
+    }
+  }, [activePanel, showHealthStatsPanel]);
+
+  useEffect(() => {
     const handleOutside = (event) => {
       if (healthStatsPanelRef.current && !healthStatsPanelRef.current.contains(event.target)) {
         setShowHealthStatsPanel(false);
@@ -1794,6 +1825,32 @@ function HomeContent() {
 
     window.addEventListener("resize", updateHeroStageSize);
     return () => window.removeEventListener("resize", updateHeroStageSize);
+  }, []);
+
+  // Reward card gets capped to the Event-Stripe's rendered height; any height this frees up
+  // in the hero column is credited to the Florabot logo (HomeCollectionStripes grows via flex-1).
+  useEffect(() => {
+    const node = eventStripeContainerRef.current;
+    if (!node) {
+      setEventStripeHeightPx(null);
+      return undefined;
+    }
+
+    const updateEventStripeHeight = () => {
+      const nextHeight = node.getBoundingClientRect().height;
+      setEventStripeHeightPx((prev) => (Number.isFinite(nextHeight) && nextHeight > 0 && prev !== nextHeight ? nextHeight : prev));
+    };
+
+    updateEventStripeHeight();
+
+    if (typeof ResizeObserver !== "undefined") {
+      const observer = new ResizeObserver(updateEventStripeHeight);
+      observer.observe(node);
+      return () => observer.disconnect();
+    }
+
+    window.addEventListener("resize", updateEventStripeHeight);
+    return () => window.removeEventListener("resize", updateEventStripeHeight);
   }, [activePanel, showHealthStatsPanel]);
 
   const cachedLocation = getCachedLocation({ maxAgeMs: LOCATION_CACHE_MAX_AGE_MS });
@@ -2182,6 +2239,45 @@ function HomeContent() {
     { ...currentMonthlyQuest, isCompleted: currentMonthlyUserQuest.completed || false } : null;
   const availableMonthlyQuest = currentMonthlyQuest && !currentMonthlyUserQuest;
 
+  // Zeitlich begrenzte Events/Aufgaben (Wochen-/Monatsquest, später Community Events),
+  // gerendert im rotierenden HomeEventStripe.
+  const homeEventStripeItems = [];
+  if (displayedWeeklyQuest) {
+    const weeklyQuestTargetLabel = displayedWeeklyQuest.target_species_name
+      || displayedWeeklyQuest.target_genus_name
+      || displayedWeeklyQuest.title;
+    homeEventStripeItems.push({
+      id: `weekly-quest-${displayedWeeklyQuest.id}`,
+      kind: "weekly",
+      title: weeklyQuestTargetLabel,
+      description: displayedWeeklyQuest.description,
+      progressCurrent: Number(currentWeeklyUserQuest?.progress || 0),
+      progressTarget: Number(displayedWeeklyQuest.required_discoveries || 0),
+      isCompleted: activeWeeklyQuest?.isCompleted || false,
+      isAvailable: Boolean(availableWeeklyQuest),
+      onClick: () => {
+        trackAction("home_event_stripe_weekly", { sourcePage: "Home" });
+        setActivePanel("achievements");
+      },
+    });
+  }
+  if (currentMonthlyQuest) {
+    homeEventStripeItems.push({
+      id: `monthly-quest-${currentMonthlyQuest.id}`,
+      kind: "monthly",
+      title: currentMonthlyQuest.title,
+      description: currentMonthlyQuest.description,
+      progressCurrent: Number(currentMonthlyUserQuest?.progress || 0),
+      progressTarget: Number(currentMonthlyQuest.required_discoveries || 0),
+      isCompleted: activeMonthlyQuest?.isCompleted || false,
+      isAvailable: Boolean(availableMonthlyQuest),
+      onClick: () => {
+        trackAction("home_event_stripe_monthly", { sourcePage: "Home" });
+        setActivePanel("achievements");
+      },
+    });
+  }
+
   const activeCollectionQuests = collectionQuests
     .filter(quest => {
       const userQuest = userCollectionQuests.find(ucq => ucq.collection_quest_id === quest.id);
@@ -2250,6 +2346,11 @@ function HomeContent() {
   const getDisplayName = () => user.display_name || user.full_name;
   const displayName = getDisplayName() || "Spieler";
   const resolvedUserTitle = resolveTitleValue(user?.selected_title, user?.title) || "Pflanzen-Entdecker";
+  // Live-preview profile: while the "Anpassen" content-stack is open, staged (not-yet-saved) shop
+  // selections are merged over the real user so the Custom Logo/background reflect them immediately.
+  const effectiveUser = showShopStack && shopStackDraftOverrides
+    ? { ...user, ...shopStackDraftOverrides }
+    : user;
 
   const getRgbaFromRgb = (rgbString, opacity) => {
     if (!rgbString) return null;
@@ -2755,6 +2856,26 @@ function HomeContent() {
     });
   }
 
+  if (currentMonthlyQuest) {
+    const monthlyProgress = Number(currentMonthlyUserQuest?.progress || 0);
+    homeMilestoneFeed.push({
+      id: `monthly-quest-${currentMonthlyQuest.id}`,
+      kind: "quest",
+      title: "Monatliche Quest",
+      actionType: "open_achievements_quests",
+      payload: {
+        questType: "monthly",
+        title: currentMonthlyQuest.title,
+        description: currentMonthlyQuest.description,
+        required_discoveries: currentMonthlyQuest.required_discoveries,
+        progress: monthlyProgress,
+        isCompleted: activeMonthlyQuest?.isCompleted || false,
+        target_species_name: currentMonthlyQuest.target_species_name || null,
+        target_genus_name: currentMonthlyQuest.target_genus_name || null,
+      },
+    });
+  }
+
   if (homeMilestoneFeed.length === 0) {
     homeMilestoneFeed.push({
       id: "fallback-collections",
@@ -2899,105 +3020,34 @@ function HomeContent() {
     florabotContextBubble?.panel === "home" && !activeMilestone && !showFlorabotIntro
       ? florabotContextBubble?.message
       : null;
+  const homeHealthContextBubbleMessage =
+    florabotContextBubble?.panel === "health" && !activeMilestone && !showFlorabotIntro
+      ? florabotContextBubble?.message
+      : null;
   const playerSeedsDisplay = Math.max(0, Math.round(Number(seedMetricValue) || 0)).toLocaleString("de-DE");
   const conqueredZonesDisplay = Math.max(0, Math.round(Number(playerClaimedTiles) || 0)).toLocaleString("de-DE");
   const healthSeedBonusDisplay = Math.max(0, Math.round(Number(healthStateBonus) || 0));
-  const homeMilestoneKpiSummary = {
-    playerSeedsDisplay,
-    conqueredZonesDisplay,
-    healthSeedBonusDisplay,
-    zoneHintText,
-    nearestZoneDirectionIcon,
-    nearestZoneDistanceKm,
-    securedMultiplier: securedNextScanMultiplier,
-  };
-
-  if (homeMilestoneFeed.length > 0) {
-    homeMilestoneFeed.push({
-      id: "kpi-slide",
-      kind: "kpi",
-      title: "Deine KPI",
-      kpiSummary: homeMilestoneKpiSummary,
-    });
-  }
 
   const formatMultiplier = (value) => {
     const safeValue = Number.isFinite(value) ? value : 1;
     return `x${safeValue.toFixed(2).replace(/\.00$/, "").replace(/(\.\d)0$/, "$1")}`;
   };
 
-  const handleOpenCollectionFromHome = (collectionEntry) => {
-    const collectionId = collectionEntry?.id || "global";
-    setEmbeddedSelectedCollectionId(collectionId);
-    setEmbeddedCollectionEntryCategory(collectionId === "global" ? "global" : "themes");
-    setEmbeddedCollectionPublicPanelOpen(false);
-    setActivePanel("collection");
-    setShowHealthStatsPanel(false);
-  };
-
-  const handleHomeMilestoneAction = (milestone) => {
-    const actionType = milestone?.actionType;
-    trackAction("home_milestone_action", { sourcePage: "Home", metadata: { actionType } });
-
-    if (actionType === "open_genus" && milestone?.genusId) {
-      navigate(createPageUrl(`GenusDetail?id=${encodeURIComponent(milestone.genusId)}`));
-      return;
-    }
-
-    if (actionType === "open_map") {
-      handleOpenHeroZoneMap();
-      setShowHealthStatsPanel(false);
-      return;
-    }
-
-    if (actionType === "open_achievements") {
-      setActivePanel("achievements");
-      setShowHealthStatsPanel(false);
-      return;
-    }
-
-    if (actionType === "open_collections") {
-      handleOpenCollectionFromHome({ id: "global" });
-      return;
-    }
-
-    if (actionType === "open_achievements_quests") {
-      setActivePanel("achievements");
-      setShowHealthStatsPanel(false);
-      return;
-    }
-  };
-
-  const handleHomeMilestonePreviewClick = (milestone) => {
-    if (!milestone) return;
-
-    if (milestone?.previewDiscoveryId) {
-      handleDiscoveryImageClick({
-        discoveryId: milestone.previewDiscoveryId,
-        scannerEmail: milestone.previewScannerEmail || "",
-        genusId: milestone.genusId || "",
-        plantId: milestone.previewPlantId || "",
-      });
-      return;
-    }
-
-    handleHomeMilestoneAction(milestone);
-  };
 
   const navItems = [
     {
-      label: "Kollektion",
-      icon: Leaf,
+      label: "Map",
+      icon: MapPin,
       onClick: () => {
-        trackAction("bottomnav_collection", { sourcePage: "Home" });
-        setActivePanel("collection");
-        setEmbeddedCollectionEntryCategory(null);
+        trackAction("bottomnav_map", { sourcePage: "Home" });
+        handleOpenHeroZoneMap();
         setShowHealthStatsPanel(false);
       },
-      ...getNavButtonStyle({ palette: "green", isLightUi }),
+      isActive: activePanel === "map",
+      ...getNavButtonStyle({ palette: "blue", isLightUi }),
     },
     {
-      label: "Erfolge",
+      label: "Aufgaben",
       icon: Scroll,
       onClick: () => {
         trackAction("bottomnav_achievements", { sourcePage: "Home" });
@@ -3005,20 +3055,23 @@ function HomeContent() {
         setShowHealthStatsPanel(false);
       },
       showNotificationDot: hasRedeemableQuests,
+      isActive: activePanel === "achievements",
       ...getNavButtonStyle({ palette: "amber", isLightUi }),
     },
     {
-      label: "Karte",
-      icon: MapPin,
+      label: "Sammlung",
+      icon: Leaf,
       onClick: () => {
-        trackAction("bottomnav_map", { sourcePage: "Home" });
-        handleOpenHeroZoneMap();
+        trackAction("bottomnav_collection", { sourcePage: "Home" });
+        setActivePanel("collection");
+        setEmbeddedCollectionEntryCategory(null);
         setShowHealthStatsPanel(false);
       },
-      ...getNavButtonStyle({ palette: "blue", isLightUi }),
+      isActive: activePanel === "collection",
+      ...getNavButtonStyle({ palette: "green", isLightUi }),
     },
     {
-      label: "Social",
+      label: "Log",
       icon: Users,
       onClick: () => {
         trackAction("bottomnav_social", { sourcePage: "Home" });
@@ -3026,6 +3079,7 @@ function HomeContent() {
         setShowHealthStatsPanel(false);
       },
       showNotificationDot: hasSocialNotifications,
+      isActive: activePanel === "friends",
       ...getNavButtonStyle({ palette: "purple", isLightUi }),
     },
   ];
@@ -3305,6 +3359,24 @@ function HomeContent() {
     return true;
   };
 
+  const openShopStack = () => {
+    if (showShopStack) {
+      setShowShopStack(false);
+      setShopStackDraftOverrides(null);
+      setShopStackHasUnsavedChanges(false);
+      return true;
+    }
+
+    if (!isShopUnlocked) {
+      window.alert("Der Shop wird ab 5.000 Samen freigeschaltet.");
+      return false;
+    }
+
+    setShowHealthStatsPanel(false);
+    setShowShopStack(true);
+    return true;
+  };
+
   /** Returns a random viewport position for the care bubble that avoids the floating logo overlay. */
   const pickCareBubblePosition = () => {
     if (typeof window === "undefined") return null;
@@ -3361,14 +3433,6 @@ function HomeContent() {
 
   return (
     <>
-      <style>{`
-        @media (max-height: 760px) {
-          .home-tight-vh-label {
-            display: none;
-          }
-        }
-      `}</style>
-
       <AnimatePresence>
         {newAchievements.length > 0 && currentAchievementIndex < newAchievements.length && (
           <AchievementNotification
@@ -3598,7 +3662,6 @@ function HomeContent() {
           setIsMilestoneOverlayToggled(false);
           setHomeOverlayInitialShopOpen(false);
           setHomeOverlayInitialShopCategory("root");
-          setIsHomeOverlayHealthDetailsOpen(false);
         }}
       />
 
@@ -3700,60 +3763,16 @@ function HomeContent() {
         }}
       />
 
-      <Dialog open={showAmberPurchaseModal} onOpenChange={setShowAmberPurchaseModal}>
-        <DialogContent className={`sm:max-w-lg ${isLightUi ? "bg-white" : "bg-[#141714] border-[#f0e5a5]/30"}`}>
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <span className={`inline-flex items-center justify-center w-5 h-5 ${isLightUi ? "text-[#8f6b22]" : "text-[#f0e5a5]"}`} aria-hidden="true">🔸</span>
-              Bernstein kaufen (Vorbereitung)
-            </DialogTitle>
-          </DialogHeader>
-
-          <div className="space-y-4">
-            <div className={`text-sm ${isLightUi ? "text-stone-700" : "text-stone-200"}`}>
-              Aktueller Kontostand: <span className="font-semibold">{playerAmber} Bernstein</span>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              {[
-                { amount: 120, price: '2,99 EUR' },
-                { amount: 350, price: '6,99 EUR' },
-                { amount: 900, price: '14,99 EUR' },
-              ].map((pack) => (
-                <button
-                  key={pack.amount}
-                  type="button"
-                  disabled
-                  className={`rounded-2xl border px-3 py-3 text-left opacity-70 cursor-not-allowed ${isLightUi ? "border-[#c8ac62]/40 bg-white/70" : "border-[#f0e5a5]/25 bg-black/30"}`}
-                >
-                  <div className="text-sm font-semibold">{pack.amount} Bernstein</div>
-                  <div className={`text-xs mt-1 ${isLightUi ? "text-stone-600" : "text-stone-300"}`}>{pack.price}</div>
-                </button>
-              ))}
-            </div>
-
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-              {["Apple Pay", "Google Pay", "PayPal", "Kreditkarte"].map((method) => (
-                <button
-                  key={method}
-                  type="button"
-                  disabled
-                  className={`h-10 rounded-xl border text-xs font-medium opacity-65 cursor-not-allowed ${isLightUi ? "border-[#c8ac62]/35 bg-white/70 text-stone-700" : "border-[#f0e5a5]/20 bg-black/35 text-stone-200"}`}
-                >
-                  {method}
-                </button>
-              ))}
-            </div>
-
-            <div className={`rounded-xl border px-3 py-2 text-xs leading-relaxed ${isLightUi ? "border-amber-300/60 bg-amber-50 text-amber-900" : "border-amber-300/35 bg-amber-900/20 text-amber-100"}`}>
-              Die Bezahlfunktionen sind noch nicht aktiv. Dieses Modal bereitet nur die spaetere Echtgeld-Integration vor.
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <AmberPurchaseDialog
+        open={showAmberPurchaseModal}
+        onOpenChange={setShowAmberPurchaseModal}
+        currentBalance={playerAmber}
+        isLightUi={isLightUi}
+        onPurchased={() => queryClient.invalidateQueries({ queryKey: ["userWallet", user?.id] })}
+      />
 
       <HomeBackgroundShell
-        user={user}
+        user={effectiveUser}
         getRgbaFromRgb={getRgbaFromRgb}
       >
           <motion.div
@@ -3761,35 +3780,48 @@ function HomeContent() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.45, ease: 'easeOut' }}
             data-ui="home-main-content-shell"
-            className={`relative h-full w-full max-w-md md:max-w-3xl rounded-[2rem] ${activePanel === null ? "overflow-visible" : "overflow-hidden"} border ${isLightUi ? "border-white/65 shadow-[0_20px_64px_rgba(0,0,0,0.14)]" : "border-[#d7cf9c]/65 shadow-[0_20px_80px_rgba(0,0,0,0.55)]"}`}
+            className={`relative h-full w-full ${activePanel === null ? "overflow-visible" : "overflow-hidden"}`}
           >
-            <div className="absolute inset-0 rounded-[2rem] overflow-hidden">
-              <div
-                className="absolute inset-0"
-                style={user?.background_image_url ? {
-                  backgroundImage: isLightUi
-                    ? `linear-gradient(180deg, rgba(255,255,255,0.42) 0%, rgba(255,255,255,0.28) 100%), url(${user.background_image_url})`
-                    : `linear-gradient(180deg, rgba(19,37,24,0.42) 0%, rgba(12,20,15,0.66) 100%), url(${user.background_image_url})`,
-                  backgroundSize: 'cover',
-                  backgroundPosition: 'center',
-                } : user?.background_color ? {
-                  background: isLightUi
-                    ? `linear-gradient(180deg, rgba(255,255,255,0.55) 0%, rgba(255,255,255,0.38) 100%)`
-                    : `linear-gradient(180deg, ${getRgbaFromRgb(user.background_color, 0.28)} 0%, rgba(14, 22, 16, 0.74) 100%)`,
-                } : {
-                  background: isLightUi
-                    ? 'linear-gradient(180deg, rgba(255,255,255,0.55) 0%, rgba(255,255,255,0.38) 100%)'
-                    : 'linear-gradient(180deg, rgba(126, 171, 98, 0.45) 0%, rgba(10, 22, 15, 0.78) 100%)',
-                }}
-              />
-            </div>
-            <div className={`absolute inset-0 pointer-events-none rounded-[2rem] border ${isLightUi ? "border-white/70" : "border-[#f0e5a5]/30"}`} />
-            <HomeShellBorderGlow active={user?.selected_profile_effect === "shell_border_glow"} />
-            <HomeRarityBorderGlow active={user?.selected_profile_effect === "rarity_border_glow"} borderColor={user?.selected_border_color} />
+            <div className={`relative z-10 h-full flex flex-col ${activePanel === "map" ? "px-0 py-0" : "px-2 md:px-4 py-4 md:py-6"} ${isLightUi ? "text-stone-800" : "text-stone-100"}`}>
+              {activePanel === null && (
+                <div className="pointer-events-none absolute inset-x-4 top-4 z-20 flex max-w-[65%] flex-col md:inset-x-8 md:top-6">
+                  {showShopStack ? (
+                    <>
+                      <h1
+                        className="-m-3 truncate p-3 font-bold leading-tight text-2xl md:text-3xl [text-shadow:0_1px_2px_rgba(0,0,0,0.9),0_0_10px_rgba(0,0,0,0.75),0_0_20px_rgba(0,0,0,0.55)]"
+                      >
+                        Anpassen
+                      </h1>
+                      <div className="-mx-3 -mt-2.5 p-3">
+                        <ShopCategoryVerticalCarousel
+                          activeKey={shopStackActiveCategory}
+                          onSelect={setShopStackActiveCategory}
+                          isLightUi={isLightUi}
+                        />
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <h1
+                        className="-m-3 truncate p-3 font-bold leading-tight text-2xl md:text-3xl [text-shadow:0_1px_2px_rgba(0,0,0,0.9),0_0_10px_rgba(0,0,0,0.75),0_0_20px_rgba(0,0,0,0.55)]"
+                        title={`${displayName || ""}, ${resolvedUserTitle}`}
+                      >
+                        {displayName}, {resolvedUserTitle}
+                      </h1>
+                      <p className={`-mx-3 -mb-3 -mt-2.5 truncate p-3 text-sm md:text-base [text-shadow:0_1px_2px_rgba(0,0,0,0.9),0_0_8px_rgba(0,0,0,0.7)] ${isLightUi ? "text-stone-700/90" : "text-stone-200/85"}`}>
+                        und {botName || "Florabot"}
+                      </p>
+                      <div className={`-mx-3 -mt-3 flex items-center gap-1.5 p-3 text-sm md:text-base font-semibold [text-shadow:0_1px_2px_rgba(0,0,0,0.9),0_0_8px_rgba(0,0,0,0.7)] ${isLightUi ? "text-stone-800" : "text-stone-100"}`}>
+                        <Sprout className={`h-4 w-4 shrink-0 ${isLightUi ? "text-emerald-600" : "text-emerald-400"}`} aria-hidden="true" />
+                        <span>{playerSeedsDisplay}</span>
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
 
-            <div className={`relative z-10 h-full flex flex-col ${activePanel === "map" ? "px-0 py-0" : "px-4 md:px-8 py-4 md:py-6"} ${isLightUi ? "text-stone-800" : "text-stone-100"}`}>
               <HomeHeaderBar
-                hidden={activePanel === "map"}
+                hidden={activePanel === "map" || activePanel === null}
                 activePanel={activePanel}
                 embeddedTitle={embeddedTitle}
                 embeddedSubtitle={embeddedSubtitle}
@@ -3797,8 +3829,6 @@ function HomeContent() {
                 embeddedCollectionCanGoBack={activePanel === "collection" && embeddedCollectionEntryCategory !== null}
                 displayName={displayName}
                 userTitle={resolvedUserTitle}
-                playerSparks={playerSparks}
-                playerAmber={playerAmber}
                 onEmbeddedCollectionBack={() => {
                   setEmbeddedCollectionEntryCategory(null);
                   setEmbeddedCollectionPublicPanelOpen(false);
@@ -3807,8 +3837,6 @@ function HomeContent() {
                 onEmbeddedAchievementsBack={embeddedHeaderMeta?.backHandler ?? null}
                 onOpenEmbeddedFriendsAddDialog={() => setEmbeddedFriendsAddDialogNonce((prev) => prev + 1)}
                 onOpenAmberPurchase={() => setShowAmberPurchaseModal(true)}
-                onOpenAmberShop={() => openShop("bernstein")}
-                onOpenBugReport={() => setBugReportDialogOpen(true)}
                 onPrimaryAction={() => {
                   if (activePanel === "collection") {
                     setEmbeddedCollectionPublicPanelOpen(false);
@@ -3831,6 +3859,12 @@ function HomeContent() {
                 onOpenChange={setBugReportDialogOpen}
                 user={user}
                 displayName={getDisplayName()}
+              />
+
+              <ServerNewsDialog
+                open={serverNewsDialogOpen}
+                onOpenChange={setServerNewsDialogOpen}
+                user={user}
               />
 
               <div
@@ -3920,15 +3954,32 @@ function HomeContent() {
                     logoAssetCatalog={logoAssets}
                   />
                 ) : (
-                  <section data-ui="home-plant-hero-section" className="flex-1 min-h-0 rounded-3xl px-[clamp(0.75rem,2vw,1.5rem)] pt-[clamp(0.75rem,2vh,1.5rem)] pb-[clamp(0.12rem,0.35vh,0.28rem)] flex flex-col bg-transparent">
-                    <HomeCollectionStripes
-                      className="flex-1 min-h-0"
+                  <section data-ui="home-plant-hero-section" className="relative flex-1 min-h-0 rounded-3xl px-[clamp(0.25rem,1vw,0.75rem)] pt-[clamp(0.1rem,0vh,0.5rem)] pb-[clamp(0.12rem,0.35vh,0.28rem)] flex flex-col gap-2 bg-transparent">
+                    <HomeHeroSideNav
                       isLightUi={isLightUi}
-                      profile={user}
+                      playerSeeds={playerSeeds}
+                      playerSparks={playerSparks}
+                      playerAmber={playerAmber}
+                      user={effectiveUser}
+                      isHealthViewActive={showHealthStatsPanel}
+                      onToggleHealthView={() => setShowHealthStatsPanel((prev) => !prev)}
+                      onOpenSettings={() => {
+                        trackAction("home_settings_open", { sourcePage: "Home" });
+                        setActivePanel("settings");
+                      }}
+                      onOpenBugReport={() => setBugReportDialogOpen(true)}
+                      onOpenServerNews={() => setServerNewsDialogOpen(true)}
+                      onOpenAmberPurchase={() => setShowAmberPurchaseModal(true)}
+                      onOpenCustomize={() => openShopStack()}
+                    />
+                    <div className="relative flex min-h-0 flex-1 flex-col gap-2">
+                      <HomeCollectionStripes
+                      className={showHealthStatsPanel ? "flex-[0.4] min-h-[12.5rem]" : "flex-1 min-h-0"}
+                      isHealthView={showHealthStatsPanel}
+                      isLightUi={isLightUi}
+                      profile={effectiveUser}
                       logoAssets={logoAssets}
-                      selectedProfileBadges={selectedProfileBadges}
                       elevateLogo={Boolean(isMilestoneOverlayToggled && !showFlorabotIntro && !activeMilestone && !isHomeOverlayShopOpen)}
-                      showFloatingLogoNameBadge={!isHomeOverlayHealthDetailsOpen}
                       onBadgeClick={() => {
                         trackAction("home_badge_customize_open", { sourcePage: "Home" });
                         setHomeOverlayInitialShopCategory("badges");
@@ -3968,62 +4019,155 @@ function HomeContent() {
                           }
                         }
                       }}
-                      playerSeeds={playerSeeds}
                       zoneHintText={zoneHintText}
                       nearestZoneDirectionIcon={nearestZoneDirectionIcon}
                       nearestZoneDistanceKm={nearestZoneDistanceKm}
                       securedMultiplier={securedNextScanMultiplier}
-                    />
+                      />
+                    {showShopStack ? (
+                      <GoldGradientCard
+                        blur
+                        className="mt-3 flex-1 min-h-0 overflow-hidden"
+                        contentClassName="flex min-h-0 flex-col"
+                      >
+                        <ShopFeatureRoot
+                          embedded
+                          flatMode
+                          draftMode
+                          authId={user?.id}
+                          currentUser={user}
+                          badgeMetrics={profileBadgeMetrics}
+                          ownedUniqueBadgeIds={ownedUniqueBadgeIds}
+                          onUserUpdated={(freshUser) => setUser(freshUser)}
+                          saveNonce={shopStackSaveNonce}
+                          activeFlatCategoryKey={shopStackActiveCategory}
+                          onFlatCategoryKeyChange={setShopStackActiveCategory}
+                          onDraftPreviewChange={setShopStackDraftOverrides}
+                          onUnsavedChange={setShopStackHasUnsavedChanges}
+                          onSaveComplete={(success) => {
+                            if (success) {
+                              setShowShopStack(false);
+                              setShopStackDraftOverrides(null);
+                              setShopStackHasUnsavedChanges(false);
+                            }
+                          }}
+                        />
+                      </GoldGradientCard>
+                    ) : showHealthStatsPanel ? (
+                      <div ref={healthStatsPanelRef} className="flex-1 min-h-0">
+                        <PlantHeroHealthPanel
+                          contextBubbleMessage={homeHealthContextBubbleMessage}
+                          contextBubbleProfile={user}
+                          onContextBubbleDismiss={dismissFlorabotContextBubble}
+                          plantHealthState={resolvedPlantHealthState}
+                          healthStateBonus={healthStateBonus}
+                          healthStats={healthStats}
+                          isLoading={isPlantHealthPending}
+                          isDailyCareLoading={isDailyCareStatusLoading}
+                          wateringCountToday={wateringCountToday}
+                          wateringLimitPerDay={wateringLimitPerDay}
+                          remainingWatersToday={remainingWatersToday}
+                          isWateringPending={waterPlantMutation.isPending}
+                          isFertilizerPending={useInventoryItemMutation.isPending}
+                          isFertilizerInventoryLoading={isFertilizerInventoryLoading}
+                          fertilizerInventoryItems={fertilizerItems}
+                          activeFertilizerItemId={activeFertilizerItemId}
+                          activeFertilizerRemainingDays={activeFertilizerRemainingDays}
+                          activeDecayPercent={activeDecayPercent}
+                          careActionMessage={careActionMessage}
+                          careGainFeedback={careGainFeedback}
+                          onWaterPlant={handleWaterPlantClick}
+                          onUseFertilizerItem={handleUseFertilizerItem}
+                          onOpenFertilizerShop={handleOpenFertilizerShop}
+                        />
+                      </div>
+                    ) : (
+                      <div
+                        className="relative z-10 flex flex-initial flex-col gap-2"
+                      >
+                        <HomeProfileBadgesPanel
+                          isLightUi={isLightUi}
+                          selectedProfileBadges={selectedProfileBadges}
+                          playerSeeds={playerSeeds}
+                        />
+                        <div
+                          className="w-full"
+                          style={eventStripeHeightPx ? { maxHeight: `${eventStripeHeightPx}px` } : undefined}
+                        >
+                          <RewardCardWrapper
+                            className="h-full"
+                            rewards={rewards}
+                            userRewards={userRewards}
+                            isLightUi={isLightUi}
+                            completedWeeklyQuestCount={completedWeeklyQuestCount}
+                            completedMonthlyQuestCount={completedMonthlyQuestCount}
+                            quests={quests}
+                            weeklyQuests={weeklyQuests}
+                            monthlyQuests={monthlyQuests}
+                            achievements={achievements}
+                            genera={genera}
+                            plants={plants}
+                          />
+                        </div>
+                      </div>
+                    )}
+                    </div>
                   </section>
                 )}
               </div>
 
               <div className={`${activePanel === null ? "pt-0" : "pt-[clamp(0.35rem,0.9vh,0.7rem)]"} pb-[clamp(0.15rem,0.5vh,0.35rem)] flex shrink-0 flex-col`}>
+                {activePanel === null && !showHealthStatsPanel && !showShopStack ? (
+                  <div ref={eventStripeContainerRef} className="mb-[clamp(0.35rem,0.8vh,0.55rem)]">
+                    <HomeEventStripe isLightUi={isLightUi} events={homeEventStripeItems} />
+                  </div>
+                ) : null}
                 {activePanel === null ? (
-                  <>
-                    <HomeMilestoneStripe
-                      className="mb-[clamp(0.35rem,0.8vh,0.55rem)] min-h-0 flex-1"
+                  showShopStack ? (
+                    <HomeCurrencyInfoRow
+                      className="mb-[clamp(0.35rem,0.8vh,0.55rem)]"
                       isLightUi={isLightUi}
-                      milestoneFeed={homeMilestoneFeed}
-                      kpiSummary={homeMilestoneKpiSummary}
-                      controlsScale={controlsScale}
-                      onMilestoneAction={handleHomeMilestoneAction}
-                      onMilestonePreviewClick={handleHomeMilestonePreviewClick}
+                      playerSparks={playerSparks}
+                      playerAmber={playerAmber}
+                      onOpenAmberPurchase={() => setShowAmberPurchaseModal(true)}
                     />
-
-                    <motion.button
-                      onClick={() => {
-                        trackAction("home_scan_click", { sourcePage: "Home" });
-                        navigate(createPageUrl('Scanner'));
-                      }}
-                      className={`mb-[clamp(0.35rem,0.8vh,0.55rem)] w-full shrink-0 rounded-2xl border flex items-center justify-center font-semibold tracking-wide transition-shadow ${
-                        isLightUi
-                          ? "border-emerald-400/50 bg-gradient-to-r from-emerald-500/85 via-emerald-400/75 to-emerald-500/85 text-white shadow-[0_8px_24px_rgba(34,197,94,0.2)] hover:shadow-[0_12px_32px_rgba(34,197,94,0.35)]"
-                          : "border-lime-200/35 bg-gradient-to-r from-emerald-700/80 via-emerald-500/70 to-emerald-700/80 text-white shadow-[0_8px_24px_rgba(34,197,94,0.3)]"
-                      }`}
-                      style={{
-                        height: `${(3.35 * controlsScale).toFixed(2)}rem`,
-                        gap: `${(0.56 * controlsScale).toFixed(2)}rem`,
-                        fontSize: `${(1.15 * controlsScale).toFixed(2)}rem`,
-                      }}
-                      animate={showScannerHighlight ? { scale: [1, 1.02, 1] } : {}}
-                      transition={showScannerHighlight ? { duration: 1.8, repeat: Infinity, ease: 'easeInOut' } : {}}
-                    >
-                      <Camera
-                        style={{
-                          width: `${(1.45 * controlsScale).toFixed(2)}rem`,
-                          height: `${(1.45 * controlsScale).toFixed(2)}rem`,
-                        }}
-                      />
-                      Scannen
-                    </motion.button>
-                  </>
+                  ) : (
+                    <HomeScanInfoRow
+                      className="mb-[clamp(0.35rem,0.8vh,0.55rem)]"
+                      isLightUi={isLightUi}
+                      conqueredZonesDisplay={conqueredZonesDisplay}
+                      zoneMultiplier={zoneMultiplier}
+                      careMultiplier={careMultiplier}
+                      activityBonusDisplay={healthSeedBonusDisplay}
+                    />
+                  )
                 ) : null}
                 <HomeBottomNavigation
                   navItems={navItems}
                   controlsScale={controlsScale}
-                  isNavVisible={isNavVisible}
-                  onNavVisibleChange={setIsNavVisible}
+                  centerContext={activePanel === null && !showShopStack ? "inside" : "outside"}
+                  highlightCenterAction={activePanel === null && !showShopStack && showScannerHighlight}
+                  onCenterAction={() => {
+                    if (activePanel === null) {
+                      if (showShopStack) {
+                        if (shopStackHasUnsavedChanges) {
+                          trackAction("home_shop_stack_save", { sourcePage: "Home" });
+                          setShopStackSaveNonce((prev) => prev + 1);
+                        } else {
+                          setShowShopStack(false);
+                          setShopStackDraftOverrides(null);
+                          setShopStackHasUnsavedChanges(false);
+                        }
+                        return;
+                      }
+                      trackAction("home_scan_click", { sourcePage: "Home" });
+                      navigate(createPageUrl('Scanner'));
+                      return;
+                    }
+
+                    trackAction("bottomnav_home", { sourcePage: "Home", metadata: { closedPanel: activePanel } });
+                    setActivePanel(null);
+                  }}
                 />
               </div>
             </div>
