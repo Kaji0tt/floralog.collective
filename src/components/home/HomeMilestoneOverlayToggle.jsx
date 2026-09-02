@@ -1,6 +1,7 @@
 import { AnimatePresence } from "framer-motion";
 import HomeFlorabotOverlay from "@/components/home/HomeFlorabotOverlay";
 
+/** @deprecated Redundant wrapper for the retired HomeFlorabotOverlay flow. */
 export default function HomeMilestoneOverlayToggle({
   isOpen,
   milestone,

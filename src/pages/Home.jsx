@@ -52,7 +52,6 @@ import { getNavButtonStyle } from "@/components/navigation/navButtonStyles";
 import HomeBackgroundShell from "@/components/home/HomeBackgroundShell";
 import GoldGradientCard from "@/components/home/GoldGradientCard";
 import HomeCollectionStripes from "@/components/home/HomeCollectionStripes";
-import HomeMilestoneOverlayToggle from "@/components/home/HomeMilestoneOverlayToggle";
 import HomeHeroSideNav from "@/components/home/HomeHeroSideNav";
 import HomeProfileBadgesPanel from "@/components/home/HomeProfileBadgesPanel";
 import RewardCardWrapper from "@/components/home/RewardCardWrapper";
@@ -436,13 +435,7 @@ function HomeContent() {
   const [serverNewsDialogOpen, setServerNewsDialogOpen] = useState(false);
   const [showFlorabotIntro, setShowFlorabotIntro] = useState(false);
   const [activeMilestone, setActiveMilestone] = useState(null);
-  const [isMilestoneOverlayToggled, setIsMilestoneOverlayToggled] = useState(false);
   const [careBubble, setCareBubble] = useState(/** @type {{x:number,y:number,key:number}|null} */ (null));
-  const [isHomeOverlayShopOpen, setIsHomeOverlayShopOpen] = useState(false);
-  const [homeOverlayInitialShopCategory, setHomeOverlayInitialShopCategory] = useState("root");
-  const [homeOverlayInitialShopOpen, setHomeOverlayInitialShopOpen] = useState(false);
-  const [homeOverlayAmbientMessage, setHomeOverlayAmbientMessage] = useState("");
-  const homeOverlayAmbientCooldownUntilRef = useRef(0);
   const [florabotContextBubble, setFlorabotContextBubble] = useState(null);
   const [userStory, setUserStory] = useState(/** @type {any} */ (null));
   const [storyCreatedThisSession, setStoryCreatedThisSession] = useState(false);
@@ -1033,14 +1026,12 @@ function HomeContent() {
     refetchOpenPlantQuiz();
   }, [user?.id, refetchOpenPlantQuiz]);
 
-  // Deep link from the "Florabot braucht Hilfe" quiz notification (actionUrl "Home?quiz=open"):
-  // open the Florabot HomeOverlay with the quiz dialog on top.
+  // Deep link from the "Florabot braucht Hilfe" quiz notification (actionUrl "Home?quiz=open").
   useEffect(() => {
     if (!user?.id) return;
     const params = new URLSearchParams(location.search);
     if (params.get('quiz') !== 'open') return;
 
-    setIsMilestoneOverlayToggled(true);
     setShowPlantQuizDialog(true);
 
     params.delete('quiz');
@@ -2042,29 +2033,6 @@ function HomeContent() {
     mergedSeenMilestoneIds,
     milestoneScopeKey,
   ]);
-
-  const toggleMilestonePreview = useMemo(() => {
-    if (activeMilestone) return activeMilestone;
-    const reachedMilestones = FLORABOT_MILESTONES.filter(
-      (milestone) => playerSeeds >= milestone.threshold
-    );
-    if (reachedMilestones.length > 0) return reachedMilestones[reachedMilestones.length - 1];
-    return FLORABOT_MILESTONES[0] || null;
-  }, [activeMilestone, playerSeeds]);
-
-  useEffect(() => {
-    if (showFlorabotIntro || activeMilestone) {
-      setIsMilestoneOverlayToggled(false);
-      setIsHomeOverlayShopOpen(false);
-      setHomeOverlayAmbientMessage("");
-    }
-  }, [showFlorabotIntro, activeMilestone]);
-
-  useEffect(() => {
-    if (!isMilestoneOverlayToggled) {
-      setIsHomeOverlayShopOpen(false);
-    }
-  }, [isMilestoneOverlayToggled]);
 
   const dismissFlorabotContextBubble = () => {
     if (!florabotContextBubble) return;
@@ -3428,7 +3396,7 @@ function HomeContent() {
 
   // Bubble burst -> the actual Pflege-Interaktion (server RPC, not "Gießen").
   const handleCareInteractionClick = () => {
-    careInteractionMutation.mutate();
+    return careInteractionMutation.mutateAsync();
   };
 
   return (
@@ -3622,48 +3590,6 @@ function HomeContent() {
           />
         )}
       </AnimatePresence>
-
-      <HomeMilestoneOverlayToggle
-        isOpen={Boolean(isMilestoneOverlayToggled && !showFlorabotIntro && !activeMilestone)}
-        milestone={toggleMilestonePreview}
-        profile={user}
-        authId={user?.id}
-        currentUser={user}
-        badgeMetrics={profileBadgeMetrics}
-        initialShopCategory={homeOverlayInitialShopCategory}
-        initialShopOpen={homeOverlayInitialShopOpen}
-        logoAssets={logoAssets}
-        playerSparks={playerSparks}
-        playerAmber={playerAmber}
-        plantHealthState={resolvedPlantHealthState}
-        healthStats={healthStats}
-        ambientMessage={homeOverlayAmbientMessage}
-        quizAvailable={quizAvailable}
-        onQuizClick={() => setShowPlantQuizDialog(true)}
-        scanStreakStatus={scanStreakStatus}
-        careInteractionCountToday={careInteractionCountToday}
-        careInteractionLimitPerDay={careInteractionLimitPerDay}
-        remainingCareInteractionsToday={remainingCareInteractionsToday}
-        isDailyCareLoading={isDailyCareStatusLoading}
-        isCareInteractionPending={careInteractionMutation.isPending}
-        onSpawnBubble={() => {
-          if (remainingCareInteractionsToday <= 0) return;
-          if (careBubble) return;
-          const pos = pickCareBubblePosition();
-          if (pos) setCareBubble({ ...pos, key: Date.now() });
-        }}
-        onCustomize={(isCustomizeOpen) => {
-          setIsHomeOverlayShopOpen(Boolean(isCustomizeOpen));
-        }}
-        onUserUpdated={(freshUser) => setUser(freshUser)}
-        onHealthDetailsChange={(isOpen) => setIsHomeOverlayHealthDetailsOpen(Boolean(isOpen))}
-        onClose={() => {
-          setIsHomeOverlayShopOpen(false);
-          setIsMilestoneOverlayToggled(false);
-          setHomeOverlayInitialShopOpen(false);
-          setHomeOverlayInitialShopCategory("root");
-        }}
-      />
 
       <GreenCareBubble
         key={careBubble?.key ?? 0}
@@ -3971,6 +3897,8 @@ function HomeContent() {
                       onOpenServerNews={() => setServerNewsDialogOpen(true)}
                       onOpenAmberPurchase={() => setShowAmberPurchaseModal(true)}
                       onOpenCustomize={() => openShopStack()}
+                      hasOpenQuiz={quizAvailable}
+                      onOpenQuiz={() => setShowPlantQuizDialog(true)}
                     />
                     <div className="relative flex min-h-0 flex-1 flex-col gap-2">
                       <HomeCollectionStripes
@@ -3979,7 +3907,6 @@ function HomeContent() {
                       isLightUi={isLightUi}
                       profile={effectiveUser}
                       logoAssets={logoAssets}
-                      elevateLogo={Boolean(isMilestoneOverlayToggled && !showFlorabotIntro && !activeMilestone && !isHomeOverlayShopOpen)}
                       profileBadges={!showHealthStatsPanel && !showShopStack ? (
                         <HomeProfileBadgesPanel
                           isLightUi={isLightUi}
@@ -3989,41 +3916,14 @@ function HomeContent() {
                       ) : null}
                       onBadgeClick={() => {
                         trackAction("home_badge_customize_open", { sourcePage: "Home" });
-                        setHomeOverlayInitialShopCategory("badges");
-                        setHomeOverlayInitialShopOpen(true);
-                        setIsMilestoneOverlayToggled(true);
-                        setIsHomeOverlayShopOpen(true);
+                        setShopStackActiveCategory("badges");
+                        openShopStack();
                       }}
                       onLogoClick={() => {
-                        if (toggleMilestonePreview) {
-                          const now = Date.now();
-                          const isAmbientCooldownActive = now < homeOverlayAmbientCooldownUntilRef.current;
-
-                          if (!isAmbientCooldownActive) {
-                            const { comment } = pickRandomPhaseAmbientComment(storySeedProgress, []);
-                            const resolvedAmbientComment = comment
-                              ? interpolatePercentVariables(comment, buildStoryProfileVariables(user || {}))
-                              : "";
-                            const nextAmbientComment = resolvedAmbientComment || comment || "";
-                            setHomeOverlayAmbientMessage(nextAmbientComment);
-                            if (nextAmbientComment) {
-                              homeOverlayAmbientCooldownUntilRef.current = now + (5 * 60 * 1000);
-                            }
-                          } else {
-                            setHomeOverlayAmbientMessage("");
-                          }
-
-                          trackAction("home_logo_overlay_open", { sourcePage: "Home" });
-                          setHomeOverlayInitialShopCategory("root");
-                          setHomeOverlayInitialShopOpen(false);
-                          setIsMilestoneOverlayToggled(true);
-                          setIsHomeOverlayShopOpen(false);
-
-                          // Spawn a floating Pflege-Interaktion bubble only if daily interactions are still available
-                          if (careInteractionCountToday < careInteractionLimitPerDay) {
-                            const pos = pickCareBubblePosition();
-                            if (pos) setCareBubble({ ...pos, key: Date.now() });
-                          }
+                        // The personal Home logo always offers the care interaction.
+                        if (remainingCareInteractionsToday > 0 && !careBubble) {
+                          const pos = pickCareBubblePosition();
+                          if (pos) setCareBubble({ ...pos, key: Date.now() });
                         }
                       }}
                       zoneHintText={zoneHintText}

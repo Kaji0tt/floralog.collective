@@ -75,6 +75,10 @@ const extractLanguageCandidates = (source) => {
     .filter(Boolean);
 };
 
+/**
+ * @deprecated Redundant since the Home logo directly triggers the Pflege-Blase.
+ * Kept temporarily only as a reference for the retired Home overlay flow.
+ */
 export default function HomeFlorabotOverlay({
   profile,
   authId = null,

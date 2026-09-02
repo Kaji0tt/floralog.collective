@@ -15,7 +15,7 @@ const BURST_DURATION = 900; // ms
  * @param {{
  *   isActive: boolean,
  *   position: {x: number, y: number},
- *   onBurst: () => void,
+ *   onBurst: () => Promise<{applied?: boolean, care_delta?: number}>|void,
  *   onDismiss: () => void,
  * }} props
  */
@@ -25,6 +25,7 @@ export default function GreenCareBubble({ isActive, position, onBurst, onDismiss
   // "floating" → "bursting" → (onDismiss called)
   const [phase, setPhase] = useState("floating");
   const [burstCenter, setBurstCenter] = useState(/** @type {{x:number,y:number}|null} */ (null));
+  const [awardedCareDelta, setAwardedCareDelta] = useState(0);
 
   const bubbleRef = useRef(/** @type {HTMLButtonElement|null} */ (null));
   const dismissTimerRef = useRef(/** @type {number|null} */ (null));
@@ -49,6 +50,7 @@ export default function GreenCareBubble({ isActive, position, onBurst, onDismiss
     phaseDoneRef.current = false;
     setPhase("floating");
     setBurstCenter(null);
+    setAwardedCareDelta(0);
 
     // Auto-dismiss if player never taps (float completes)
     scheduleDismiss((FLOAT_DURATION + 0.5) * 1000);
@@ -72,7 +74,12 @@ export default function GreenCareBubble({ isActive, position, onBurst, onDismiss
 
     setBurstCenter({ x: cx, y: cy });
     setPhase("bursting");
-    onBurst?.();
+    Promise.resolve(onBurst?.())
+      .then((result) => {
+        const careDelta = Math.max(0, Number(result?.care_delta ?? 0));
+        if (result?.applied && careDelta > 0) setAwardedCareDelta(careDelta);
+      })
+      .catch(() => {});
     scheduleDismiss(BURST_DURATION);
   }, [phase, position, onBurst, scheduleDismiss]);
 
@@ -258,6 +265,16 @@ export default function GreenCareBubble({ isActive, position, onBurst, onDismiss
                 />
               );
             })}
+            {awardedCareDelta > 0 ? (
+              <motion.div
+                className="absolute whitespace-nowrap rounded-full border border-lime-200/70 bg-lime-950/85 px-3 py-1 text-sm font-bold text-lime-100 shadow-lg"
+                initial={{ opacity: 0, x: "-50%", y: "-50%", scale: 0.82 }}
+                animate={{ opacity: [0, 1, 1, 0], x: "-50%", y: ["-50%", "-155%", "-220%", "-280%"], scale: [0.82, 1, 1, 0.94] }}
+                transition={{ duration: 0.82, ease: "easeOut" }}
+              >
+                +{awardedCareDelta} Pflege
+              </motion.div>
+            ) : null}
           </motion.div>
         )}
       </AnimatePresence>

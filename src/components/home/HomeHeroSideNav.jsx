@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Settings, Bug, Info, HeartPulse, Palette, Bell, Menu } from "lucide-react";
+import { Settings, Bug, Info, HeartPulse, Palette, Bell, Menu, CircleAlert } from "lucide-react";
 import ImpressumDialog from "@/components/legal/ImpressumDialog";
 import ServerNewsDialog from "@/components/home/ServerNewsDialog";
 
@@ -21,6 +21,8 @@ export default function HomeHeroSideNav({
   onToggleHealthView,
   onOpenCustomize,
   onOpenServerNews,
+  hasOpenQuiz = false,
+  onOpenQuiz,
   isHealthViewActive = false,
   className = "",
 }) {
@@ -96,6 +98,17 @@ export default function HomeHeroSideNav({
             <Menu className={`h-5 w-5 ${iconTone}`} />
           </button>
         </motion.div>
+
+        {hasOpenQuiz ? (
+          <button
+            type="button"
+            onClick={() => onOpenQuiz?.()}
+            aria-label="Offenes Pflanzenquiz öffnen"
+            className={`${CIRCLE_BUTTON_CLASS} rounded-full border border-emerald-300/75 bg-emerald-500/80 text-white shadow-[0_0_18px_rgba(52,211,153,0.48)] backdrop-blur-xl transition-colors hover:bg-emerald-400/90`}
+          >
+            <CircleAlert className="h-5 w-5" />
+          </button>
+        ) : null}
 
         <button
           type="button"
