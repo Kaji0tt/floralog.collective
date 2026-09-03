@@ -1,9 +1,9 @@
-import React, { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Bell, Send, Loader2, Plus, Calendar, X } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Query } from "@/api/entities";
 import { supabase } from "@/api/supabaseClient";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,9 +16,10 @@ import { de } from "date-fns/locale";
 /**
  * Scrollable modal for viewing and broadcasting Server-News.
  */
-export default function ServerNewsDialog({ open, onOpenChange, user }) {
+export default function ServerNewsDialog({ open, onOpenChange, user, onNewsViewed }) {
   const queryClient = useQueryClient();
   const { isLightUi } = useUiTheme();
+  const lastReportedNewsDateRef = useRef(null);
 
   const [showCreateNews, setShowCreateNews] = useState(false);
   const [adminNewsTitle, setAdminNewsTitle] = useState("");
@@ -31,6 +32,20 @@ export default function ServerNewsDialog({ open, onOpenChange, user }) {
     queryFn: () => Query.News.list("-created_date"),
     enabled: Boolean(open),
   });
+
+  useEffect(() => {
+    if (!open || isLoading) return;
+
+    const latestNewsDate = news.reduce((latestDate, item) => {
+      const candidate = item.created_date || item.created_at;
+      if (!candidate || Number.isNaN(new Date(candidate).getTime())) return latestDate;
+      return !latestDate || new Date(candidate) > new Date(latestDate) ? candidate : latestDate;
+    }, null);
+
+    if (!latestNewsDate || lastReportedNewsDateRef.current === latestNewsDate) return;
+    lastReportedNewsDateRef.current = latestNewsDate;
+    onNewsViewed?.(latestNewsDate);
+  }, [isLoading, news, onNewsViewed, open]);
 
   const broadcastNewsMutation = useMutation({
     mutationFn: async ({ title, text }) => {

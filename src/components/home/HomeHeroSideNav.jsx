@@ -21,6 +21,7 @@ export default function HomeHeroSideNav({
   onToggleHealthView,
   onOpenCustomize,
   onOpenServerNews,
+  hasUnreadServerNews = false,
   hasOpenQuiz = false,
   onOpenQuiz,
   isHealthViewActive = false,
@@ -74,9 +75,12 @@ export default function HomeHeroSideNav({
                   }
                 }}
                 aria-label="Server-News"
-                className="flex h-8 w-8 items-center justify-center"
+                className="relative flex h-8 w-8 items-center justify-center"
               >
                 <Bell className={`h-4 w-4 ${iconTone}`} />
+                {hasUnreadServerNews ? (
+                  <span className="absolute right-0.5 top-0.5 h-2 w-2 rounded-full border border-white/90 bg-red-500" aria-hidden="true" />
+                ) : null}
               </button>
               <button
                 type="button"
@@ -95,7 +99,7 @@ export default function HomeHeroSideNav({
             aria-expanded={expandedKey === "options"}
             className={CIRCLE_BUTTON_CLASS}
           >
-            <Menu className={`h-5 w-5 ${iconTone}`} />
+            {hasUnreadServerNews ? <Bell className={`h-5 w-5 ${iconTone}`} /> : <Menu className={`h-5 w-5 ${iconTone}`} />}
           </button>
         </motion.div>
 

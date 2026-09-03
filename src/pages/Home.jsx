@@ -791,6 +791,36 @@ function HomeContent() {
     refetchOnWindowFocus: true,
   });
 
+  const { data: serverNews = [] } = useQuery({
+    queryKey: ["news"],
+    queryFn: () => Query.News.list("-created_date"),
+    enabled: !!user?.id,
+    initialData: [],
+    staleTime: 15000,
+    refetchOnWindowFocus: true,
+  });
+
+  const latestServerNewsDate = useMemo(() => serverNews.reduce((latestDate, item) => {
+    const candidate = item.created_date || item.created_at;
+    if (!candidate || Number.isNaN(new Date(candidate).getTime())) return latestDate;
+    return !latestDate || new Date(candidate) > new Date(latestDate) ? candidate : latestDate;
+  }, null), [serverNews]);
+
+  const hasUnreadServerNews = Boolean(
+    latestServerNewsDate && (!user?.server_news_seen_at || new Date(latestServerNewsDate) > new Date(user.server_news_seen_at))
+  );
+
+  const handleServerNewsViewed = async (latestNewsDate) => {
+    if (!latestNewsDate || !user?.id) return;
+
+    try {
+      const updatedUser = await updateCurrentUserProfile({ server_news_seen_at: latestNewsDate });
+      setUser((currentUser) => ({ ...currentUser, ...updatedUser, server_news_seen_at: latestNewsDate }));
+    } catch (error) {
+      console.error("[Home] Failed to mark server news as viewed:", error);
+    }
+  };
+
   const { data: userAchievements = [], isLoading: isLoadingAchievements } = useQuery({
     queryKey: ['userAchievements', user?.id],
     queryFn: () => Query.UserAchievement.filter({ auth_id: user?.id }),
@@ -3793,6 +3823,7 @@ function HomeContent() {
                 open={serverNewsDialogOpen}
                 onOpenChange={setServerNewsDialogOpen}
                 user={user}
+                onNewsViewed={handleServerNewsViewed}
               />
 
               <div
@@ -3897,6 +3928,7 @@ function HomeContent() {
                       }}
                       onOpenBugReport={() => setBugReportDialogOpen(true)}
                       onOpenServerNews={() => setServerNewsDialogOpen(true)}
+                      hasUnreadServerNews={hasUnreadServerNews}
                       onOpenAmberPurchase={() => setShowAmberPurchaseModal(true)}
                       onOpenCustomize={() => openShopStack()}
                       hasOpenQuiz={quizAvailable}
