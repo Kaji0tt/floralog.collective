@@ -1598,18 +1598,7 @@ Viel Spaß beim Entdecken! 🌿`;
 
   const explorerFilterHeaderNode = (
     <div className="flex flex-col gap-3 mb-4 md:flex-row md:items-start md:justify-between">
-      <div>
-        <div className={`flex items-center gap-2 ${titleTextClass}`}>
-          <BookOpenText className={`w-4 h-4 ${isLightUi ? "text-emerald-700" : "text-emerald-300"}`} />
-          <h3 className="text-base font-semibold">Forscher Log</h3>
-        </div>
-        <p className={`text-sm mt-1 ${bodyTextClass}`}>
-          {isSotwView
-            ? "Wochenliebling: die meistgelikten Scans der Community. Scan der Woche: die vom Team gekürten Scans. Gestaffelt nach Kalenderwoche."
-            : "Ein visuelles Journal der letzten Scans aller Spieler."}
-        </p>
-      </div>
-      <div className="flex items-center justify-between gap-3 md:justify-end">
+      <div className="flex items-center justify-between gap-3 md:justify-end md:ml-auto">
         <div
           className={
             `inline-flex rounded-full border p-1 ${isLightUi
@@ -1920,7 +1909,7 @@ Viel Spaß beim Entdecken! 🌿`;
                 </div>
               ) : (
                 <>
-                <section className={`${sectionSurfaceClass} p-4 md:p-5`}>
+                <div className="px-1">
                   {explorerFilterHeaderNode}
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -2124,7 +2113,7 @@ Viel Spaß beim Entdecken! 🌿`;
                 </div>
                 {/* Infinite scroll sentinel */}
                 <div ref={explorerSentinelRef} className="h-px" />
-                </section>
+                </div>
               {isFetchingNextExplorerPage && (
                 <div className={`flex justify-center py-3 ${isLightUi ? "text-stone-400" : "text-stone-500"}`}>
                   <Loader2 className="w-5 h-5 animate-spin" />
@@ -2318,7 +2307,16 @@ Viel Spaß beim Entdecken! 🌿`;
                       <Users className={`w-4 h-4 ${isLightUi ? "text-emerald-700" : "text-emerald-300"}`} />
                       <h3 className="text-base font-semibold">Dein Netzwerk</h3>
                     </div>
-                    <p className={`text-sm mt-1 ${bodyTextClass}`}>Freunde, letzte Aktivitaeten und schneller Zugriff auf Profile.</p>
+                    <p className={`text-sm mt-1 ${bodyTextClass}`}>
+                      Freunde, letzte Aktivitaeten und schneller Zugriff auf Profile.{" "}
+                      <button
+                        type="button"
+                        onClick={() => setShowAddFriendDialog(true)}
+                        className={`font-semibold underline underline-offset-2 ${isLightUi ? "text-emerald-700 hover:text-emerald-800" : "text-emerald-300 hover:text-emerald-200"}`}
+                      >
+                        Freund einladen oder werben
+                      </button>
+                    </p>
                   </div>
                   <Badge className={accentBadgeClass}>{friendCards.length}</Badge>
                 </div>

@@ -3749,7 +3749,7 @@ function HomeContent() {
               )}
 
               <HomeHeaderBar
-                hidden={activePanel === "map" || activePanel === null}
+                hidden={activePanel === "map" || activePanel === null || activePanel === "friends"}
                 activePanel={activePanel}
                 embeddedTitle={embeddedTitle}
                 embeddedSubtitle={embeddedSubtitle}
