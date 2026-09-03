@@ -25,7 +25,7 @@ import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import ScanFeedbackNotification from "@/components/notifications/ScanFeedbackNotification";
 import { checkAndUnlockAchievements } from "@/components/achievements/achievementChecker";
 import AchievementNotification from "@/components/achievements/AchievementNotification";
-import { getCurrentWeeklyQuest, getCurrentMonthlyQuest } from "@/components/quests/QuestRotationHelper";
+import { getCurrentWeeklyQuest, getCurrentMonthlyQuest, getWeekNumber } from "@/components/quests/QuestRotationHelper";
 import { updateQuestProgress } from "@/components/utils/questProgress";
 import { grantRobotPlantRewardServerSide } from "@/api/robotPlantService";
 import { grantWalletCurrency } from "@/api/walletService";
@@ -1390,7 +1390,11 @@ export function useAchievementsFeatureContent({
   const currentWeeklyUserQuest = redeemableWeeklyUserQuest
     ? redeemableWeeklyUserQuest
     : currentWeeklyQuest
-      ? userWeeklyQuests.find((uwq) => uwq.weekly_quest_id === currentWeeklyQuest.id)
+      ? userWeeklyQuests.find(
+          (uwq) =>
+            uwq.weekly_quest_id === currentWeeklyQuest.id &&
+            uwq.active_week === getWeekNumber()
+        )
       : null;
   // Wenn eine aeltere abgeschlossene Quest angezeigt wird, brauchen wir auch die Quest-Details dazu
   const displayedWeeklyQuest = redeemableWeeklyUserQuest

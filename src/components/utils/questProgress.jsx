@@ -1,7 +1,8 @@
 import { Query } from "@/api/entities";
 
 /**
- * Aktualisiert den Quest-Fortschritt für alle aktiven Quests eines Users
+ * Aktualisiert den Fortschritt nicht-wöchentlicher aktiver Quests eines Users.
+ * Wöchentliche Quests werden atomar beim Speichern einer Entdeckung aktualisiert.
  */
 export async function updateQuestProgress(user) {
   if (!user?.id) return;
@@ -11,8 +12,6 @@ export async function updateQuestProgress(user) {
     const [
       quests,
       userQuests,
-      weeklyQuests,
-      userWeeklyQuests,
       monthlyQuests,
       userMonthlyQuests,
       collectionQuests,
@@ -23,8 +22,6 @@ export async function updateQuestProgress(user) {
     ] = await Promise.all([
       Query.Quest.list(),
       Query.UserQuest.filter({ auth_id: user.id }),
-      Query.WeeklyQuest.list(),
-      Query.UserWeeklyQuest.filter({ auth_id: user.id }),
       Query.MonthlyQuest.list(),
       Query.UserMonthlyQuest.filter({ auth_id: user.id }),
       Query.CollectionQuest.list(),
@@ -34,7 +31,6 @@ export async function updateQuestProgress(user) {
       Query.Plant.listAll(),
       Query.PlantGenus.list()
     ]);
-
     // Hilfsfunktion: Berechne Fortschritt für eine Quest
     const calculateProgress = (quest, discoveries, plants, genera) => {
       if (!quest.required_discoveries) return 0;
@@ -62,6 +58,8 @@ export async function updateQuestProgress(user) {
             )
             .map(p => p.id);
           matchingDiscoveries = matchingDiscoveries.filter(d => targetGenusPlantIds.includes(d.plant_id));
+        } else {
+          matchingDiscoveries = [];
         }
       }
 
@@ -70,6 +68,8 @@ export async function updateQuestProgress(user) {
         const targetPlant = plants.find(p => p.species_name === quest.target_species_name);
         if (targetPlant) {
           matchingDiscoveries = matchingDiscoveries.filter(d => d.plant_id === targetPlant.id);
+        } else {
+          matchingDiscoveries = [];
         }
       }
 
@@ -94,46 +94,6 @@ export async function updateQuestProgress(user) {
             completed,
             completed_date: completed && !userQuest.completed ? new Date().toISOString() : userQuest.completed_date,
             // Optional Status-Feld: nur setzen, falls vorhanden
-            status: completed ? 'completed' : 'active'
-          });
-        }
-      }
-    }
-
-    // Update wöchentliche Quests
-    for (const userWeeklyQuest of userWeeklyQuests) {
-      const isActive = userWeeklyQuest.status ? isActiveStatus(userWeeklyQuest.status) : (userWeeklyQuest.accepted && !userWeeklyQuest.redeemed);
-      if (isActive) {
-        const quest = weeklyQuests.find(q => q.id === userWeeklyQuest.weekly_quest_id);
-        if (!quest) continue;
-
-        // Für Wochenquests gilt der Wochenbeginn (Montag 00:00 UTC) als Startpunkt,
-        // nicht das accepted_at – so zählen Scans auch wenn der Auto-Accept verzögert war.
-        // Das Wochenende (nächster Montag 00:00 UTC) dient als Endgrenze –
-        // Scans aus Folgewochen dürfen eine vergangene Quest NICHT erfüllen.
-        const getWeekStart = (isoString) => {
-          const d = isoString ? new Date(isoString) : new Date();
-          const dow = d.getUTCDay();
-          const daysBack = dow === 0 ? 6 : dow - 1;
-          return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() - daysBack));
-        };
-        const acceptedAt = userWeeklyQuest.accepted_at || userWeeklyQuest.accepted_date;
-        const effectiveStart = getWeekStart(acceptedAt);
-        const effectiveEnd = new Date(effectiveStart.getTime() + 7 * 24 * 60 * 60 * 1000);
-        const discoveriesSinceAccept = userDiscoveries.filter(
-          d => d.discovered_date &&
-               new Date(d.discovered_date) >= effectiveStart &&
-               new Date(d.discovered_date) < effectiveEnd
-        );
-
-        const progress = calculateProgress(quest, discoveriesSinceAccept, plants, genera);
-        const completed = progress >= (quest.required_discoveries || 0);
-
-        if (progress !== userWeeklyQuest.progress || completed !== userWeeklyQuest.completed) {
-          await Query.UserWeeklyQuest.update(userWeeklyQuest.id, {
-            progress,
-            completed,
-            completed_date: completed && !userWeeklyQuest.completed ? new Date().toISOString() : userWeeklyQuest.completed_date,
             status: completed ? 'completed' : 'active'
           });
         }

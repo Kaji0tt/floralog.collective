@@ -549,7 +549,7 @@ export default function ScanFeedbackNotification({
 
   if (!feedback) return null;
 
-  const { type, plantName, questTitle, rewardName } = feedback;
+  const { type, plantName, questTitle, weeklyQuestTitle, rewardName } = feedback;
 
   let title = "Scan erfolgreich!";
   let containerClasses = "bg-black/55 border-[#f0e5a5]/35";
@@ -569,6 +569,15 @@ export default function ScanFeedbackNotification({
     ringClasses = "bg-lime-400/35";
     counterClasses = "text-lime-300";
     emojiSet = ["âœ¨", "ðŸŒ¿", "âœ¨", "ðŸŒ±"];
+    animationVariant = "newDiscovery";
+  } else if (type === "weeklyQuestCompleted") {
+    title = weeklyQuestTitle
+      ? `Pflanze der Woche: ${weeklyQuestTitle} abgeschlossen!`
+      : "Pflanze der Woche abgeschlossen!";
+    containerClasses = "bg-black/60 border-violet-200/45";
+    ringClasses = "bg-violet-400/40";
+    counterClasses = "text-violet-200";
+    emojiSet = ["âœ¨", "ðŸŒ¿", "âœ¨", "ðŸŽ‰"];
     animationVariant = "newDiscovery";
   } else if (type === "globalNewPlant") {
     title = plantName ? `${plantName} jetzt global verfuegbar!` : "Neue Pflanze global verfuegbar!";

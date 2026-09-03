@@ -57,7 +57,7 @@ export default function QuestAutoAccepter({ user }) {
   });
 
   const acceptQuestMutation = useMutation({
-    mutationFn: async ({ questId, questType, activeWeek, activeMonth }) => {
+    mutationFn: async ({ questId, questType, activeMonth }) => {
       const now = new Date().toISOString();
       if (questType === 'regular') {
         // Falls bereits eine aktive oder abgeschlossene UserQuest existiert, nichts neu anlegen
@@ -133,7 +133,6 @@ export default function QuestAutoAccepter({ user }) {
   });
 
   const currentWeeklyQuest = getCurrentWeeklyQuest(weeklyQuests);
-
   const currentMonthlyQuest = getCurrentMonthlyQuest(monthlyQuests);
 
   useEffect(() => {
@@ -172,22 +171,24 @@ export default function QuestAutoAccepter({ user }) {
       });
     }
 
-    // 2. Weekly Quest automatisch annehmen
-    const currentWeeklyUserQuest = currentWeeklyQuest ? 
-      userWeeklyQuests.find((uwq) => uwq.weekly_quest_id === currentWeeklyQuest.id) : null;
-    
-    if (currentWeeklyQuest && !currentWeeklyUserQuest?.accepted) {
+    // 2. Weekly quests are assigned as active on app entry. The discovery trigger
+    // owns their progress and completion, so this branch only creates the row.
+    const currentWeeklyUserQuest = currentWeeklyQuest
+      ? userWeeklyQuests.find(
+          (userWeeklyQuest) =>
+            userWeeklyQuest.weekly_quest_id === currentWeeklyQuest.id &&
+            userWeeklyQuest.active_week === getWeekNumber()
+        )
+      : null;
+    if (currentWeeklyQuest && !currentWeeklyUserQuest) {
       if (!insertGuard.current.weekly) {
         insertGuard.current.weekly = true;
-        console.log('[UserQuest] Auto-Insert weekly:', currentWeeklyQuest);
         acceptQuestMutation.mutate({
           questId: currentWeeklyQuest.id,
           questType: 'weekly',
           activeWeek: getWeekNumber()
         });
         return;
-      } else {
-        console.warn('[UserQuest] Insert weekly skipped: already inserted on this page load.');
       }
     }
 

@@ -1279,6 +1279,10 @@ function HomeContent() {
       try {
         console.log('[HomePage] Running updateQuestProgress for user:', user.email);
         await updateQuestProgress(user);
+        queryClient.invalidateQueries({ queryKey: ['userQuests'] });
+        queryClient.invalidateQueries({ queryKey: ['userWeeklyQuests'] });
+        queryClient.invalidateQueries({ queryKey: ['userMonthlyQuests'] });
+        queryClient.invalidateQueries({ queryKey: ['userCollectionQuests'] });
       } catch (error) {
         console.error('[HomePage] Error while updating quest progress:', error);
       }
@@ -2224,7 +2228,11 @@ function HomeContent() {
   const currentWeeklyUserQuest = redeemableWeeklyUserQuest
     ? redeemableWeeklyUserQuest
     : currentWeeklyQuest
-      ? userWeeklyQuests.find(uwq => uwq.weekly_quest_id === currentWeeklyQuest.id)
+      ? userWeeklyQuests.find(
+          (uwq) =>
+            uwq.weekly_quest_id === currentWeeklyQuest.id &&
+            uwq.active_week === getWeekNumber()
+        )
       : null;
   const displayedWeeklyQuest = redeemableWeeklyUserQuest
     ? (weeklyQuests.find(wq => wq.id === redeemableWeeklyUserQuest.weekly_quest_id) ?? currentWeeklyQuest)

@@ -263,6 +263,19 @@ export default function Scanner() {
 
     return { rewardDetails, activeZone, energyDelta, dataQualityDelta, scanStreak };
   };
+    const getCompletedWeeklyQuestForDiscovery = async (discoveryId) => {
+      const completedUserQuests = await Query.UserWeeklyQuest.filter({
+        auth_id: user.id,
+        completed_by_discovery_id: discoveryId,
+      });
+      const completedUserQuest = completedUserQuests[0];
+      if (!completedUserQuest) return null;
+
+      const weeklyQuests = await Query.WeeklyQuest.filter({
+        id: completedUserQuest.weekly_quest_id,
+      });
+      return weeklyQuests[0] || null;
+    };
 
   const { data: plants = [] } = useQuery({
     queryKey: ['plants'],
@@ -273,45 +286,6 @@ export default function Scanner() {
   const { data: genera = [] } = useQuery({
     queryKey: ['genera'],
     queryFn: () => Query.PlantGenus.list()
-  });
-
-  const { data: userDiscoveries = [] } = useQuery({
-    queryKey: ['userDiscoveries', user?.id],
-    queryFn: () => Query.UserPlantDiscovery.filter({ auth_id: user?.id }),
-    enabled: !!user?.id
-  });
-
-  const { data: monthlyQuests = [] } = useQuery({
-    queryKey: ['monthlyQuests'],
-    queryFn: () => Query.MonthlyQuest.list('quest_number')
-  });
-
-  const { data: weeklyQuests = [] } = useQuery({
-    queryKey: ['weeklyQuests'],
-    queryFn: () => Query.WeeklyQuest.list('quest_number')
-  });
-
-  const { data: userMonthlyQuests = [] } = useQuery({
-    queryKey: ['userMonthlyQuests', user?.id],
-    queryFn: () => Query.UserMonthlyQuest.filter({ auth_id: user?.id }),
-    enabled: !!user?.id
-  });
-
-  const { data: quests = [] } = useQuery({
-    queryKey: ['quests'],
-    queryFn: () => Query.Quest.list('quest_number')
-  });
-
-  const { data: userQuests = [] } = useQuery({
-    queryKey: ['userQuests', user?.id],
-    queryFn: () => Query.UserQuest.filter({ auth_id: user?.id }),
-    enabled: !!user?.id
-  });
-
-  const { data: userWeeklyQuests = [] } = useQuery({
-    queryKey: ['userWeeklyQuests', user?.id],
-    queryFn: () => Query.UserWeeklyQuest.filter({ auth_id: user?.id }),
-    enabled: !!user?.id
   });
 
   const updatePlantMutation = useMutation({
@@ -979,6 +953,8 @@ export default function Scanner() {
 
     // Quest-Progress zentral anhand aller Entdeckungen aktualisieren
     await updateQuestProgress(user);
+    const completedWeeklyQuest = await getCompletedWeeklyQuestForDiscovery(newDiscovery.id);
+    queryClient.invalidateQueries({ queryKey: ['userWeeklyQuests'] });
 
     // Prüfe zufällige Rewards
     const { checkRandomRewards } = await import('../components/rewards/randomRewardChecker');
@@ -1021,7 +997,7 @@ export default function Scanner() {
 
     setScanning(false);
 
-    return { alreadyDiscovered, rewardDetails, activeZone, energyDelta, dataQualityDelta, scanStreak, scanZoneUnlocks, randomRewards, seasonScanType };
+    return { alreadyDiscovered, rewardDetails, activeZone, energyDelta, dataQualityDelta, scanStreak, scanZoneUnlocks, randomRewards, seasonScanType, completedWeeklyQuest };
   };
 
   const handleAutoAddNewPlant = async (plantData, imageUrl, allResults = [], options = {}) => {
@@ -1117,6 +1093,8 @@ export default function Scanner() {
 
       // Quest-Progress zentral anhand aller Entdeckungen aktualisieren
       await updateQuestProgress(user);
+      const completedWeeklyQuest = await getCompletedWeeklyQuestForDiscovery(newDiscoveryId);
+      queryClient.invalidateQueries({ queryKey: ['userWeeklyQuests'] });
 
       // Prüfe zufällige Rewards
       const { checkRandomRewards } = await import('../components/rewards/randomRewardChecker');
@@ -1157,7 +1135,7 @@ export default function Scanner() {
       });
       setScanning(false);
 
-      return { newPlant, rewardDetails, activeZone, energyDelta, dataQualityDelta, scanStreak, scanZoneUnlocks, randomRewards };
+      return { newPlant, rewardDetails, activeZone, energyDelta, dataQualityDelta, scanStreak, scanZoneUnlocks, randomRewards, completedWeeklyQuest };
     } catch (error) {
       console.error("Fehler beim Hinzufügen der Pflanze:", error);
       setScanning(false);
@@ -1252,7 +1230,7 @@ export default function Scanner() {
 
       if (selectedPlant.inDatabase) {
         // Pflanze existiert bereits im Floralog
-        const { alreadyDiscovered, rewardDetails, activeZone, energyDelta, dataQualityDelta, scanStreak, scanZoneUnlocks, randomRewards, seasonScanType } = await handleAutoSave(
+        const { alreadyDiscovered, rewardDetails, activeZone, energyDelta, dataQualityDelta, scanStreak, scanZoneUnlocks, randomRewards, seasonScanType, completedWeeklyQuest } = await handleAutoSave(
           selectedPlant,
           imageUrl,
           selectedPlant.aiData || plant?.aiData,
@@ -1266,6 +1244,7 @@ export default function Scanner() {
         let feedbackType = alreadyDiscovered ? "rescanned" : "newDiscovery";
         if (seasonScanType === "newSeasonScan") feedbackType = "newSeasonScan";
         else if (seasonScanType === "seasonRediscovery") feedbackType = "seasonRediscovery";
+        if (completedWeeklyQuest) feedbackType = "weeklyQuestCompleted";
 
         navigate(createPageUrl("Home"), {
           state: {
@@ -1277,6 +1256,7 @@ export default function Scanner() {
               energyDelta,
               dataQualityDelta,
               scanStreak,
+              weeklyQuestTitle: completedWeeklyQuest?.title || completedWeeklyQuest?.name || null,
             },
             scanZoneUnlocks,
             randomRewards: Array.isArray(randomRewards) ? randomRewards : [],
@@ -1289,13 +1269,14 @@ export default function Scanner() {
 
           if (result?.newPlant) {
             setGlobalScanFeedback({
-              type: "globalNewPlant",
+              type: result.completedWeeklyQuest ? "weeklyQuestCompleted" : "globalNewPlant",
               plantName: result.newPlant.species_name,
               rewardDetails: result.rewardDetails,
               isInActiveZone: !!result.activeZone,
               energyDelta: Number(result.energyDelta ?? 0),
               dataQualityDelta: Number(result.dataQualityDelta ?? 0),
               scanStreak: result.scanStreak,
+              weeklyQuestTitle: result.completedWeeklyQuest?.title || result.completedWeeklyQuest?.name || null,
               scanZoneUnlocks: Array.isArray(result.scanZoneUnlocks) ? result.scanZoneUnlocks : [],
               randomRewards: Array.isArray(result.randomRewards) ? result.randomRewards : [],
             });
