@@ -21,7 +21,6 @@ declare
 	active_week_key text := to_char(new.discovered_date at time zone 'UTC', 'IYYY-"W"IW');
 	weekly_quest_count integer;
 	target_matches boolean := false;
-	next_progress integer;
 begin
 	if new.auth_id is null or new.plant_id is null or new.discovered_date is null then
 		return new;
@@ -111,25 +110,24 @@ after insert on public."UserPlantDiscovery"
 for each row execute function public.sync_weekly_quest_on_discovery();
 
 -- Apply the same deterministic calculation to qualifying scans already saved
--- in the current ISO week before this trigger is deployed.
+-- in the current ISO week before this trigger is deployed. This deliberately
+-- avoids ON CONFLICT because old installations can have a differently-defined
+-- partial unique index.
 with current_week as (
 	select date_trunc('week', now() at time zone 'UTC') as starts_at
-)
-insert into public."UserWeeklyQuest" (
-	id, weekly_quest_id, active_week, auth_id, created_by, status,
-	accepted, accepted_at, accepted_date, progress, completed,
-	completed_date, completed_at, completed_by_discovery_id
-)
+),
+weekly_quest_backfill as (
 select
-	encode(extensions.gen_random_bytes(12), 'hex'), quest.id,
-	to_char(discovery.discovered_date at time zone 'UTC', 'IYYY-"W"IW'),
-	discovery.auth_id, discovery.created_by,
-	case when count(*) >= quest.required_discoveries then 'completed' else 'active' end,
-	'true'::jsonb, min(discovery.discovered_date), min(discovery.discovered_date)::text,
-	count(*)::text, count(*) >= quest.required_discoveries,
-	case when count(*) >= quest.required_discoveries then max(discovery.discovered_date)::text end,
-	case when count(*) >= quest.required_discoveries then max(discovery.discovered_date) end,
-	case when count(*) >= quest.required_discoveries then (array_agg(discovery.id order by discovery.discovered_date desc))[1] end
+	discovery.auth_id,
+	discovery.created_by,
+	quest.id as weekly_quest_id,
+	to_char(discovery.discovered_date at time zone 'UTC', 'IYYY-"W"IW') as active_week,
+	min(discovery.discovered_date) as accepted_at,
+	count(*)::text as progress,
+	count(*) >= quest.required_discoveries as completed,
+	case when count(*) >= quest.required_discoveries then max(discovery.discovered_date)::text end as completed_date,
+	case when count(*) >= quest.required_discoveries then max(discovery.discovered_date) end as completed_at,
+	case when count(*) >= quest.required_discoveries then (array_agg(discovery.id order by discovery.discovered_date desc))[1] end as completed_by_discovery_id
 from public."UserPlantDiscovery" discovery
 join public."Plant" plant on plant.id = discovery.plant_id
 cross join lateral (
@@ -156,16 +154,44 @@ where discovery.auth_id is not null
 	end
 group by discovery.auth_id, discovery.created_by, quest.id, quest.required_discoveries,
 	to_char(discovery.discovered_date at time zone 'UTC', 'IYYY-"W"IW')
-on conflict (auth_id, weekly_quest_id, active_week)
-	where auth_id is not null and weekly_quest_id is not null and active_week is not null
-do update set
-	progress = excluded.progress,
-	completed = excluded.completed,
-	status = excluded.status,
-	completed_date = excluded.completed_date,
-	completed_at = excluded.completed_at,
-	completed_by_discovery_id = excluded.completed_by_discovery_id,
+),
+updated_quests as (
+update public."UserWeeklyQuest" user_quest
+set
+	progress = backfill.progress,
+	completed = backfill.completed,
+	status = case when backfill.completed then 'completed' else 'active' end,
+	completed_date = backfill.completed_date,
+	completed_at = backfill.completed_at,
+	completed_by_discovery_id = backfill.completed_by_discovery_id,
 	updated_at = now()
-where public."UserWeeklyQuest".status = 'active';
+from weekly_quest_backfill backfill
+where user_quest.auth_id = backfill.auth_id
+	and user_quest.weekly_quest_id = backfill.weekly_quest_id
+	and user_quest.active_week = backfill.active_week
+	and user_quest.status = 'active'
+returning user_quest.id
+)
+
+insert into public."UserWeeklyQuest" (
+	id, weekly_quest_id, active_week, auth_id, created_by, status,
+	accepted, accepted_at, accepted_date, progress, completed,
+	completed_date, completed_at, completed_by_discovery_id
+)
+select
+	encode(extensions.gen_random_bytes(12), 'hex'), backfill.weekly_quest_id,
+	backfill.active_week, backfill.auth_id, backfill.created_by,
+	case when backfill.completed then 'completed' else 'active' end,
+	'true'::jsonb, backfill.accepted_at, backfill.accepted_at::text,
+	backfill.progress, backfill.completed, backfill.completed_date,
+	backfill.completed_at, backfill.completed_by_discovery_id
+from weekly_quest_backfill backfill
+where not exists (
+	select 1
+	from public."UserWeeklyQuest" user_quest
+	where user_quest.auth_id = backfill.auth_id
+		and user_quest.weekly_quest_id = backfill.weekly_quest_id
+		and user_quest.active_week = backfill.active_week
+);
 
 notify pgrst, 'reload schema';

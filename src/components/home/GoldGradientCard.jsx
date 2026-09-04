@@ -12,10 +12,17 @@ export default function GoldGradientCard({
   contentClassName = "",
   borderClassName = "",
   blur = false,
+  rounded = "3xl",
+  shadow = true,
   children,
   ...rest
 }) {
   const { isLightUi } = useUiTheme();
+  // Literal strings (not interpolated) so Tailwind's JIT scanner picks up both variants.
+  const roundedClass = rounded === "full" ? "rounded-full" : "rounded-3xl";
+  // Large soft shadows bleed onto adjacent siblings (e.g. a scrollable list right below a card in
+  // normal flow) and can look like the sibling content is fading out prematurely - opt-out via shadow={false}.
+  const shadowClass = shadow ? "shadow-[0_12px_30px_rgba(0,0,0,0.45)]" : "";
 
   const borderGradient = isLightUi
     ? "linear-gradient(to bottom right, #e8d9a8, #c8ac62, rgba(143,107,34,0.7))"
@@ -23,7 +30,7 @@ export default function GoldGradientCard({
 
   return (
     <Component
-      className={`relative rounded-3xl shadow-[0_12px_30px_rgba(0,0,0,0.45)] ${className}`}
+      className={`relative ${roundedClass} ${shadowClass} ${className}`}
       {...rest}
     >
       {blur && (
@@ -31,13 +38,13 @@ export default function GoldGradientCard({
         // (never directly adjacent to a mask-composite element - avoids the iOS compositing bug).
         <div
           aria-hidden="true"
-          className={`absolute inset-0 rounded-3xl backdrop-blur-xl ${
+          className={`absolute inset-0 ${roundedClass} backdrop-blur-xl ${
             isLightUi ? "bg-white/45" : "bg-black/35"
           }`}
         />
       )}
       <div
-        className={`relative h-full w-full rounded-3xl ${
+        className={`relative h-full w-full ${roundedClass} ${
           blur
             ? isLightUi
               ? "text-stone-800"

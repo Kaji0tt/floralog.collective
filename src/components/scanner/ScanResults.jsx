@@ -1,20 +1,16 @@
-import React, { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { AlertCircle, RotateCcw, Volume2, VolumeX, Sparkles, ChevronLeft, ChevronRight, Search, Check, Loader2, Plus } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { useNavigate } from "react-router-dom";
-import { createPageUrl } from "@/utils";
 import { motion, useMotionValue, useTransform } from "framer-motion";
 // import ShareScanDialog from "./ShareScanDialog";
 import { Query } from "@/api/entities";
 import SpeciesInfoCard from "@/components/collection/SpeciesInfoCard";
+import CommunityTagPanel from "@/components/collection/CommunityTagPanel";
 import CustomLogoAvatar from "@/components/profile/CustomLogoAvatar";
 import ThreatLevelSparks from "@/components/effects/ThreatLevelSparks";
-import {
-  buildCollectionMembershipIndex,
-} from "@/api/collectionCollaborationService";
 import {
   getConservationFromPlant,
 } from "@/lib/conservationStatus";
@@ -55,35 +51,21 @@ export default function ScanResults({
   const [currentResultIndex, setCurrentResultIndex] = useState(0);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isChanging, setIsChanging] = useState(false);
-  const [collectionState, setCollectionState] = useState({
-    collections: [],
-    collectionItems: [],
-    genera: [],
-  });
+  const [genera, setGenera] = useState([]);
   // Share-Dialog State entfernt, solange kein Dialog existiert
   const [discovery, setDiscovery] = useState(null);
-  const navigate = useNavigate();
   const x = useMotionValue(0);
   const constraintsRef = useRef(null);
   const cardRef = useRef(null);
   const playerButtonRefs = useRef([]);
 
   useEffect(() => {
-    const loadCollectionData = async () => {
-      const [collections, collectionItems, genera] = await Promise.all([
-        Query.Collection.list(),
-        Query.CollectionItem.list(),
-        Query.PlantGenus.list(),
-      ]);
-
-      setCollectionState({
-        collections: collections || [],
-        collectionItems: collectionItems || [],
-        genera: genera || [],
-      });
+    const loadGenera = async () => {
+      const genusRows = await Query.PlantGenus.list();
+      setGenera(genusRows || []);
     };
 
-    loadCollectionData();
+    loadGenera();
   }, []);
 
   useEffect(() => {
@@ -201,14 +183,11 @@ export default function ScanResults({
     });
   }, [hasMultiplePlayers, safeActivePlayerIndex]);
 
-  const { membershipsByPlantId } = buildCollectionMembershipIndex({
-    plants: results,
-    collectionItems: collectionState.collectionItems,
-    collections: collectionState.collections,
-    genera: collectionState.genera,
-  });
-
-  const currentCollectionMemberships = membershipsByPlantId[currentPlant?.id] || [];
+  const currentGenusId = genera.find(
+    (genus) =>
+      genus.category === currentPlant?.genus_category &&
+      genus.category_dex_number === currentPlant?.genus_number
+  )?.id || null;
 
 
 
@@ -614,22 +593,13 @@ export default function ScanResults({
 
                   {!isBlockedResult && (
                     <div className="space-y-2 rounded-xl border border-emerald-300/25 bg-black/20 p-3">
-                      <p className="text-[11px] font-semibold text-emerald-200">Kollektionen mit dieser Art</p>
-                      {currentCollectionMemberships.length > 0 ? (
-                        <div className="flex flex-wrap gap-1.5">
-                          {currentCollectionMemberships.map((entry) => (
-                            <Badge
-                              key={entry.id}
-                              className="bg-emerald-800/65 border border-emerald-300/35 text-emerald-100 hover:bg-emerald-800/65"
-                            >
-                              {entry.title}
-                            </Badge>
-                          ))}
-                        </div>
-                      ) : (
-                        <p className="text-[11px] text-stone-300">Noch in keiner sichtbaren Kollektion.</p>
-                      )}
-
+                      <CommunityTagPanel
+                        plantId={currentPlant?.id || null}
+                        genusId={currentGenusId}
+                        currentUserId={currentUserId || null}
+                        isLightUi={false}
+                        embedded
+                      />
                     </div>
                   )}
 

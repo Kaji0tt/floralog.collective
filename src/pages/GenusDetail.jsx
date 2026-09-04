@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { Query } from "@/api/entities";
 import { getCurrentUser } from "@/api/userApi";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -11,16 +11,14 @@ import { ArrowLeft, Leaf, CheckCircle2, Volume2, VolumeX, ChevronLeft, ChevronRi
 import { createPageUrl } from "@/utils";
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
-import MobileBackButton from "../components/navigation/MobileBackButton";
 import EditPlantDialog from "../components/collection/EditPlantDialog";
+import CommunityTagPanel from "../components/collection/CommunityTagPanel";
 import SpeciesInfoCard from "../components/collection/SpeciesInfoCard";
 import ThreatLevelSparks from "@/components/effects/ThreatLevelSparks";
 import { useUiTheme } from "@/lib/UiThemeContext";
 import CustomLogoAvatar from "@/components/profile/CustomLogoAvatar";
+import GoldGradientCard from "@/components/home/GoldGradientCard";
 import { resolveEquippedLogoAssetsWithCatalog } from "@/lib/logoAccessoryAssets";
-import {
-  buildCollectionMembershipIndex,
-} from "@/api/collectionCollaborationService";
 import {
   getConservationFromPlant,
 } from "@/lib/conservationStatus";
@@ -107,53 +105,6 @@ export default function GenusDetail() {
     };
   }, []);
 
-  const getAverageColor = (imageUrl) => {
-    return new Promise((resolve) => {
-      const img = new window.Image();
-      img.crossOrigin = "anonymous";
-      
-      img.onload = () => {
-        try {
-          const canvas = document.createElement('canvas');
-          const ctx = canvas.getContext('2d');
-          const size = 50;
-          canvas.width = size;
-          canvas.height = size;
-          ctx.drawImage(img, 0, 0, size, size);
-          const imageData = ctx.getImageData(0, 0, size, size);
-          const data = imageData.data;
-          let r = 0, g = 0, b = 0, count = 0;
-          for (let i = 0; i < data.length; i += 16) {
-            r += data[i];
-            g += data[i + 1];
-            b += data[i + 2];
-            count++;
-          }
-          r = Math.floor(r / count);
-          g = Math.floor(g / count);
-          b = Math.floor(b / count);
-          resolve(`rgb(${r}, ${g}, ${b})`);
-        } catch {
-          resolve(null);
-        }
-      };
-      img.onerror = () => resolve(null);
-      img.src = imageUrl;
-    });
-  };
-
-  useEffect(() => {
-    if (currentUser?.background_color) {
-      setAverageColor(currentUser.background_color);
-    } else if (currentUser?.background_image_url) {
-      getAverageColor(currentUser.background_image_url).then(color => {
-        if (color) setAverageColor(color);
-      });
-    } else {
-      setAverageColor(null);
-    }
-  }, [currentUser?.background_image_url, currentUser?.background_color]);
-
   const { data: genera = [], isLoading: generaLoading } = useQuery({
     queryKey: ['genera'],
     queryFn: () => Query.PlantGenus.list(),
@@ -180,6 +131,18 @@ export default function GenusDetail() {
   const isLightUi = friendEmail
     ? friendProfile?.ui_theme === "light"
     : contextIsLightUi;
+
+  // Show the actual profile owner's shell background (own or friend's), not the viewer's own.
+  const backgroundProfile = friendEmail ? friendProfile : currentUser;
+  const backgroundImageUrl = backgroundProfile?.background_image_url || null;
+
+  useEffect(() => {
+    if (backgroundProfile?.background_color) {
+      setAverageColor(backgroundProfile.background_color);
+    } else {
+      setAverageColor(null);
+    }
+  }, [backgroundProfile?.background_color]);
 
   const { data: userDiscoveries = [], isLoading: discoveriesLoading } = useQuery({
     queryKey: ['userDiscoveries', friendEmail || currentUser?.id],
@@ -221,18 +184,6 @@ export default function GenusDetail() {
     queryFn: () => Query.LogoAsset.list(),
     enabled: !friendEmail && !!currentUser?.email,
     staleTime: 60000,
-  });
-
-  const { data: visibleCollections = [] } = useQuery({
-    queryKey: ["genusDetailVisibleCollections"],
-    queryFn: () => Query.Collection.list(),
-    staleTime: 120000,
-  });
-
-  const { data: allCollectionItems = [] } = useQuery({
-    queryKey: ["genusDetailCollectionItems"],
-    queryFn: () => Query.CollectionItem.list(),
-    staleTime: 120000,
   });
 
   // Alle Pflanzen dieser Gattung als IDs (für die plant_id-basierte Query)
@@ -636,17 +587,6 @@ export default function GenusDetail() {
       defaultVariantIndex,
     };
   });
-
-  const { membershipsByPlantId } = useMemo(
-    () =>
-      buildCollectionMembershipIndex({
-        plants: genusPlants,
-        collectionItems: allCollectionItems,
-        collections: visibleCollections,
-        genera,
-      }),
-    [allCollectionItems, genera, genusPlants, visibleCollections]
-  );
 
   const discoveredSpecies = genusPlants.filter(p => p.discovered);
 
@@ -1123,7 +1063,7 @@ export default function GenusDetail() {
   const backState = friendEmail
     ? null
     : {
-        activePanel: "collection",
+        openCollection: true,
         collectionId: collectionId || "global",
       };
   const handleBackClick = () => {
@@ -1161,59 +1101,55 @@ export default function GenusDetail() {
   }
 
   return (
-    <div 
-      className="min-h-screen p-4 md:p-8"
-      style={{
-        background: averageColor 
-          ? (isLightUi
-            ? `linear-gradient(135deg, ${getLighterColor(averageColor)} 0%, ${averageColor} 50%, ${getDarkerColor(averageColor)} 100%)`
-            : `linear-gradient(135deg, ${getDarkerColor(averageColor)} 0%, ${averageColor} 55%, ${getLighterColor(averageColor)} 100%)`)
-          : (isLightUi
-            ? 'linear-gradient(to bottom right, rgb(250, 250, 249), rgb(236, 253, 245))'
-            : 'linear-gradient(to bottom right, rgb(17, 24, 21), rgb(24, 34, 29))')
-      }}
-    >
-      <MobileBackButton backUrl={backUrl} backState={backState} />
-      
-      <div className="max-w-6xl mx-auto">
-        <Button
-          variant="ghost"
-          onClick={handleBackClick}
-          className={"mb-6 font-semibold shadow-sm border hidden md:inline-flex " + (isLightUi
-            ? "bg-white hover:bg-stone-50 text-stone-900 border-stone-200"
-            : "bg-black/45 hover:bg-black/60 text-stone-100 border-[#f0e5a5]/35")}
-        >
-          <ArrowLeft className="w-4 h-4 mr-2" />
-          {backLabel}
-        </Button>
+    <>
+      {/* Profil-Hintergrund bleibt fix am Viewport, Inhalt scrollt darüber hinweg */}
+      <div
+        className="fixed inset-0 -z-10"
+        style={backgroundImageUrl
+          ? {
+              backgroundImage: `linear-gradient(${isLightUi ? "rgba(255,255,255,0.35)" : "rgba(0,0,0,0.45)"}, ${isLightUi ? "rgba(255,255,255,0.35)" : "rgba(0,0,0,0.45)"}), url(${backgroundImageUrl})`,
+              backgroundSize: "cover",
+              backgroundPosition: "center",
+            }
+          : {
+              background: averageColor 
+                ? (isLightUi
+                  ? `linear-gradient(135deg, ${getLighterColor(averageColor)} 0%, ${averageColor} 50%, ${getDarkerColor(averageColor)} 100%)`
+                  : `linear-gradient(135deg, ${getDarkerColor(averageColor)} 0%, ${averageColor} 55%, ${getLighterColor(averageColor)} 100%)`)
+                : (isLightUi
+                  ? 'linear-gradient(to bottom right, rgb(250, 250, 249), rgb(236, 253, 245))'
+                  : 'linear-gradient(to bottom right, rgb(17, 24, 21), rgb(24, 34, 29))')
+            }}
+      />
 
-        {/* Header Card */}
-        <Card className={"mb-6 border-2 shadow-md overflow-hidden " + (isLightUi
-          ? "border-amber-200 bg-white"
-          : "border-[#f0e5a5]/35 bg-black/40 backdrop-blur-sm")}>
-          <CardContent className="p-4">
-            <div className="flex gap-4">
-              {/* Bild links - größer und klickbar */}
+      <div className="relative h-[100dvh] overflow-y-auto pb-24">
+        {/* Kompaktes Hero, gleiche Designsprache (GoldGradientCard) wie die untere Zurück-Pille */}
+        <div className="sticky top-2 z-30 px-3">
+          <GoldGradientCard className="mx-auto max-w-xl" contentClassName="p-3" blur>
+            {/* Zusätzliches schwarz-transparentes Overlay für bessere Lesbarkeit über dem Profil-Hintergrund */}
+            <div aria-hidden="true" className="absolute inset-0 rounded-[inherit] bg-black/35 pointer-events-none" />
+            <div className="relative flex items-stretch gap-3">
+              {/* Bild links - klickbar, nimmt die volle verfügbare Höhe der Info-Spalte ein */}
               <div className="flex-shrink-0">
                 {genusIconUrl ? (
                   <img
                     src={genusIconUrl}
                     alt={genus.genus_name}
                     onClick={() => setEnlargedImage(genusIconUrl)}
-                    className={"w-28 h-28 md:w-32 md:h-32 object-cover rounded-xl shadow-md border-2 cursor-pointer hover:opacity-90 transition-opacity " + (isLightUi ? "border-stone-200" : "border-stone-700/70")}
+                    className={"h-full w-auto aspect-square max-h-[30dvw] object-cover rounded-xl shadow-md border-2 cursor-pointer hover:opacity-90 transition-opacity " + (isLightUi ? "border-stone-200" : "border-stone-700/70")}
                   />
                 ) : (
-                  <div className={"w-28 h-28 md:w-32 md:h-32 rounded-xl flex items-center justify-center border-2 " + (isLightUi
+                  <div className={"h-full w-auto aspect-square max-h-[30dvw] rounded-xl flex items-center justify-center border-2 " + (isLightUi
                     ? "bg-gradient-to-br from-stone-100 to-stone-200 border-stone-200"
                     : "bg-gradient-to-br from-stone-800/90 to-stone-900 border-stone-700/70")}>
-                    <Leaf className={"w-12 h-12 " + (isLightUi ? "text-stone-400" : "text-stone-500")} />
+                    <Leaf className={"w-7 h-7 " + (isLightUi ? "text-stone-400" : "text-stone-500")} />
                   </div>
                 )}
               </div>
               
               {/* Info rechts */}
               <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-1 flex-wrap">
+                <div className="flex items-center gap-1.5 mb-0.5 flex-wrap">
                   <Badge className={"font-bold text-xs px-2 py-0.5 " + (isLightUi ? "bg-stone-800 text-white" : "bg-[#f0e5a5]/20 text-[#f8f1c8] border border-[#f0e5a5]/30")}>
                     {genus.category === "Bäume" && "🌳"}
                     {genus.category === "Sträucher" && "🌿"}
@@ -1224,24 +1160,34 @@ export default function GenusDetail() {
                     {discoveredSpecies.length}/{genusPlants.length}
                   </Badge>
                 </div>
-                <h1 className={"text-xl md:text-2xl font-bold " + (isLightUi ? "text-stone-900" : "text-[#f8f4d6]")}>
-                  {genus.genus_name}
+                <h1 className={"text-base md:text-lg font-bold leading-tight truncate " + (isLightUi ? "text-stone-900" : "text-[#f8f4d6]")}>
+                  {genus.genus_name}{" "}
+                  <span className={"text-xs font-normal italic " + (isLightUi ? "text-stone-600" : "text-stone-300")}>
+                    {genus.scientific_genus}
+                  </span>
                 </h1>
-                <p className={"text-sm italic mb-2 " + (isLightUi ? "text-stone-600" : "text-stone-300")}>
-                  {genus.scientific_genus}
-                </p>
-                {genus.family && (
-                  <Badge variant="outline" className={"text-xs " + (isLightUi ? "" : "border-stone-500 text-stone-200")}>{genus.family}</Badge>
+                {genus.description && (
+                  <p className={"text-xs mt-1 " + (isLightUi ? "text-stone-600" : "text-stone-300")}>{genus.description}</p>
                 )}
               </div>
             </div>
-            
-            {genus.description && (
-              <p className={"text-sm mt-3 " + (isLightUi ? "text-stone-600" : "text-stone-300")}>{genus.description}</p>
-            )}
-          </CardContent>
-        </Card>
 
+            <div className="relative flex flex-wrap items-center gap-1.5 mt-2">
+              {genus.family && (
+                <Badge variant="outline" className={"text-xs " + (isLightUi ? "" : "border-stone-500 text-stone-200")}>{genus.family}</Badge>
+              )}
+              <CommunityTagPanel
+                genusId={genus.id}
+                currentUserId={currentUser?.id || currentUser?.auth_id || null}
+                isLightUi={isLightUi}
+                compact
+              />
+            </div>
+
+          </GoldGradientCard>
+        </div>
+
+        <div className="max-w-6xl mx-auto p-4 md:p-8">
         {/* Bild-Vollansicht Modal */}
         {enlargedImage && (
           <div 
@@ -1404,34 +1350,6 @@ export default function GenusDetail() {
                     }
                     topRight={null}
                   />
-                  <div
-                    className="space-y-1"
-                    onClick={(event) => event.stopPropagation()}
-                    onMouseDown={(event) => event.stopPropagation()}
-                    onTouchStart={(event) => event.stopPropagation()}
-                    onTouchEnd={(event) => event.stopPropagation()}
-                  >
-                    <div className="flex flex-wrap gap-1">
-                      {(membershipsByPlantId[plant.id] || []).slice(0, 4).map((entry) => (
-                        <Badge
-                          key={`${plant.id}-${entry.id}`}
-                          className={"text-[10px] px-1.5 py-0 " + (isLightUi
-                            ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                            : "bg-emerald-900/45 text-emerald-100 border border-emerald-300/35")}
-                        >
-                          {entry.title}
-                        </Badge>
-                      ))}
-                      {(membershipsByPlantId[plant.id] || []).length > 4 && (
-                        <Badge className={"text-[10px] px-1.5 py-0 " + (isLightUi
-                          ? "bg-stone-100 text-stone-700 border border-stone-200"
-                          : "bg-black/45 text-stone-200 border border-stone-500/45")}
-                        >
-                          +{(membershipsByPlantId[plant.id] || []).length - 4}
-                        </Badge>
-                      )}
-                    </div>
-                  </div>
                   <div className="flex items-center justify-between gap-2 w-full">
                     <div className="flex items-center gap-1.5 min-w-0 flex-1">
                       {Array.isArray(plant.friendActors) && plant.friendActors.length > 0 && (
@@ -1827,7 +1745,26 @@ export default function GenusDetail() {
           }}
         />
       </div>
-    </div>
+      </div>
+
+      <div
+        className="fixed bottom-3 inset-x-0 z-40 flex justify-center px-3"
+        style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
+      >
+        <GoldGradientCard
+          as="button"
+          type="button"
+          onClick={handleBackClick}
+          rounded="full"
+          blur
+          className="mx-auto w-full max-w-xl"
+          contentClassName="flex items-center justify-center gap-2 py-2.5 font-semibold"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          {backLabel}
+        </GoldGradientCard>
+      </div>
+    </>
   );
 }
 

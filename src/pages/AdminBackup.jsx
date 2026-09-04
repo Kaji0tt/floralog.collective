@@ -1,7 +1,6 @@
-import React, { useState } from "react";
+import { useEffect, useState } from "react";
 import { Query } from "@/api/entities";
 import { getCurrentUser } from "@/api/userApi";
-import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Download, Upload, Database, AlertCircle, CheckCircle, Loader2, Users } from "lucide-react";
@@ -12,7 +11,7 @@ export default function AdminBackup() {
   const [exportStatus, setExportStatus] = useState({});
   const [importing, setImporting] = useState(false);
 
-  React.useEffect(() => {
+  useEffect(() => {
     const loadUser = async () => {
       const currentUser = await getCurrentUser();
       setUser(currentUser);
@@ -26,7 +25,6 @@ export default function AdminBackup() {
     'Classroom',
     'ClassroomMember',
     'ClassroomQuest',
-    'CollectionQuest',
     'DailyQuest',
     'Friend',
     'MonthlyQuest',
@@ -40,7 +38,6 @@ export default function AdminBackup() {
     'ScanLike',
     'SharedScan',
     'UserAchievement',
-    'UserCollectionQuest',
     'UserDailyQuest',
     'UserMonthlyQuest',
     'UserNotification',

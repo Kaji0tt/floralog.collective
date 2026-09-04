@@ -10,7 +10,7 @@ import { getWeekNumber, getMonthString, getCurrentWeeklyQuest, getCurrentMonthly
 export default function QuestAutoAccepter({ user }) {
   const queryClient = useQueryClient();
   // Insert-Guard: Verhindert doppelte Inserts pro Seite
-  const insertGuard = React.useRef({ regular: false, weekly: false, monthly: false, collection: false });
+  const insertGuard = React.useRef({ regular: false, weekly: false, monthly: false });
 
   const { data: quests = [] } = useQuery({
     queryKey: ['quests'],
@@ -42,17 +42,6 @@ export default function QuestAutoAccepter({ user }) {
   const { data: userMonthlyQuests = [] } = useQuery({
     queryKey: ['userMonthlyQuests', user?.id],
     queryFn: () => Query.UserMonthlyQuest.filter({ auth_id: user?.id }),
-    enabled: !!user?.id
-  });
-
-  const { data: collectionQuests = [] } = useQuery({
-    queryKey: ['collectionQuests'],
-    queryFn: () => Query.CollectionQuest.list()
-  });
-
-  const { data: userCollectionQuests = [] } = useQuery({
-    queryKey: ['userCollectionQuests', user?.id],
-    queryFn: () => Query.UserCollectionQuest.filter({ auth_id: user?.id }),
     enabled: !!user?.id
   });
 
@@ -107,28 +96,12 @@ export default function QuestAutoAccepter({ user }) {
           accepted: true,
           accepted_date: now
         });
-      } else if (questType === 'collection') {
-        const existing = await Query.UserCollectionQuest.filter({ auth_id: user.id, collection_quest_id: questId });
-        if (existing && existing.length > 0) {
-          console.log('[UserQuest] Skip collection insert, existing row found:', existing[0]);
-          return existing[0];
-        }
-        return Query.UserCollectionQuest.create({
-          collection_quest_id: questId,
-          auth_id: user.id,
-          created_by: user.email,
-          status: 'active',
-          accepted_at: now,
-          accepted: true,
-          accepted_date: now
-        });
       }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['userQuests'] });
       queryClient.invalidateQueries({ queryKey: ['userWeeklyQuests'] });
       queryClient.invalidateQueries({ queryKey: ['userMonthlyQuests'] });
-      queryClient.invalidateQueries({ queryKey: ['userCollectionQuests'] });
     }
   });
 
@@ -211,26 +184,6 @@ export default function QuestAutoAccepter({ user }) {
       }
     }
 
-    // 4. Collection Quests automatisch annehmen
-    const availableCollectionQuests = collectionQuests.filter((quest) => {
-      const userQuest = userCollectionQuests.find((ucq) => ucq.collection_quest_id === quest.id);
-      return quest.is_active && !userQuest?.accepted;
-    });
-
-    if (availableCollectionQuests.length > 0) {
-      if (!insertGuard.current.collection) {
-        insertGuard.current.collection = true;
-        const quest = availableCollectionQuests[0];
-        console.log('[UserQuest] Auto-Insert collection:', quest);
-        acceptQuestMutation.mutate({
-          questId: quest.id,
-          questType: 'collection'
-        });
-        return;
-      } else {
-        console.warn('[UserQuest] Insert collection skipped: already inserted on this page load.');
-      }
-    }
   }, [
     user,
     quests,
@@ -239,8 +192,6 @@ export default function QuestAutoAccepter({ user }) {
     userWeeklyQuests,
     monthlyQuests,
     userMonthlyQuests,
-    collectionQuests,
-    userCollectionQuests,
     acceptQuestMutation.isPending
   ]);
 

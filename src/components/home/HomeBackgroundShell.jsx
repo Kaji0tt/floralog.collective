@@ -8,6 +8,7 @@ export default function HomeBackgroundShell({
   enableBackgroundMotion = false,
   foregroundImageUrl = null,
   enableForegroundMotion = true,
+  edgeToEdge = false,
 }) {
   const { isLightUi } = useUiTheme();
   const shouldTrackTilt = enableBackgroundMotion || (Boolean(foregroundImageUrl) && enableForegroundMotion);
@@ -60,8 +61,10 @@ export default function HomeBackgroundShell({
       <div
         className="relative z-10 h-full w-full px-1 md:px-2 flex items-start justify-center"
         style={{
-          paddingTop: "max(0.75rem, env(safe-area-inset-top, 0px))",
-          paddingBottom: "max(0.75rem, env(safe-area-inset-bottom, 0px))",
+          // edgeToEdge: kein erzwungener 0.75rem-Mindestabstand, nur echte Notch-Aussparung - für Panels,
+          // die Inhalt tatsächlich bis zum obersten/untersten Rand zeigen sollen (z.B. Collection).
+          paddingTop: edgeToEdge ? "env(safe-area-inset-top, 0px)" : "max(0.75rem, env(safe-area-inset-top, 0px))",
+          paddingBottom: edgeToEdge ? "env(safe-area-inset-bottom, 0px)" : "max(0.75rem, env(safe-area-inset-bottom, 0px))",
         }}
       >
         {children}

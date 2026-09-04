@@ -61,20 +61,20 @@ export default function SearchSortBar({
     };
   }, [isOpen]);
 
-  const handleToggleDiscovered = () => {
-    if (!onDiscoveredFilterChange) return;
-    let next = "all";
-    if (discoveredFilter === "all") next = "discovered";
-    else if (discoveredFilter === "discovered") next = "undiscovered";
-    else if (discoveredFilter === "undiscovered") next = "all";
-    onDiscoveredFilterChange(next);
+  const discoveredOptions = [
+    { value: "all", label: "Alle", dotClassName: "bg-emerald-400" },
+    { value: "discovered", label: "Entdeckt", dotClassName: "bg-emerald-400" },
+    { value: "undiscovered", label: "Unentdeckt", dotClassName: "bg-stone-400" },
+  ];
+  const activeDiscoveredOptionIndex = Math.max(
+    0,
+    discoveredOptions.findIndex((option) => option.value === discoveredFilter)
+  );
+  const activeDiscoveredOption = discoveredOptions[activeDiscoveredOptionIndex];
+  const cycleDiscoveredFilter = () => {
+    const nextOption = discoveredOptions[(activeDiscoveredOptionIndex + 1) % discoveredOptions.length];
+    onDiscoveredFilterChange?.(nextOption.value);
   };
-
-  const discoveredLabel = {
-    all: "Alle",
-    discovered: "Entdeckt",
-    undiscovered: "Nicht entdeckt",
-  }[discoveredFilter] || "Alle";
 
   return (
     <div
@@ -130,18 +130,21 @@ export default function SearchSortBar({
             </button>
           ))}
 
-          {showDiscoveredToggle && onDiscoveredFilterChange && (
-            <button
-              type="button"
-              onClick={handleToggleDiscovered}
-              className={"ml-1 px-2 py-1 rounded-full border text-[10px] hover:bg-black/60 flex items-center gap-1 " + (isLightUi ? "bg-white/85 border-[#c8ac62]/45 text-stone-700 hover:bg-white" : "bg-black/45 border-[#f0e5a5]/45 text-stone-100")}
-              aria-label={`Filter: ${discoveredLabel}`}
-            >
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-300" />
-              <span>{discoveredLabel}</span>
-            </button>
-          )}
         </div>
+      )}
+
+      {showDiscoveredToggle && onDiscoveredFilterChange && (
+        <button
+          type="button"
+          onClick={cycleDiscoveredFilter}
+          className={`flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] backdrop-blur-sm ${
+            isLightUi ? "bg-white/90 border-[#c8ac62]/55 text-[#8f6b22]" : "bg-black/60 border-[#f0e5a5]/55 text-[#f7f0c1]"
+          }`}
+          aria-label="Entdeckt-Filter"
+        >
+          <span className={`h-2 w-2 rounded-full ${activeDiscoveredOption.dotClassName}`} />
+          {activeDiscoveredOption.label}
+        </button>
       )}
     </div>
   );

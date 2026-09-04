@@ -1,5 +1,5 @@
-import CollectionFeatureRoot from "../components/collection/CollectionFeatureRoot";
+import GlobalCatalogFeatureRoot from "../components/collection/GlobalCatalogFeatureRoot";
 
-export default function Collection(props) {
-  return <CollectionFeatureRoot {...props} />;
+export default function Collection() {
+  return <GlobalCatalogFeatureRoot />;
 }

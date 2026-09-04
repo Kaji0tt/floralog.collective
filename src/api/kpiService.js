@@ -377,7 +377,6 @@ export function buildFeatureUsageSummary({
   achievements = [],
   userQuests = [],
   userWeeklyQuests = [],
-  userCollections = [],
   now = new Date(),
 } = {}) {
   const nowMs = Number.isFinite(now?.getTime?.()) ? now.getTime() : Date.now();
@@ -390,8 +389,6 @@ export function buildFeatureUsageSummary({
       return d && d.getTime() >= startMs && d.getTime() < nowMs;
     }).length;
 
-  const extractCollectionDate = (e) => toDate(e?.created_at || null);
-
   const featureDefs = [
     { key: "scanner", label: "Scanner", description: "Pflanzen-Scans", entries: discoveries, getDate: extractDiscoveryDate },
     { key: "map", label: "Karte", description: "Kartenaufrufe", entries: mapViews, getDate: extractMapViewDate },
@@ -400,7 +397,6 @@ export function buildFeatureUsageSummary({
     { key: "weekly_quests", label: "Wöchentl. Quests", description: "Wöchentliche Quests", entries: userWeeklyQuests, getDate: extractDateFlexible },
     { key: "achievements", label: "Achievements", description: "Erzielte Erfolge", entries: achievements, getDate: extractDateFlexible },
     { key: "friends", label: "Freunde", description: "Neue Freundschaften", entries: friends, getDate: extractDateFlexible },
-    { key: "collections", label: "Kollektionen", description: "Sammlung-Beitritte", entries: userCollections, getDate: extractCollectionDate },
   ];
 
   const raw = featureDefs.map(({ key, label, description, entries, getDate }) => ({

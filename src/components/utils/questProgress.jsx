@@ -14,8 +14,6 @@ export async function updateQuestProgress(user) {
       userQuests,
       monthlyQuests,
       userMonthlyQuests,
-      collectionQuests,
-      userCollectionQuests,
       userDiscoveries,
       plants,
       genera
@@ -24,8 +22,6 @@ export async function updateQuestProgress(user) {
       Query.UserQuest.filter({ auth_id: user.id }),
       Query.MonthlyQuest.list(),
       Query.UserMonthlyQuest.filter({ auth_id: user.id }),
-      Query.CollectionQuest.list(),
-      Query.UserCollectionQuest.filter({ auth_id: user.id }),
       Query.UserPlantDiscovery.filter({ auth_id: user.id }),
       // listAll() - quest target species can be any plant, list() truncates at 1000 rows.
       Query.Plant.listAll(),
@@ -121,32 +117,6 @@ export async function updateQuestProgress(user) {
             progress,
             completed,
             completed_date: completed && !userMonthlyQuest.completed ? new Date().toISOString() : userMonthlyQuest.completed_date,
-            status: completed ? 'completed' : 'active'
-          });
-        }
-      }
-    }
-
-    // Update Sammlungs-Quests
-    for (const userCollectionQuest of userCollectionQuests) {
-      const isActive = userCollectionQuest.status ? isActiveStatus(userCollectionQuest.status) : (userCollectionQuest.accepted && !userCollectionQuest.redeemed);
-      if (isActive) {
-        const quest = collectionQuests.find(q => q.id === userCollectionQuest.collection_quest_id);
-        if (!quest || !quest.target_plants) continue;
-
-        const discoveredPlants = userDiscoveries
-          .filter(d => quest.target_plants.includes(d.plant_id))
-          .map(d => d.plant_id);
-
-        const uniqueDiscoveredPlants = [...new Set(discoveredPlants)];
-        const completed = uniqueDiscoveredPlants.length >= quest.target_plants.length;
-
-        if (JSON.stringify(uniqueDiscoveredPlants.sort()) !== JSON.stringify((userCollectionQuest.discovered_plants || []).sort()) ||
-            completed !== userCollectionQuest.completed) {
-          await Query.UserCollectionQuest.update(userCollectionQuest.id, {
-            discovered_plants: uniqueDiscoveredPlants,
-            completed,
-            completed_date: completed && !userCollectionQuest.completed ? new Date().toISOString() : userCollectionQuest.completed_date,
             status: completed ? 'completed' : 'active'
           });
         }

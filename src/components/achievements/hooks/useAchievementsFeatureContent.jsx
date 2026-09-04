@@ -444,16 +444,6 @@ export function useAchievementsFeatureContent({
     staleTime: 10 * 60 * 1000, // 10 Minuten - ändert sich selten
   });
 
-  const { data: userCollectionQuests = [] } = useQuery({
-    queryKey: ['userCollectionQuests', user?.id],
-    queryFn: () => Query.UserCollectionQuest.filter({ auth_id: user?.id }),
-    enabled: !!user?.id,
-    staleTime: 60 * 1000,
-    refetchOnMount: 'always',
-    refetchOnWindowFocus: true,
-    refetchOnReconnect: true,
-  });
-
   const { data: userDiscoveries = [] } = useQuery({
     queryKey: ['userDiscoveries', user?.id],
     queryFn: () => Query.UserPlantDiscovery.filter({ auth_id: user?.id }),
@@ -770,19 +760,6 @@ export function useAchievementsFeatureContent({
     return unsubscribe;
   }, [user?.email]);
 
-  // Echtzeit-Subscriptions für UserCollectionQuests
-  useEffect(() => {
-    if (!user?.email) return;
-
-    const unsubscribe = Query.UserCollectionQuest.subscribe((event) => {
-      if (event.data?.auth_id === user.id || event.data?.created_by === user.email) {
-        queryClient.invalidateQueries({ queryKey: ['userCollectionQuests'] });
-      }
-    });
-
-    return unsubscribe;
-  }, [user?.email]);
-
   // Echtzeit-Subscriptions für UserPlantDiscovery
   useEffect(() => {
     if (!user?.email) return;
@@ -892,35 +869,12 @@ export function useAchievementsFeatureContent({
           console.error('[UserQuest] Insert monthly failed:', err, insertData);
           throw err;
         }
-      } else if (questType === 'collection') {
-        const existing = await Query.UserCollectionQuest.filter({ auth_id: user.id, collection_quest_id: questId });
-        if (existing && existing.length > 0) {
-          console.log('[UserQuest] Accept collection skipped, existing row found:', existing[0]);
-          return existing[0];
-        }
-        insertData = {
-          collection_quest_id: questId,
-          auth_id: user.id,
-          created_by: user.email,
-          status: 'active',
-          accepted_at: now,
-          accepted: true,
-          accepted_date: now
-        };
-        console.log('[UserQuest] Insert collection:', insertData);
-        try {
-          return await Query.UserCollectionQuest.create(insertData);
-        } catch (err) {
-          console.error('[UserQuest] Insert collection failed:', err, insertData);
-          throw err;
-        }
       }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['userQuests'] });
       queryClient.invalidateQueries({ queryKey: ['userWeeklyQuests'] });
       queryClient.invalidateQueries({ queryKey: ['userMonthlyQuests'] });
-      queryClient.invalidateQueries({ queryKey: ['userCollectionQuests'] });
     }
   });
 
@@ -949,12 +903,6 @@ export function useAchievementsFeatureContent({
         });
       } else if (questType === 'monthly') {
         await Query.UserMonthlyQuest.update(userQuestId, {
-          redeemed: true,
-          redeemed_date: now,
-          status: 'redeemed'
-        });
-      } else if (questType === 'collection') {
-        await Query.UserCollectionQuest.update(userQuestId, {
           redeemed: true,
           redeemed_date: now,
           status: 'redeemed'
@@ -1129,7 +1077,6 @@ export function useAchievementsFeatureContent({
       queryClient.invalidateQueries({ queryKey: ['userQuests'] });
       queryClient.invalidateQueries({ queryKey: ['userWeeklyQuests'] });
       queryClient.invalidateQueries({ queryKey: ['userMonthlyQuests'] });
-      queryClient.invalidateQueries({ queryKey: ['userCollectionQuests'] });
       queryClient.invalidateQueries({ queryKey: ['userAchievements'] });
       queryClient.invalidateQueries({ queryKey: ['robotPlantState'] });
       queryClient.invalidateQueries({ queryKey: ['userWallet'] });
@@ -2700,7 +2647,7 @@ export function useAchievementsFeatureContent({
                                   <Button
                                     onClick={(e) => {
                                       e.stopPropagation();
-                                      const allCompleted = [...userQuests, ...userWeeklyQuests, ...userMonthlyQuests, ...userCollectionQuests].filter((q) => q.redeemed);
+                                      const allCompleted = [...userQuests, ...userWeeklyQuests, ...userMonthlyQuests].filter((q) => q.redeemed);
                                       redeemQuestMutation.mutate({
                                         userQuestId: quest.userQuestId,
                                         questType: quest.type,

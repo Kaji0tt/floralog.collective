@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { CalendarDays, CalendarRange, ChevronRight, Users } from "lucide-react";
 import BadgeCircleIcon, {
@@ -20,6 +20,7 @@ const EVENT_KIND_LABELS = {
 };
 
 const ROTATION_INTERVAL_MS = 6000;
+const SWIPE_THRESHOLD_PX = 36;
 
 /**
  * Full-width stripe (same visual language as RewardCard) for time-limited content
@@ -29,6 +30,8 @@ const ROTATION_INTERVAL_MS = 6000;
 export default function HomeEventStripe({ events = [], isLightUi = false, className = "" }) {
   const safeEvents = Array.isArray(events) ? events.filter(Boolean) : [];
   const [activeIndex, setActiveIndex] = useState(0);
+  const swipeStartXRef = useRef(null);
+  const didSwipeRef = useRef(false);
 
   useEffect(() => {
     if (activeIndex >= safeEvents.length) setActiveIndex(0);
@@ -58,6 +61,35 @@ export default function HomeEventStripe({ events = [], isLightUi = false, classN
   const TypeIcon = EVENT_KIND_ICONS[activeEvent.kind] || CalendarDays;
   const kindLabel = activeEvent.label || EVENT_KIND_LABELS[activeEvent.kind] || "Zeitlich begrenzt";
 
+  const showRelativeEvent = (offset) => {
+    if (safeEvents.length <= 1) return;
+    setActiveIndex((currentIndex) => (currentIndex + offset + safeEvents.length) % safeEvents.length);
+  };
+
+  const handlePointerDown = (event) => {
+    swipeStartXRef.current = event.clientX;
+    didSwipeRef.current = false;
+  };
+
+  const handlePointerUp = (event) => {
+    if (swipeStartXRef.current === null) return;
+
+    const horizontalDistance = event.clientX - swipeStartXRef.current;
+    swipeStartXRef.current = null;
+    if (Math.abs(horizontalDistance) < SWIPE_THRESHOLD_PX) return;
+
+    didSwipeRef.current = true;
+    showRelativeEvent(horizontalDistance < 0 ? 1 : -1);
+  };
+
+  const handleClick = () => {
+    if (didSwipeRef.current) {
+      didSwipeRef.current = false;
+      return;
+    }
+    activeEvent.onClick?.();
+  };
+
   return (
     <div className={`relative w-full shrink-0 rounded-2xl shadow-[inset_0_2px_8px_rgba(0,0,0,0.8)] ${className}`}>
       <div
@@ -66,7 +98,10 @@ export default function HomeEventStripe({ events = [], isLightUi = false, classN
       />
       <div
         className="relative cursor-pointer overflow-hidden p-2.5"
-        onClick={activeEvent.onClick}
+        onClick={handleClick}
+        onPointerDown={handlePointerDown}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={() => { swipeStartXRef.current = null; }}
         role={activeEvent.onClick ? "button" : undefined}
       >
         <AnimatePresence mode="wait">

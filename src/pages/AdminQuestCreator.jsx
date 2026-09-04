@@ -99,25 +99,14 @@ export default function AdminQuestCreator() {
     queryFn: () => Query.PlantGenus.list(),
   });
 
-  const { data: plants = [] } = useQuery({
-    queryKey: ['plants'],
-    // listAll() - quest creation needs to pick from the complete catalog, list() truncates at 1000 rows.
-    queryFn: () => Query.Plant.listAll(),
-  });
-
-  const { data: collectionQuests = [] } = useQuery({
-    queryKey: ['collectionQuests'],
-    queryFn: () => Query.CollectionQuest.list(),
-  });
-
   // Mutations
   const createQuestMutation = useMutation({
     mutationFn: async (data) => {
-      const entityName = activeTab === "quest" ? "Quest" : activeTab === "monthly" ? "MonthlyQuest" : activeTab === "weekly" ? "WeeklyQuest" : "CollectionQuest";
+      const entityName = activeTab === "quest" ? "Quest" : activeTab === "monthly" ? "MonthlyQuest" : "WeeklyQuest";
       return Query[entityName].create(data);
     },
     onSuccess: () => {
-      const queryKey = activeTab === "quest" ? 'quests' : activeTab === "monthly" ? 'monthlyQuests' : activeTab === "weekly" ? 'weeklyQuests' : 'collectionQuests';
+      const queryKey = activeTab === "quest" ? 'quests' : activeTab === "monthly" ? 'monthlyQuests' : 'weeklyQuests';
       queryClient.invalidateQueries({ queryKey: [queryKey] });
       resetForm();
     },
@@ -125,11 +114,11 @@ export default function AdminQuestCreator() {
 
   const updateQuestMutation = useMutation({
     mutationFn: async ({ id, data }) => {
-      const entityName = activeTab === "quest" ? "Quest" : activeTab === "monthly" ? "MonthlyQuest" : activeTab === "weekly" ? "WeeklyQuest" : "CollectionQuest";
+      const entityName = activeTab === "quest" ? "Quest" : activeTab === "monthly" ? "MonthlyQuest" : "WeeklyQuest";
       return Query[entityName].update(id, data);
     },
     onSuccess: () => {
-      const queryKey = activeTab === "quest" ? 'quests' : activeTab === "monthly" ? 'monthlyQuests' : activeTab === "weekly" ? 'weeklyQuests' : 'collectionQuests';
+      const queryKey = activeTab === "quest" ? 'quests' : activeTab === "monthly" ? 'monthlyQuests' : 'weeklyQuests';
       queryClient.invalidateQueries({ queryKey: [queryKey] });
       resetForm();
       setEditingQuest(null);
@@ -138,11 +127,11 @@ export default function AdminQuestCreator() {
 
   const deleteQuestMutation = useMutation({
     mutationFn: async (id) => {
-      const entityName = activeTab === "quest" ? "Quest" : activeTab === "monthly" ? "MonthlyQuest" : activeTab === "weekly" ? "WeeklyQuest" : "CollectionQuest";
+      const entityName = activeTab === "quest" ? "Quest" : activeTab === "monthly" ? "MonthlyQuest" : "WeeklyQuest";
       return Query[entityName].delete(id);
     },
     onSuccess: () => {
-      const queryKey = activeTab === "quest" ? 'quests' : activeTab === "monthly" ? 'monthlyQuests' : activeTab === "weekly" ? 'weeklyQuests' : 'collectionQuests';
+      const queryKey = activeTab === "quest" ? 'quests' : activeTab === "monthly" ? 'monthlyQuests' : 'weeklyQuests';
       queryClient.invalidateQueries({ queryKey: [queryKey] });
     },
   });
@@ -199,25 +188,6 @@ export default function AdminQuestCreator() {
   const handleSubmit = (e) => {
     e.preventDefault();
     
-    if (activeTab === "collection") {
-      const collectionData = {
-        title: formData.title,
-        description: formData.description,
-        target_plants: formData.target_plants,
-        xp_reward: parseInt(formData.xp_reward),
-        icon_emoji: formData.icon_emoji,
-        difficulty: formData.difficulty,
-        is_active: formData.is_active
-      };
-
-      if (editingQuest) {
-        updateQuestMutation.mutate({ id: editingQuest.id, data: collectionData });
-      } else {
-        createQuestMutation.mutate(collectionData);
-      }
-      return;
-    }
-
     const questData = {
       quest_number: parseInt(formData.quest_number),
       title: formData.title,
@@ -272,7 +242,7 @@ export default function AdminQuestCreator() {
     if (activeTab === "quest") return quests.sort((a, b) => (a.quest_number || 0) - (b.quest_number || 0));
     if (activeTab === "monthly") return monthlyQuests.sort((a, b) => (a.quest_number || 0) - (b.quest_number || 0));
     if (activeTab === "weekly") return weeklyQuests.sort((a, b) => (a.quest_number || 0) - (b.quest_number || 0));
-    return collectionQuests;
+    return weeklyQuests;
   };
 
   const getNextQuestNumber = () => {
@@ -315,7 +285,7 @@ export default function AdminQuestCreator() {
 
         {/* Tab Navigation */}
         <Tabs value={activeTab} onValueChange={(v) => { setActiveTab(v); resetForm(v); }} className="mb-8">
-          <TabsList className="bg-white border border-stone-200 p-1 h-auto shadow-sm w-full grid grid-cols-4">
+          <TabsList className="bg-white border border-stone-200 p-1 h-auto shadow-sm w-full grid grid-cols-3">
             <TabsTrigger
               value="quest"
               className="data-[state=active]:bg-green-600 data-[state=active]:text-white font-semibold py-3"
@@ -337,13 +307,6 @@ export default function AdminQuestCreator() {
               <CalendarDays className="w-4 h-4 mr-2" />
               Wöchentlich ({weeklyQuests.length})
             </TabsTrigger>
-            <TabsTrigger
-              value="collection"
-              className="data-[state=active]:bg-indigo-600 data-[state=active]:text-white font-semibold py-3"
-            >
-              <Sparkles className="w-4 h-4 mr-2" />
-              Sammlung
-            </TabsTrigger>
           </TabsList>
         </Tabs>
 
@@ -358,8 +321,8 @@ export default function AdminQuestCreator() {
             </CardHeader>
             <CardContent className="p-6">
               <form onSubmit={handleSubmit} className="space-y-4">
-                {/* Quest Number (nicht für Collection) */}
-                {activeTab !== "collection" && (
+                {/* Quest Number */}
+                {(
                   <div>
                     <Label>Quest-Nummer *</Label>
                     <Input
@@ -395,8 +358,8 @@ export default function AdminQuestCreator() {
                   />
                 </div>
 
-                {/* Requirement (nicht für Collection) */}
-                {activeTab !== "collection" && (
+                {/* Requirement */}
+                {(
                   <>
                     <div>
                       <Label>Anforderung (Anzeige)</Label>
@@ -631,126 +594,6 @@ export default function AdminQuestCreator() {
                   </>
                 )}
 
-                {/* Collection specific fields */}
-                {activeTab === "collection" && (
-                  <>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <Label>Icon Emoji</Label>
-                        <Input
-                          value={formData.icon_emoji}
-                          onChange={(e) => setFormData({...formData, icon_emoji: e.target.value})}
-                          placeholder="🗺️"
-                        />
-                      </div>
-                      <div>
-                        <Label>XP Belohnung *</Label>
-                        <Input
-                          type="number"
-                          value={formData.xp_reward}
-                          onChange={(e) => setFormData({...formData, xp_reward: e.target.value})}
-                          min={1}
-                          required
-                        />
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <Label>Schwierigkeit</Label>
-                        <Select
-                          value={formData.difficulty}
-                          onValueChange={(v) => setFormData({...formData, difficulty: v})}
-                        >
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {[...difficultyOptions, { value: "Extrem", label: "Extrem", color: "bg-purple-100 text-purple-700" }].map(opt => (
-                              <SelectItem key={opt.value} value={opt.value}>
-                                <Badge className={opt.color}>{opt.label}</Badge>
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="flex items-end">
-                        <label className="flex items-center gap-2 cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={formData.is_active}
-                            onChange={(e) => setFormData({...formData, is_active: e.target.checked})}
-                            className="w-4 h-4"
-                          />
-                          <span className="text-sm">Aktiv</span>
-                        </label>
-                      </div>
-                    </div>
-
-                    <div className="border-2 border-stone-200 rounded-lg p-4 bg-stone-50">
-                      <div className="flex items-center justify-between mb-3">
-                        <Label className="text-base font-bold">Zielpflanzen</Label>
-                        <Button
-                          type="button"
-                          size="sm"
-                          onClick={() => {
-                            const newPlants = [...formData.target_plants, ""];
-                            setFormData({...formData, target_plants: newPlants});
-                          }}
-                          className="bg-indigo-600 hover:bg-indigo-700"
-                        >
-                          <Plus className="w-4 h-4 mr-1" />
-                          Pflanze hinzufügen
-                        </Button>
-                      </div>
-                      
-                      {formData.target_plants.length === 0 ? (
-                        <p className="text-sm text-stone-500 text-center py-2">
-                          Noch keine Zielpflanzen ausgewählt
-                        </p>
-                      ) : (
-                        <div className="space-y-2">
-                          {formData.target_plants.map((plantId, index) => (
-                            <div key={index} className="flex items-center gap-2">
-                              <Select
-                                value={plantId}
-                                onValueChange={(v) => {
-                                  const newPlants = [...formData.target_plants];
-                                  newPlants[index] = v;
-                                  setFormData({...formData, target_plants: newPlants});
-                                }}
-                              >
-                                <SelectTrigger className="flex-1">
-                                  <SelectValue placeholder="Pflanze wählen..." />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {plants.map(p => (
-                                    <SelectItem key={p.id} value={p.id}>
-                                      {p.species_name} ({p.scientific_name})
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                              <Button
-                                type="button"
-                                size="icon"
-                                variant="ghost"
-                                onClick={() => {
-                                  const newPlants = formData.target_plants.filter((_, i) => i !== index);
-                                  setFormData({...formData, target_plants: newPlants});
-                                }}
-                                className="text-red-600 hover:bg-red-50"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </Button>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  </>
-                )}
-
                 {/* Monthly/Weekly specific fields */}
                 {(activeTab === "monthly" || activeTab === "weekly") && (
                   <div className="grid grid-cols-2 gap-4">
@@ -836,8 +679,7 @@ export default function AdminQuestCreator() {
                 {activeTab === "quest" && <Target className="w-5 h-5 text-green-600" />}
                 {activeTab === "monthly" && <Calendar className="w-5 h-5 text-amber-600" />}
                 {activeTab === "weekly" && <CalendarDays className="w-5 h-5 text-purple-600" />}
-                {activeTab === "collection" && <Sparkles className="w-5 h-5 text-indigo-600" />}
-                {activeTab === "quest" ? "Alle Quests" : activeTab === "monthly" ? "Monatliche Quests" : activeTab === "weekly" ? "Wöchentliche Quests" : "Sammlungen"}
+                {activeTab === "quest" ? "Alle Quests" : activeTab === "monthly" ? "Monatliche Quests" : "Wöchentliche Quests"}
                 <Badge variant="outline">{getCurrentQuests().length}</Badge>
               </CardTitle>
             </CardHeader>

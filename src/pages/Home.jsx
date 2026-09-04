@@ -2250,7 +2250,7 @@ function HomeContent() {
   // Zeitlich begrenzte Events/Aufgaben (Wochen-/Monatsquest, später Community Events),
   // gerendert im rotierenden HomeEventStripe.
   const homeEventStripeItems = [];
-  if (displayedWeeklyQuest) {
+  if (displayedWeeklyQuest && !activeWeeklyQuest?.isCompleted) {
     const weeklyQuestTargetLabel = displayedWeeklyQuest.target_species_name
       || displayedWeeklyQuest.target_genus_name
       || displayedWeeklyQuest.title;
@@ -2269,7 +2269,7 @@ function HomeContent() {
       },
     });
   }
-  if (currentMonthlyQuest) {
+  if (currentMonthlyQuest && !activeMonthlyQuest?.isCompleted) {
     homeEventStripeItems.push({
       id: `monthly-quest-${currentMonthlyQuest.id}`,
       kind: "monthly",
@@ -3740,6 +3740,7 @@ function HomeContent() {
       <HomeBackgroundShell
         user={effectiveUser}
         getRgbaFromRgb={getRgbaFromRgb}
+        edgeToEdge={activePanel === "collection"}
       >
           <motion.div
             initial={{ opacity: 0, y: 14 }}
@@ -3748,7 +3749,7 @@ function HomeContent() {
             data-ui="home-main-content-shell"
             className={`relative h-full w-full ${activePanel === null ? "overflow-visible" : "overflow-hidden"}`}
           >
-            <div className={`relative z-10 h-full flex flex-col ${activePanel === "map" ? "px-0 py-0" : "px-2 md:px-4 py-4 md:py-6"} ${isLightUi ? "text-stone-800" : "text-stone-100"}`}>
+            <div className={`relative z-10 h-full flex flex-col ${activePanel === "map" ? "px-0 py-0" : "px-2 md:px-4"} ${isLightUi ? "text-stone-800" : "text-stone-100"}`}>
               {activePanel === null && (
                 <div className="pointer-events-none absolute inset-x-4 top-4 z-20 flex max-w-[65%] flex-col md:inset-x-8 md:top-6">
                   {showShopStack ? (
@@ -3787,7 +3788,7 @@ function HomeContent() {
               )}
 
               <HomeHeaderBar
-                hidden={activePanel === "map" || activePanel === null || activePanel === "friends"}
+                hidden={activePanel === "map" || activePanel === null || activePanel === "friends" || activePanel === "collection"}
                 activePanel={activePanel}
                 embeddedTitle={embeddedTitle}
                 embeddedSubtitle={embeddedSubtitle}
@@ -3835,7 +3836,7 @@ function HomeContent() {
               />
 
               <div
-                className={`relative flex flex-1 min-h-0 flex-col ${activePanel === null ? "overflow-visible" : "overflow-hidden"} ${activePanel === "map" ? "py-0" : (shouldDockEmbeddedChipHeader ? "py-0" : "py-[clamp(0.5rem,1.5vh,1rem)]")}`}
+                className={`relative flex flex-1 min-h-0 flex-col ${activePanel === null ? "overflow-visible" : "overflow-hidden"} ${(activePanel === "map" || activePanel === "collection") ? "py-0" : (shouldDockEmbeddedChipHeader ? "py-0" : "py-[clamp(0.5rem,1.5vh,1rem)]")}`}
                 data-ui="home-content-stack"
               >
                 {activePanel === "collection" ? (

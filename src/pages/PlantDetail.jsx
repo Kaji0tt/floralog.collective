@@ -1,5 +1,7 @@
 
+import { useEffect, useState } from "react";
 import { Query } from "@/api/entities";
+import { getCurrentUser } from "@/api/userApi";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -9,11 +11,17 @@ import { ArrowLeft, Calendar, MapPin, Flower2, TreeDeciduous, Loader2 } from "lu
 import { createPageUrl } from "@/utils";
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
+import CommunityTagPanel from "@/components/collection/CommunityTagPanel";
 
 export default function PlantDetail() {
   const navigate = useNavigate();
+  const [currentUser, setCurrentUser] = useState(null);
   const urlParams = new URLSearchParams(window.location.search);
   const plantId = urlParams.get('id');
+
+  useEffect(() => {
+    getCurrentUser().then(setCurrentUser).catch(() => setCurrentUser(null));
+  }, []);
 
   const { data: plants = [], isLoading } = useQuery({
     queryKey: ['plant', plantId],
@@ -23,6 +31,17 @@ export default function PlantDetail() {
   });
 
   const plant = plants.find(p => p.id === plantId);
+
+  const { data: genera = [] } = useQuery({
+    queryKey: ['plantDetailGenera'],
+    queryFn: () => Query.PlantGenus.list(),
+  });
+
+  const genusId = genera.find(
+    (genus) =>
+      genus.category === plant?.genus_category &&
+      genus.category_dex_number === plant?.genus_number
+  )?.id || null;
 
   if (isLoading) {
     return (
@@ -115,6 +134,13 @@ export default function PlantDetail() {
                 </Badge>
               </div>
             </div>
+
+            <CommunityTagPanel
+              plantId={plant.id}
+              genusId={genusId}
+              currentUserId={currentUser?.id || currentUser?.auth_id || null}
+              isLightUi
+            />
 
             <Card>
               <CardHeader>

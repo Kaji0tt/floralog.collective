@@ -226,18 +226,6 @@ export default function KPIAdmin() {
   });
 
   const {
-    data: userCollections = [],
-    isLoading: isLoadingUserCollections,
-    refetch: refetchUserCollections,
-  } = useQuery({
-    queryKey: ["kpiAdminUserCollections"],
-    queryFn: () => Query.UserCollection.listAll("-created_at"),
-    enabled: !!isAdmin,
-    staleTime: 5 * 60 * 1000,
-    refetchOnWindowFocus: true,
-  });
-
-  const {
     data: actionEvents = [],
     isLoading: isLoadingActionEvents,
     refetch: refetchActionEvents,
@@ -257,8 +245,7 @@ export default function KPIAdmin() {
     isLoadingFriends ||
     isLoadingAchievements ||
     isLoadingUserQuests ||
-    isLoadingUserWeeklyQuests ||
-    isLoadingUserCollections;
+    isLoadingUserWeeklyQuests;
 
   const summary = useMemo(
     () =>
@@ -316,9 +303,8 @@ export default function KPIAdmin() {
         achievements,
         userQuests,
         userWeeklyQuests,
-        userCollections,
       }),
-    [discoveries, mapViews, likes, friends, achievements, userQuests, userWeeklyQuests, userCollections]
+    [discoveries, mapViews, likes, friends, achievements, userQuests, userWeeklyQuests]
   );
 
   const actionEventSummary = useMemo(
@@ -351,7 +337,6 @@ export default function KPIAdmin() {
       refetchAchievements(),
       refetchUserQuests(),
       refetchUserWeeklyQuests(),
-      refetchUserCollections(),
       refetchActionEvents(),
     ]);
   };

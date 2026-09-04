@@ -13,7 +13,7 @@ import { motion } from "framer-motion";
 
 // ─── Friend tab definitions ───────────────────────────────────────────────────
 const FRIEND_TABS = [
-  { id: "collection",   label: "Sammlung",  icon: Leaf },
+  { id: "collection",   label: "Entdeckungen",  icon: Leaf },
   { id: "achievements", label: "Erfolge",   icon: Scroll },
   { id: "friends",      label: "Freunde",   icon: Users },
   { id: "profile",      label: "Profil",    icon: HomeIcon },

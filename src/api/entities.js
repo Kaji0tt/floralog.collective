@@ -1,7 +1,7 @@
 // Supabase-based entity access
 import { supabase } from './supabaseClient';
 
-// Treat optional tables (e.g. CollectionQuest) as empty rather than crashing
+// Treat optional tables as empty rather than crashing
 const isMissingTableError = (error) => {
   if (!error) return false;
   const lowerMessage = (error.message || '').toLowerCase();
@@ -25,7 +25,6 @@ const legacyIdTables = new Set([
   'UserQuest',
   'UserWeeklyQuest',
   'UserMonthlyQuest',
-  'UserCollectionQuest',
   'UserAchievement',
   'UserRewards',
   'UserNotification',
@@ -178,13 +177,14 @@ function createEntity(tableName) {
 // Where naming differs, we map them manually below.
 const tables = [
   'Classroom', 'ClassroomMember', 'ClassroomQuest',
-  'CollectionQuest', 'DailyQuest', 'Friend', 'MonthlyQuest',
+  'DailyQuest', 'Friend', 'MonthlyQuest',
   'News', 'Plant', 'PlantGenus', 'PublicProfile', 'Quest',
   'LogoAsset',
   'Referral', 'Rewards', 'ScanLike', 'SharedScan', 'UserAchievement',
-  'UserCollectionQuest', 'UserDailyQuest', 'UserMonthlyQuest',
+  'UserDailyQuest', 'UserMonthlyQuest',
   'UserNotification', 'UserPlantDiscovery', 'UserQuest',
   'UserWeeklyQuest', 'WeeklyQuest',
+  'UserWallet',
   'MapViewEvent',
   'UserActionEvent',
   // Robot Plant core loop
@@ -192,10 +192,8 @@ const tables = [
   'RobotPlantUserZoneState', 'RobotPlantDailyChallenge', 'RobotPlantUserDailyChallenge',
   'RobotPlantShopItem', 'RobotPlantUserInventory', 'RobotPlantActiveEffect',
   'PlantQuiz', 'PlantQuizSlotRoll', 'PlantQuizExcludedDiscovery',
-  // Collections & Classroom
-  'Collection', 'CollectionItem', 'UserCollection',
-  'CollectionMaintainer', 'CollectionItemProposal',
-  'ClassroomParticipant', 'ClassroomParticipantProgress',
+  // Community tag knowledge layer
+  'CommunityTag', 'CommunityTagVote', 'CommunityTagQualityLedger', 'CommunityTagReport',
   'ProjectIssue'
 ];
 
