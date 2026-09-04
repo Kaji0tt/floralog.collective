@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
-import { Search } from "lucide-react";
+import { Search, X } from "lucide-react";
 
 /**
  * Reusable animated search + sort header used in community collections and collection hero.
@@ -82,9 +82,13 @@ export default function SearchSortBar({
       className="flex items-center gap-2 overflow-x-hidden"
     >
       {showSearchControl && (
-        <button
-          type="button"
+        <div
+          role="button"
+          tabIndex={0}
           onClick={() => setIsOpen(true)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") setIsOpen(true);
+          }}
           className={`relative flex items-center border backdrop-blur-sm rounded-full h-8 overflow-hidden transition-all duration-200 ease-out shrink-0 ${
             isLightUi ? "bg-white/70 border-[#c8ac62]/35" : "bg-black/40 border-[#f0e5a5]/35"
           } ${
@@ -108,7 +112,20 @@ export default function SearchSortBar({
                 : "w-0 opacity-0 pointer-events-none"
             }`}
           />
-        </button>
+          {isOpen && searchQuery && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onSearchQueryChange?.("");
+              }}
+              aria-label="Suche leeren"
+              className={`ml-1 flex-shrink-0 rounded-full p-0.5 ${isLightUi ? "text-[#8f6b22] hover:bg-black/5" : "text-[#f0e5a5] hover:bg-white/10"}`}
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
       )}
 
       {showSortControls && (

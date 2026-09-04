@@ -110,9 +110,31 @@ export default function CommunityTagPanel({ plantId = null, genusId = null, curr
       <div className="flex flex-wrap items-center gap-1.5">
         {visibleTags.map((tag) => {
           const isCreator = tag.created_by_auth_id === currentUserId;
+          const ownVote = ownVoteByTagId.get(tag.id) ?? null;
+          const canVote = currentUserId && !isCreator && eligible;
           return (
             <span key={tag.id} className={chipClass}>
+              {canVote && (
+                <button
+                  type="button"
+                  title="Positiv bewerten"
+                  onClick={() => voteMutation.mutate({ tagId: tag.id, vote: ownVote === 1 ? null : 1 })}
+                  className={"leading-none " + (ownVote === 1 ? "text-emerald-500" : "opacity-70 hover:opacity-100")}
+                >
+                  +
+                </button>
+              )}
               <span className="max-w-24 truncate">{tag.value}</span>
+              {canVote && (
+                <button
+                  type="button"
+                  title="Negativ bewerten"
+                  onClick={() => voteMutation.mutate({ tagId: tag.id, vote: ownVote === -1 ? null : -1 })}
+                  className={"leading-none " + (ownVote === -1 ? "text-rose-500" : "opacity-70 hover:opacity-100")}
+                >
+                  −
+                </button>
+              )}
               {isCreator && (
                 <button type="button" title="Tag entfernen" onClick={() => deleteMutation.mutate(tag.id)} className="opacity-70 hover:opacity-100">
                   <X className="h-3 w-3" />
@@ -122,7 +144,7 @@ export default function CommunityTagPanel({ plantId = null, genusId = null, curr
           );
         })}
 
-        {currentUserId && eligible && (
+        {currentUserId && (
           showAddInput ? (
             <form
               className="inline-flex items-center gap-1"
@@ -152,9 +174,10 @@ export default function CommunityTagPanel({ plantId = null, genusId = null, curr
           ) : (
             <button
               type="button"
-              onClick={() => setShowAddInput(true)}
-              title="Tag hinzufügen"
-              className={chipClass + " hover:opacity-80"}
+              onClick={() => eligible && setShowAddInput(true)}
+              disabled={!eligible}
+              title={eligible ? "Tag hinzufügen" : "Ab 5.000 insgesamt verdienten Samen kannst du Tags erstellen"}
+              className={chipClass + (eligible ? " hover:opacity-80" : " opacity-50 cursor-not-allowed")}
             >
               <Plus className="h-3 w-3" />
             </button>

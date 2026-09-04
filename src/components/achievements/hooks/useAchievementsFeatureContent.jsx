@@ -7,9 +7,8 @@ import { getCurrentUser, updateCurrentUserProfile } from "@/api/userApi";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Trophy, Leaf, Target, CheckCircle2, Gift, Users, ChevronDown, ChevronUp, ChevronLeft, Loader2, ScanSearch, BarChart2, Globe, CalendarDays, User } from "lucide-react";
+import { Trophy, Leaf, Target, CheckCircle2, Gift, Users, ChevronDown, ChevronUp, ChevronLeft, Loader2, ScanSearch, Globe, CalendarDays, User } from "lucide-react";
 import { getNavButtonStyle, NAV_COLOR_ORDER } from "@/components/navigation/navButtonStyles";
-import CollectionCategoryEntryCard from "@/components/collection/CollectionCategoryEntryCard";
 import { motion } from "framer-motion";
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
@@ -37,6 +36,7 @@ import { resolveEquippedLogoAssetsWithCatalog } from "@/lib/logoAccessoryAssets"
 import { hexToFilter } from "@/lib/hexToFilter";
 import CustomLogoAvatar from "@/components/profile/CustomLogoAvatar";
 import { getActiveSeason } from "@/lib/seasonConfig";
+import GoldGradientCard from "@/components/home/GoldGradientCard";
 
 /** @type {{ regular: number, weekly: number, monthly: number }} */
 const DEFAULT_QUEST_SEED_REWARD_BY_TYPE = {
@@ -229,15 +229,15 @@ export function useAchievementsFeatureContent({
   const [showPersonalStats, setShowPersonalStats] = useState(true);
   const [statsSection, setStatsSection] = useState("global");
   const [globalSubSection, setGlobalSubSection] = useState("scans");
-  // Layered navigation: null = overview, "leaderboard_scope", "leaderboard", "quests"
+  // Layered navigation: "leaderboard", "quests" (persistent pill header switches between them)
   const [achievementsView, setAchievementsView] = useState(() => {
     const tab = resolveAchievementsTab(String(initialTab || "").toLowerCase());
     if (tab === "quests") return "quests";
-    return null;
+    return "leaderboard";
   });
   const _prevAchievementsViewRef = useRef(achievementsView);
   useEffect(() => {
-    if (achievementsView !== null && achievementsView !== _prevAchievementsViewRef.current) {
+    if (achievementsView !== _prevAchievementsViewRef.current) {
       trackAction(`achievements_view_${achievementsView}`, { sourcePage: "Achievements" });
     }
     _prevAchievementsViewRef.current = achievementsView;
@@ -1109,24 +1109,13 @@ export function useAchievementsFeatureContent({
   useEffect(() => {
     if (!embedded || typeof onHeaderMetaChange !== "function") return;
     const titleMap = {
-      null: "Aufgaben",
-      leaderboard_scope: "Rangliste",
       leaderboard: statsComparisonScope === "season" ? `Rangliste · ${activeSeason?.title || "Saison"}` : "Rangliste · All-Time",
       quests: "Aufgaben",
     };
-    const backHandler = achievementsView !== null
-      ? () => {
-          if (achievementsView === "leaderboard") {
-            setAchievementsView("leaderboard_scope");
-          } else {
-            setAchievementsView(null);
-          }
-        }
-      : null;
     onHeaderMetaChange({
       title: titleMap[achievementsView] ?? "Aufgaben",
       subtitle: achievementsView === "leaderboard" ? "Scan-Insights und globaler Vergleich" : "Dein Fortschritt im Überblick",
-      backHandler,
+      backHandler: null,
     });
   }, [
     embedded,
@@ -1961,22 +1950,20 @@ export function useAchievementsFeatureContent({
 
   const moduleChips = [
     {
-      id: "stats",
-      title: "Statistik",
-      active: totalScans,
-      total: totalScans,
-    },
-    {
       id: "quests",
       title: "Aufgaben",
-      active: activeQuests.length,
-      total: activeQuests.length + completedQuests.length,
+      onSelect: () => setAchievementsView("quests"),
+      isActive: achievementsView === "quests",
+    },
+    {
+      id: "leaderboard",
+      title: "Rangliste",
+      onSelect: () => setAchievementsView("leaderboard"),
+      isActive: achievementsView === "leaderboard",
     },
   ];
 
-  const tabsHeaderClass = embedded
-    ? `sticky top-0 z-40 backdrop-blur-sm border-b ${isLightUi ? "bg-white/70 border-[#b99a48]/30" : "bg-black/20 border-[#f0e5a5]/20"}`
-    : "fixed top-0 left-0 right-0 z-50 bg-white shadow-sm border-b border-stone-200";
+  const tabsHeaderClass = embedded ? "sticky top-0 z-40 shrink-0" : "sticky top-0 z-40";
 
   const achievementsContentClass = embedded ? "mt-0 pb-20 flex-1 min-h-0 overflow-y-auto" : "pt-36 px-4 pb-4";
   const statsContentClass = embedded ? "mt-0 pb-20 flex-1 min-h-0 overflow-y-auto" : "pt-36 px-4 pb-4";
@@ -2187,68 +2174,79 @@ export function useAchievementsFeatureContent({
       
       <div className={embedded ? "w-full h-full min-h-0 flex flex-col" : "w-full"}>
 
-        {/* ── ROOT OVERVIEW ── */}
-        {achievementsView === null && (
-          <div className={achievementsContentClass} style={embeddedContentMaskStyle}>
-            {!embedded && (
-              <div className="px-1 pt-3 pb-4">
-                <h1 className="text-xl sm:text-2xl font-bold text-stone-900">Aufgaben</h1>
-                <p className="text-xs text-stone-600 mt-0.5">Bestenlisten und Aufgaben</p>
-              </div>
-            )}
-            <div className="space-y-3" style={embedded ? { paddingTop: listTopFadePx, paddingBottom: listBottomFadePx } : undefined}>
-              <CollectionCategoryEntryCard
-                title="Rangliste"
-                info={`${totalScans} eigene Scans · Rang ${ownGlobalScanRank > 0 ? `#${ownGlobalScanRank}` : "ausstehend"}`}
-                icon={BarChart2}
-                accent="season"
-                showChevron
-                onClick={() => setAchievementsView("leaderboard_scope")}
-              />
-              <CollectionCategoryEntryCard
-                title="Aufgaben"
-                description={activeQuests.length > 0 ? `${activeQuests.length} aktive Quest${activeQuests.length !== 1 ? "s" : ""}` : "Aktive und abgeschlossene Quests"}
-                info={hasRedeemableQuests ? "⚡ Quests können jetzt eingelöst werden!" : `${completedQuests.length} abgeschlossen`}
-                icon={Target}
-                accent="themes"
-                showChevron
-                onClick={() => setAchievementsView("quests")}
-              />
-            </div>
+        {/* ── PERSISTENT PILL HEADER (Aufgaben / Rangliste) ── */}
+        <GoldGradientCard
+          as="div"
+          className={tabsHeaderClass}
+          blur
+          borderClassName="gold-gradient-border-mask-thin"
+          shadow={false}
+          contentClassName="px-2 py-2"
+        >
+          <div className="grid grid-cols-2 gap-2 min-w-0">
+            {moduleChips.map((chip) => (
+              <button
+                key={chip.id}
+                type="button"
+                onClick={chip.onSelect}
+                className={
+                  "flex items-center justify-center gap-2 px-2 py-1.5 rounded-full border text-[11px] whitespace-nowrap transition-colors min-w-0 " +
+                  (chip.isActive
+                    ? (isLightUi
+                      ? "bg-white/90 text-[#8f6b22] shadow-sm"
+                      : "bg-black/55 text-[#f7f0c1] shadow-sm")
+                    : (isLightUi
+                      ? "bg-white/55 text-stone-700 hover:bg-white/75"
+                      : "bg-black/35 text-stone-200 hover:bg-black/50"))
+                }
+                style={{
+                  borderColor: chip.isActive
+                    ? (isLightUi ? "rgba(200,172,98,0.70)" : "rgba(240,229,165,0.75)")
+                    : (isLightUi ? "rgba(200,172,98,0.35)" : "rgba(255,255,255,0.3)"),
+                }}
+              >
+                <span className="font-medium truncate">{chip.title}</span>
+              </button>
+            ))}
           </div>
-        )}
-
-        {/* ── RANGLISTE: SCOPE PICKER ── */}
-        {achievementsView === "leaderboard_scope" && (
-          <div className={achievementsContentClass} style={embeddedContentMaskStyle}>
-            <div className="space-y-3" style={embedded ? { paddingTop: listTopFadePx, paddingBottom: listBottomFadePx } : undefined}>
-              {hasActiveSeason && (
-                <CollectionCategoryEntryCard
-                  title={activeSeason?.title || "Saison"}
-                  description={`Rangliste seit ${activeSeason?.startDate ? new Date(activeSeason.startDate + "T00:00:00").toLocaleDateString("de-DE", { day: "2-digit", month: "long", year: "numeric" }) : "Saisonstart"}`}
-                  info="Saison-Scans, Samen und wöchentlicher Score"
-                  icon={Leaf}
-                  accent="season"
-                  showChevron
-                  onClick={() => { setStatsComparisonScope("season"); setAchievementsView("leaderboard"); setIsLeaderboardRefreshing(true); }}
-                />
-              )}
-              <CollectionCategoryEntryCard
-                title="All-Time"
-                description="Gesamtrangliste seit Beginn – alle Scans, Samen und Rekorde aller Zeiten"
-                icon={BarChart2}
-                accent="browse"
-                showChevron
-                onClick={() => { setStatsComparisonScope("alltime"); setAchievementsView("leaderboard"); setIsLeaderboardRefreshing(true); }}
-              />
-            </div>
-          </div>
-        )}
+        </GoldGradientCard>
 
         {/* ── RANGLISTE CONTENT ── */}
         {achievementsView === "leaderboard" && (
           <div className={statsContentClass} style={embeddedContentMaskStyle}>
             <div className={statsPanelClass} style={embedded ? { paddingTop: listTopFadePx, paddingBottom: listBottomFadePx } : undefined}>
+
+              {/* ── Saison / All-Time Umschalter ── */}
+              {hasActiveSeason && (
+                <div
+                  className={
+                    `inline-flex self-start rounded-full border p-1 ${isLightUi
+                      ? "border-[#d9c48a]/60 bg-[#f8f1dc]/85"
+                      : "border-[#f0e5a5]/30 bg-black/30"}`
+                  }
+                >
+                  {[
+                    { id: "season", label: activeSeason?.title || "Saison" },
+                    { id: "alltime", label: "All-Time" },
+                  ].map((option) => {
+                    const isSelected = statsComparisonScope === option.id;
+                    return (
+                      <button
+                        key={option.id}
+                        type="button"
+                        onClick={() => { setStatsComparisonScope(option.id); setIsLeaderboardRefreshing(true); }}
+                        className={
+                          `rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${isSelected
+                            ? (isLightUi ? "bg-white text-[#8f6b22] shadow-sm" : "bg-black/55 text-[#f7f0c1] shadow-sm")
+                            : (isLightUi ? "text-stone-600" : "text-stone-300")}`
+                        }
+                      >
+                        {option.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
 
               {/* ── Section Navigation ── */}
               {(() => {

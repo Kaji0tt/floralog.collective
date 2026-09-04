@@ -1,6 +1,7 @@
 import React from "react";
 import { Badge } from "@/components/ui/badge";
 import { ChevronDown, ChevronUp, ExternalLink, Info, Leaf, X } from "lucide-react";
+import CommunityTagPanel from "./CommunityTagPanel";
 import {
   getConservationFromPlant,
 } from "@/lib/conservationStatus";
@@ -133,6 +134,9 @@ export default function SpeciesInfoCard({
   showNarrative = true,
   titlePrefix,
   topRight,
+  bottomLeftOverlay,
+  genusId = null,
+  currentUserId = null,
   previewStackImages = [],
   onPreviewSwipeLeft,
   onPreviewSwipeRight,
@@ -172,6 +176,10 @@ export default function SpeciesInfoCard({
   const [regionOpen, setRegionOpen] = React.useState(() => {
     const prefs = readDisplayPrefs();
     return typeof prefs?.regionOpen === "boolean" ? prefs.regionOpen : false;
+  });
+  const [tagsOpen, setTagsOpen] = React.useState(() => {
+    const prefs = readDisplayPrefs();
+    return typeof prefs?.tagsOpen === "boolean" ? prefs.tagsOpen : false;
   });
   const [infoModalOpen, setInfoModalOpen] = React.useState(false);
   const [redListTooltipOpen, setRedListTooltipOpen] = React.useState(/** @type {string | null} */ (null));
@@ -329,8 +337,8 @@ export default function SpeciesInfoCard({
   }, []);
 
   React.useEffect(() => {
-    writeDisplayPrefs({ infoOpen, ecologyOpen, regionOpen });
-  }, [infoOpen, ecologyOpen, regionOpen]);
+    writeDisplayPrefs({ infoOpen, ecologyOpen, regionOpen, tagsOpen });
+  }, [infoOpen, ecologyOpen, regionOpen, tagsOpen]);
 
   const handleSwipeRelease = (deltaX, deltaY = 0) => {
     const didSwipe = triggerPreviewSwipe(deltaX, deltaY);
@@ -581,6 +589,18 @@ export default function SpeciesInfoCard({
             {stackedPreviewImages.length > 1 && (
               <div className="absolute bottom-1 right-1 z-40 rounded-full bg-black/70 text-white text-[9px] px-1.5 py-0.5 leading-none pointer-events-none">
                 +{Math.max(stackedPreviewImages.length - 1, 0)}
+              </div>
+            )}
+
+            {bottomLeftOverlay && (
+              <div
+                className="absolute bottom-1 left-1 z-40"
+                onClick={(e) => e.stopPropagation()}
+                onMouseDown={(e) => e.stopPropagation()}
+                onTouchStart={(e) => e.stopPropagation()}
+                onTouchEnd={(e) => e.stopPropagation()}
+              >
+                {bottomLeftOverlay}
               </div>
             )}
           </div>
@@ -936,6 +956,39 @@ export default function SpeciesInfoCard({
               </div>
             )}
           </div>
+
+          {(genusId || safePlant.id) && (
+            <div className={"w-full rounded-md border " + (isLightUi
+              ? "border-stone-200 bg-white text-stone-700"
+              : "border-stone-600/60 bg-black/25 text-stone-200")}>
+              <button
+                type="button"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  setTagsOpen((prev) => !prev);
+                }}
+                onMouseDown={(event) => event.stopPropagation()}
+                onTouchStart={(event) => event.stopPropagation()}
+                onTouchEnd={(event) => event.stopPropagation()}
+                className="w-full px-2 py-1.5 flex items-center justify-between text-left"
+              >
+                <span className="text-xs font-semibold">Tags</span>
+                {tagsOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+              </button>
+
+              {tagsOpen && (
+                <div className="px-2 pb-2 pt-1">
+                  <CommunityTagPanel
+                    plantId={safePlant.id || null}
+                    genusId={genusId}
+                    currentUserId={currentUserId}
+                    isLightUi={isLightUi}
+                    compact
+                  />
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
     </div>

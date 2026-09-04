@@ -72,6 +72,7 @@ export default function GenusDetail() {
   const plantTouchStartXRef = useRef({});
   const plantSwipeTriggeredRef = useRef({});
   const variantResetTimersRef = useRef({});
+  const activeFriendActorButtonRef = useRef({});
   const expandedDragStartXRef = useRef(null);
   const expandedDragStartPointRef = useRef(null);
   const expandedDragActivatedRef = useRef(false);
@@ -623,6 +624,13 @@ export default function GenusDetail() {
       return hasChanges ? next : prev;
     });
   }, [genusPlants, activeVariantIndexes]);
+
+  // Hält den aktiven "weitere Spieler"-Avatar stets als letzten sichtbaren im scrollbaren Band.
+  useEffect(() => {
+    Object.values(activeFriendActorButtonRef.current).forEach((el) => {
+      el?.scrollIntoView?.({ behavior: "smooth", inline: "end", block: "nearest" });
+    });
+  }, [activeVariantIndexes]);
 
   useEffect(() => {
     if (!targetDiscoveryId || deepLinkAppliedRef.current) return;
@@ -1349,12 +1357,55 @@ export default function GenusDetail() {
                       )
                     }
                     topRight={null}
+                    bottomLeftOverlay={activeDiscovery ? (
+                      <div
+                        className={"inline-flex h-5 items-center gap-1 rounded-full border px-1.5 text-[10px] shrink-0 backdrop-blur-sm " + (activeLikeCount > 0
+                          ? (activeLikedByUser
+                            ? (isLightUi ? "border-rose-300 bg-rose-50/90 text-rose-600" : "border-rose-400/60 bg-rose-400/15 text-rose-200")
+                            : (isLightUi ? "border-rose-200 bg-white/85 text-rose-500" : "border-rose-300/45 bg-black/60 text-rose-200"))
+                          : (isLightUi ? "border-stone-300 bg-white/85 text-stone-400" : "border-stone-500/70 bg-black/60 text-stone-300"))}
+                      >
+                        <button
+                          type="button"
+                          className="inline-flex items-center gap-1"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            if (!activeDiscovery?.id || !currentUser?.email) return;
+                            toggleScanLikeMutation.mutate({
+                              discoveryId: activeDiscovery.id,
+                              nextLiked: !activeLikedByUser,
+                            });
+                          }}
+                          aria-label={activeLikedByUser ? "Like entfernen" : "Scan liken"}
+                          disabled={toggleScanLikeMutation.isPending || !currentUser?.email}
+                        >
+                          <Heart className={"w-3 h-3 " + (activeLikedByUser ? "fill-current" : "")} />
+                        </button>
+                        <span>{activeLikeCount || 0}</span>
+                      </div>
+                    ) : null}
                   />
                   <div className="flex items-center justify-between gap-2 w-full">
-                    <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                    <div className="flex items-center gap-1 min-w-0 flex-1">
                       {Array.isArray(plant.friendActors) && plant.friendActors.length > 0 && (
+                        <>
+                        {variants.length > 1 && (
+                          <button
+                            type="button"
+                            title="Vorherigen Spieler anzeigen"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              cyclePlantVariant({ plant, direction: "right", updateExpanded: false });
+                            }}
+                            onMouseDown={(event) => event.stopPropagation()}
+                            onTouchStart={(event) => event.stopPropagation()}
+                            className={"shrink-0 flex h-4 w-4 items-center justify-center rounded-full " + (isLightUi ? "text-stone-500 hover:text-stone-800" : "text-stone-400 hover:text-stone-100")}
+                          >
+                            <ChevronLeft className="h-3.5 w-3.5" />
+                          </button>
+                        )}
                         <div
-                          className="flex items-center gap-1 min-w-0 overflow-x-auto pr-1 justify-start"
+                          className="flex items-center gap-1 min-w-0 flex-1 overflow-x-auto pr-1 justify-start scrollbar-hide"
                           title="Spieler mit Scan dieser Pflanze"
                           onClick={(event) => event.stopPropagation()}
                           onMouseDown={(event) => event.stopPropagation()}
@@ -1385,6 +1436,13 @@ export default function GenusDetail() {
                                 <TooltipTrigger asChild>
                                   <button
                                     type="button"
+                                    ref={(el) => {
+                                      if (isActiveVariantActor) {
+                                        activeFriendActorButtonRef.current[plant.id] = el;
+                                      } else if (activeFriendActorButtonRef.current[plant.id] === el) {
+                                        delete activeFriendActorButtonRef.current[plant.id];
+                                      }
+                                    }}
                                     className={`${isActiveVariantActor ? "w-7 h-7 ring-2 ring-emerald-400/70 border-white/60" : "w-5 h-5 border-white/20"} rounded-full overflow-hidden bg-black/35 border shrink-0 transition-all duration-200`}
                                     title={actor.name || actor.email || "Spieler"}
                                     onClick={(event) => {
@@ -1428,42 +1486,24 @@ export default function GenusDetail() {
                             );
                           })}
                         </div>
-                      )}
-                    </div>
-                      {activeDiscovery && (
-                        <div
-                          className={"inline-flex h-5 items-center gap-1 rounded-full border px-1.5 text-[10px] shrink-0 " + (activeLikeCount > 0
-                            ? (activeLikedByUser
-                              ? (isLightUi ? "border-rose-300 bg-rose-50 text-rose-600" : "border-rose-400/60 bg-rose-400/15 text-rose-200")
-                              : (isLightUi ? "border-rose-200 bg-white/90 text-rose-500" : "border-rose-300/45 bg-black/60 text-rose-200"))
-                            : (isLightUi ? "border-stone-300 bg-white/90 text-stone-400" : "border-stone-500/70 bg-black/60 text-stone-300"))}
-                          onClick={(event) => event.stopPropagation()}
-                          onMouseDown={(event) => event.stopPropagation()}
-                          onTouchStart={(event) => event.stopPropagation()}
-                          onTouchEnd={(event) => event.stopPropagation()}
-                        >
+                        {variants.length > 1 && (
                           <button
                             type="button"
-                            className="inline-flex items-center gap-1"
+                            title="Nächsten Spieler anzeigen"
                             onClick={(event) => {
                               event.stopPropagation();
-                              if (!activeDiscovery?.id || !currentUser?.email) return;
-                              toggleScanLikeMutation.mutate({
-                                discoveryId: activeDiscovery.id,
-                                nextLiked: !activeLikedByUser,
-                              });
+                              cyclePlantVariant({ plant, direction: "left", updateExpanded: false });
                             }}
                             onMouseDown={(event) => event.stopPropagation()}
                             onTouchStart={(event) => event.stopPropagation()}
-                            onTouchEnd={(event) => event.stopPropagation()}
-                            aria-label={activeLikedByUser ? "Like entfernen" : "Scan liken"}
-                            disabled={toggleScanLikeMutation.isPending || !currentUser?.email}
+                            className={"shrink-0 flex h-4 w-4 items-center justify-center rounded-full " + (isLightUi ? "text-stone-500 hover:text-stone-800" : "text-stone-400 hover:text-stone-100")}
                           >
-                            <Heart className={"w-3 h-3 " + (activeLikedByUser ? "fill-current" : "")} />
+                            <ChevronRight className="h-3.5 w-3.5" />
                           </button>
-                          <span>{activeLikeCount || 0}</span>
-                        </div>
+                        )}
+                        </>
                       )}
+                    </div>
                   </div>
                 </div>
               </CardContent>
@@ -1668,6 +1708,8 @@ export default function GenusDetail() {
                   compact={false}
                   disableThreatEffects={true}
                   showNarrative={true}
+                  genusId={genus.id}
+                  currentUserId={currentUser?.id || currentUser?.auth_id || null}
                   topRight={
                     <Button
                       onClick={() => speakPlantDescription(expandedPlantData)}

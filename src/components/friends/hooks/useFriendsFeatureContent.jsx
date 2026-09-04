@@ -29,8 +29,27 @@ import { resolveEquippedLogoAssetsWithCatalog } from "@/lib/logoAccessoryAssets"
 import { resolveTitleValue } from "@/lib/profileCustomizationOptions";
 import CustomLogoAvatar from "@/components/profile/CustomLogoAvatar";
 import HomeShellBorderGlow from "@/components/effects/HomeShellBorderGlow";
+import GoldGradientCard from "@/components/home/GoldGradientCard";
 import { getRgbaFromRgb } from "@/lib/friendColorUtils";
 import { getCurrentWeeklyQuest } from "@/components/quests/QuestRotationHelper";
+
+// Sticky pill-tabs header: gold-gradient-bordered glass card when embedded, plain white bar as standalone page header.
+function TabsHeaderContainer({ embedded, className, children }) {
+  if (!embedded) {
+    return <div className={className}>{children}</div>;
+  }
+  return (
+    <GoldGradientCard
+      as="div"
+      className={className}
+      blur
+      borderClassName="gold-gradient-border-mask-thin"
+      shadow={false}
+    >
+      {children}
+    </GoldGradientCard>
+  );
+}
 
 const getAverageColor = (imageUrl) => {
   return new Promise((resolve) => {
@@ -1501,7 +1520,7 @@ Viel Spaß beim Entdecken! 🌿`;
   const pendingRequestsCount = pendingRequests.length;
 
   const tabsHeaderClass = embedded
-    ? `sticky top-0 z-40 backdrop-blur-sm border-b ${isLightUi ? "bg-white/70 border-[#b99a48]/30" : "bg-black/20 border-[#f0e5a5]/20"}`
+    ? "sticky top-0 z-40"
     : "fixed top-0 left-0 right-0 z-50 bg-white shadow-sm border-b border-stone-200";
 
   const friendsContentClass = embedded ? "mt-0 px-2 pb-20 flex-1 min-h-0 overflow-y-auto overflow-x-hidden" : "pt-36 px-2 pb-4";
@@ -1713,7 +1732,7 @@ Viel Spaß beim Entdecken! 🌿`;
       <div className={`${embedded ? "w-full h-full min-h-0 flex flex-col" : "max-w-4xl mx-auto"} w-full`}>
         <Tabs value={activeTab} onValueChange={setActiveTab} className={embedded ? "w-full h-full min-h-0 flex flex-col" : "w-full"}>
           {/* Tabs Header - Fixed am oberen Bildschirmrand */}
-          <div className={`${tabsHeaderClass} ${embedded ? "shrink-0" : ""}`}>
+          <TabsHeaderContainer embedded={embedded} className={`${tabsHeaderClass} ${embedded ? "shrink-0" : ""}`}>
             <div className="max-w-4xl mx-auto">
               {!embedded && (
                 <div className="px-4 pt-3 pb-2 flex items-center justify-between gap-3">
@@ -1775,7 +1794,7 @@ Viel Spaß beim Entdecken! 🌿`;
                 </div>
               </div>
             </div>
-          </div>
+          </TabsHeaderContainer>
 
           {/* Explorer Tab Content */}
           <TabsContent
