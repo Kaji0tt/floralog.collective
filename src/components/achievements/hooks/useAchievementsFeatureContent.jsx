@@ -35,7 +35,11 @@ import { supabase } from "@/api/supabaseClient";
 import { resolveEquippedLogoAssetsWithCatalog } from "@/lib/logoAccessoryAssets";
 import { hexToFilter } from "@/lib/hexToFilter";
 import CustomLogoAvatar from "@/components/profile/CustomLogoAvatar";
-import { getActiveSeason } from "@/lib/seasonConfig";
+import { getAllLeaderboardSeasons, getSeasonById, getActiveSeason } from "@/lib/seasonConfig";
+import LeaderboardControlsBar from "@/components/achievements/LeaderboardControlsBar";
+import LeaderboardPodium from "@/components/achievements/LeaderboardPodium";
+import LeaderboardUserCard from "@/components/achievements/LeaderboardUserCard";
+import LeaderboardTable from "@/components/achievements/LeaderboardTable";
 import GoldGradientCard from "@/components/home/GoldGradientCard";
 
 /** @type {{ regular: number, weekly: number, monthly: number }} */
@@ -230,11 +234,10 @@ export function useAchievementsFeatureContent({
   const [statsSection, setStatsSection] = useState("global");
   const [globalSubSection, setGlobalSubSection] = useState("scans");
   // Layered navigation: "leaderboard", "quests" (persistent pill header switches between them)
-  const [achievementsView, setAchievementsView] = useState(() => {
-    const tab = resolveAchievementsTab(String(initialTab || "").toLowerCase());
-    if (tab === "quests") return "quests";
-    return "leaderboard";
-  });
+  const [achievementsView, setAchievementsView] = useState(() => (
+    // resolveAchievementsTab() falls back to "quests" for an empty/unknown tab, so compare the raw value directly.
+    String(initialTab || "").toLowerCase() === "quests" ? "quests" : "leaderboard"
+  ));
   const _prevAchievementsViewRef = useRef(achievementsView);
   useEffect(() => {
     if (achievementsView !== _prevAchievementsViewRef.current) {
@@ -246,21 +249,20 @@ export function useAchievementsFeatureContent({
   const [isLeaderboardRefreshing, setIsLeaderboardRefreshing] = useState(
     () => resolveAchievementsTab(requestedTab) === "stats"
   );
+  const [isLeaderboardTableOpen, setIsLeaderboardTableOpen] = useState(false);
+  const allLeaderboardSeasons = useMemo(() => getAllLeaderboardSeasons(), []);
   const activeSeason = getActiveSeason();
-  const seasonStartDate = activeSeason?.startDate || null;
-  const hasActiveSeason = Boolean(seasonStartDate);
-  const [statsComparisonScope, setStatsComparisonScope] = useState(() => (hasActiveSeason ? "season" : "alltime"));
+  const [selectedSeasonId, setSelectedSeasonId] = useState(() => activeSeason?.id || "sommer-2026");
+  const selectedSeason = useMemo(
+    () => getSeasonById(selectedSeasonId) || activeSeason || allLeaderboardSeasons[0],
+    [selectedSeasonId, activeSeason, allLeaderboardSeasons]
+  );
+  const seasonStartDate = selectedSeason?.startDate || null;
+  const statsComparisonScope = selectedSeason?.id === "alltime" ? "alltime" : "season";
   const comparisonFromDate = statsComparisonScope === "season" ? seasonStartDate : null;
-  const comparisonRangeLabel = statsComparisonScope === "season"
-    ? (activeSeason?.title || "Saison")
-    : "All-Time";
+  const comparisonRangeLabel = selectedSeason?.title || "Saison";
   const comparisonDateFloor = comparisonFromDate ? new Date(`${comparisonFromDate}T00:00:00`) : null;
-
-  useEffect(() => {
-    if (!hasActiveSeason && statsComparisonScope !== "alltime") {
-      setStatsComparisonScope("alltime");
-    }
-  }, [hasActiveSeason, statsComparisonScope]);
+  const [leaderboardMetric, setLeaderboardMetric] = useState("seeds"); // "seeds" | "highest_scan"
 
   useEffect(() => {
     const nextTab = resolveAchievementsTab(requestedTab);
@@ -661,6 +663,30 @@ export function useAchievementsFeatureContent({
       return logosByEmail;
     }, [allProfiles, logoAssets]);
 
+    const leaderboardLogosByAuthId = useMemo(() => {
+      const logosByAuthId = new Map();
+      (allProfiles || []).forEach((profile) => {
+        const authId = profile.auth_id;
+        if (authId) {
+          const equippedLogos = resolveEquippedLogoAssetsWithCatalog(profile, logoAssets);
+          logosByAuthId.set(authId, equippedLogos);
+        }
+      });
+      return logosByAuthId;
+    }, [allProfiles, logoAssets]);
+
+    const weeklyGrowthMap = useMemo(() => {
+      const map = new Map();
+      (weeklySeedLeaderboard || []).forEach((row) => {
+        const email = String(row?.user_email || "").trim().toLowerCase();
+        const authId = row?.auth_id || null;
+        const total = Math.max(0, Number(row?.weekly_seed_total ?? 0));
+        if (email) map.set(email, total);
+        if (authId) map.set(authId, total);
+      });
+      return map;
+    }, [weeklySeedLeaderboard]);
+
   // Beim Oeffnen der Statistik-Bestenliste immer harte Aktualisierung ausfuehren.
   useEffect(() => {
     if (achievementsView !== "leaderboard") return;
@@ -697,6 +723,7 @@ export function useAchievementsFeatureContent({
     };
   }, [
     achievementsView,
+    selectedSeasonId,
     refetchAllDiscoveries,
     refetchAllProfiles,
     refetchAllRobotPlants,
@@ -1109,7 +1136,7 @@ export function useAchievementsFeatureContent({
   useEffect(() => {
     if (!embedded || typeof onHeaderMetaChange !== "function") return;
     const titleMap = {
-      leaderboard: statsComparisonScope === "season" ? `Rangliste · ${activeSeason?.title || "Saison"}` : "Rangliste · All-Time",
+      leaderboard: `Rangliste · ${selectedSeason?.title || "Saison"}`,
       quests: "Aufgaben",
     };
     onHeaderMetaChange({
@@ -1121,17 +1148,8 @@ export function useAchievementsFeatureContent({
     embedded,
     onHeaderMetaChange,
     achievementsView,
-    statsComparisonScope,
-    activeSeason,
+    selectedSeason,
   ]);
-
-  if (!user) {
-    return (
-      <div className={embedded ? "flex h-full min-h-0 items-center justify-center bg-transparent" : "flex items-center justify-center min-h-screen bg-gradient-to-br from-stone-50 to-green-50"}>
-        <Leaf className={`w-12 h-12 animate-spin ${embedded ? (isLightUi ? "text-emerald-700" : "text-[#f0e5a5]") : "text-green-600"}`} />
-      </div>);
-
-  }
 
   const getRarityColor = (rarity) => {
     switch (rarity) {
@@ -1936,6 +1954,88 @@ export function useAchievementsFeatureContent({
   const ownWeeklySeedRank = progressSeedRanking.findIndex((entry) => entry.isOwn) + 1;
   const ownWeeklySeedEntry = ownWeeklySeedRank > 0 ? progressSeedRanking[ownWeeklySeedRank - 1] : null;
 
+  // ── Unified Leaderboard Ranking (for new UI) ──
+  const activeLeaderboardRanking = useMemo(() => {
+    if (leaderboardMetric === "seeds") {
+      const raw = statsComparisonScope === "season" ? seasonSeedRanking : alltimeSeedRanking;
+      return (raw || [])
+        .map((entry, idx) => {
+          const email = String(entry.email || "").toLowerCase();
+          const authId = entry.authId || null;
+          const profile = email ? profileByEmail.get(email) : (authId ? profileByAuthId.get(authId) : null);
+          const botName = profile?.bot_name ? String(profile.bot_name).trim() : null;
+          const logo = (email && leaderboardLogosByEmail.get(email)) || (authId && leaderboardLogosByAuthId.get(authId)) || null;
+          const growth7d = (authId && weeklyGrowthMap.get(authId)) ?? (email && weeklyGrowthMap.get(email)) ?? 0;
+          const isOwn = Boolean(entry.isOwn || (ownAuthId && authId === ownAuthId) || (ownEmailLower && email === ownEmailLower));
+
+          return {
+            rank: idx + 1,
+            authId,
+            email,
+            name: entry.name || profile?.display_name || profile?.full_name || email || "Unbekannt",
+            botName,
+            score: Number(entry.seeds ?? 0),
+            growth7d,
+            isOwn,
+            logoAssets: logo,
+          };
+        })
+        .sort((a, b) => b.score - a.score)
+        .map((entry, idx) => ({ ...entry, rank: idx + 1 }));
+    } else {
+      // metric === "highest_scan"
+      return (highestScanResultsRanking || [])
+        .map((entry, idx) => {
+          const email = String(entry.email || "").toLowerCase();
+          const authId = entry.authId || null;
+          const profile = email ? profileByEmail.get(email) : (authId ? profileByAuthId.get(authId) : null);
+          const botName = profile?.bot_name ? String(profile.bot_name).trim() : null;
+          const logo = (email && leaderboardLogosByEmail.get(email)) || (authId && leaderboardLogosByAuthId.get(authId)) || null;
+          const growth7d = (authId && weeklyGrowthMap.get(authId)) ?? (email && weeklyGrowthMap.get(email)) ?? 0;
+          const isOwn = Boolean(entry.isOwn || (ownAuthId && authId === ownAuthId) || (ownEmailLower && email === ownEmailLower));
+          const plantLabel = entry.plantCommonName || entry.plantSpeciesName || null;
+
+          return {
+            rank: idx + 1,
+            authId,
+            email,
+            name: entry.name || profile?.display_name || profile?.full_name || email || "Unbekannt",
+            botName,
+            score: Number(entry.rewardAmount ?? 0),
+            growth7d,
+            detail: plantLabel,
+            isOwn,
+            logoAssets: logo,
+          };
+        })
+        .sort((a, b) => b.score - a.score)
+        .map((entry, idx) => ({ ...entry, rank: idx + 1 }));
+    }
+  }, [
+    leaderboardMetric,
+    statsComparisonScope,
+    seasonSeedRanking,
+    alltimeSeedRanking,
+    highestScanResultsRanking,
+    profileByEmail,
+    profileByAuthId,
+    leaderboardLogosByEmail,
+    leaderboardLogosByAuthId,
+    weeklyGrowthMap,
+    ownAuthId,
+    ownEmailLower,
+  ]);
+
+  const ownRankingIndex = activeLeaderboardRanking.findIndex((e) => e.isOwn);
+  const ownRankingEntry = ownRankingIndex >= 0 ? activeLeaderboardRanking[ownRankingIndex] : null;
+  const ownCurrentRank = ownRankingIndex >= 0 ? ownRankingIndex + 1 : (leaderboardMetric === "seeds" ? ownSeedRank : ownHighestScanResultRank);
+  const ownCurrentScore = ownRankingEntry ? ownRankingEntry.score : (leaderboardMetric === "seeds" ? ownSeeds : (ownHighestScanResultEntry?.rewardAmount ?? 0));
+  const nextOpponent = ownRankingIndex > 0 ? activeLeaderboardRanking[ownRankingIndex - 1] : null;
+  const podiumEntries = activeLeaderboardRanking.slice(0, 3);
+  const tableEntries = activeLeaderboardRanking.length > 3 ? activeLeaderboardRanking.slice(3) : [];
+  const maxRankingScore = activeLeaderboardRanking[0]?.score || 1;
+  const userLogoAssets = useMemo(() => resolveEquippedLogoAssetsWithCatalog(user, logoAssets), [user, logoAssets]);
+
   const navigateToPublicProfile = (email) => {
     const emailValue = String(email || "").trim();
     if (!emailValue) return;
@@ -1965,9 +2065,11 @@ export function useAchievementsFeatureContent({
 
   const tabsHeaderClass = embedded ? "sticky top-0 z-40 shrink-0" : "sticky top-0 z-40";
 
-  const achievementsContentClass = embedded ? "mt-0 pb-20 flex-1 min-h-0 overflow-y-auto" : "pt-36 px-4 pb-4";
-  const statsContentClass = embedded ? "mt-0 pb-20 flex-1 min-h-0 overflow-y-auto" : "pt-36 px-4 pb-4";
-  const questsContentClass = embedded ? "mt-0 pb-20 flex-1 min-h-0 overflow-y-auto overflow-x-hidden" : "pt-44 px-4 pb-4 overflow-x-hidden";
+  const achievementsContentClass = embedded ? "mt-0 pb-32 flex-1 min-h-0 overflow-y-auto" : "pt-36 px-4 pb-12";
+  const statsContentClass = embedded
+    ? `mt-0 ${isLeaderboardTableOpen ? "pb-32" : "pb-0"} flex-1 min-h-0 overflow-y-auto`
+    : "pt-36 px-4 pb-12";
+  const questsContentClass = embedded ? "mt-0 pb-32 flex-1 min-h-0 overflow-y-auto overflow-x-hidden" : "pt-44 px-4 pb-12 overflow-x-hidden";
   const listTopFadePx = 12;
   const listBottomFadePx = 18;
   const embeddedContentMaskStyle = embedded ? {
@@ -2032,9 +2134,7 @@ export function useAchievementsFeatureContent({
   const leaderboardAvatarContainerClass = "w-7 h-7 flex-shrink-0 rounded-full overflow-hidden border border-stone-300/50";
   const leaderboardNameButtonClass = "p-0 m-0 min-w-0 border-0 bg-transparent text-left text-[15px] font-semibold truncate";
   const leaderboardNameTextClass = "min-w-0 text-[15px] font-semibold truncate";
-  const statsPanelClass = isLightUi
-    ? "w-full flex flex-col gap-4"
-    : "w-full flex flex-col gap-4 border border-[#f0e5a5]/20 bg-black/45 backdrop-blur-md p-1 sm:p-4";
+  const statsPanelClass = "w-full flex flex-col gap-3";
 
   // ── Leaderboard row renderer (shared across all leaderboard sub-sections) ──
   const renderLeaderboardRow = ({ entry, rank, isOwn, badge, sub, accentColor = "emerald", onRowClick, isExpanded, expandDetail }) => {
@@ -2108,6 +2208,14 @@ export function useAchievementsFeatureContent({
     );
   };
 
+  if (!user) {
+    return (
+      <div className={embedded ? "flex h-full min-h-0 items-center justify-center bg-transparent" : "flex items-center justify-center min-h-screen bg-gradient-to-br from-stone-50 to-green-50"}>
+        <Leaf className={`w-12 h-12 animate-spin ${embedded ? (isLightUi ? "text-emerald-700" : "text-[#f0e5a5]") : "text-green-600"}`} />
+      </div>
+    );
+  }
+
   return (
     <>
       {embedded && isLightUi === false && (
@@ -2168,7 +2276,7 @@ export function useAchievementsFeatureContent({
       <div
         data-embedded-module="achievements"
         data-theme={isLightUi ? "light" : "dark"}
-        className={embedded ? "h-full min-h-0 overflow-hidden" : "min-h-screen"}
+        className={embedded ? "flex-1 h-full min-h-0 overflow-hidden" : "min-h-screen"}
       >
         {!embedded && <MobileBackButton />}
       
@@ -2214,292 +2322,85 @@ export function useAchievementsFeatureContent({
         {/* ── RANGLISTE CONTENT ── */}
         {achievementsView === "leaderboard" && (
           <div className={statsContentClass} style={embeddedContentMaskStyle}>
-            <div className={statsPanelClass} style={embedded ? { paddingTop: listTopFadePx, paddingBottom: listBottomFadePx } : undefined}>
+            <div className={`${statsPanelClass} ${!isLeaderboardTableOpen ? "min-h-full" : ""}`} style={embedded ? { paddingTop: listTopFadePx, paddingBottom: listBottomFadePx } : undefined}>
 
-              {/* ── Saison / All-Time Umschalter ── */}
-              {hasActiveSeason && (
-                <div
-                  className={
-                    `inline-flex self-start rounded-full border p-1 ${isLightUi
-                      ? "border-[#d9c48a]/60 bg-[#f8f1dc]/85"
-                      : "border-[#f0e5a5]/30 bg-black/30"}`
-                  }
-                >
-                  {[
-                    { id: "season", label: activeSeason?.title || "Saison" },
-                    { id: "alltime", label: "All-Time" },
-                  ].map((option) => {
-                    const isSelected = statsComparisonScope === option.id;
-                    return (
+              {/* 1. & 2. Element: Kompakte Steuerung für Saison & Metrik (Shop-Designsprache) */}
+              <LeaderboardControlsBar
+                seasons={allLeaderboardSeasons}
+                selectedSeasonId={selectedSeasonId}
+                onSelectSeason={(seasonId) => {
+                  setSelectedSeasonId(seasonId);
+                  setIsLeaderboardRefreshing(true);
+                  setIsLeaderboardTableOpen(false);
+                }}
+                metric={leaderboardMetric}
+                onChangeMetric={(m) => {
+                  setLeaderboardMetric(m);
+                  setIsLeaderboardTableOpen(false);
+                }}
+                isLightUi={isLightUi}
+              />
+
+              {isLeaderboardRefreshing ? (
+                <div className={`flex items-center justify-center gap-2 rounded-2xl border px-3 py-12 ${isLightUi ? "border-stone-200 bg-stone-50" : "border-[#f0e5a5]/20 bg-black/20"}`}>
+                  <Loader2 className={`w-5 h-5 animate-spin ${statsBodyClass}`} />
+                  <span className={`text-sm ${statsBodyClass}`}>Rangliste wird geladen…</span>
+                </div>
+              ) : (
+                <div className={isLeaderboardTableOpen ? "space-y-4" : "min-h-full flex flex-col justify-between"}>
+                  {/* 3. Element: Siegertreppchen (Podest Ränge 1, 2, 3) */}
+                  <LeaderboardPodium
+                    topEntries={podiumEntries}
+                    metric={leaderboardMetric}
+                    onPlayerClick={navigateToPublicProfile}
+                    isLightUi={isLightUi}
+                    fillAvailable={!isLeaderboardTableOpen}
+                  />
+
+                  <div className={isLeaderboardTableOpen ? "space-y-3" : "mt-auto space-y-2 shrink-0"}>
+                    {/* 4. Element - User-Highlight & Nächster Gegner */}
+                    <LeaderboardUserCard
+                      ownRank={ownCurrentRank}
+                      totalPlayers={activeLeaderboardRanking.length}
+                      ownScore={ownCurrentScore}
+                      user={user}
+                      userLogoAssets={userLogoAssets}
+                      nextOpponent={nextOpponent}
+                      metric={leaderboardMetric}
+                      onOpponentClick={navigateToPublicProfile}
+                      isLightUi={isLightUi}
+                    />
+
+                    {tableEntries.length > 0 && (
+                      <div className="flex justify-center pt-0.5">
                       <button
-                        key={option.id}
                         type="button"
-                        onClick={() => { setStatsComparisonScope(option.id); setIsLeaderboardRefreshing(true); }}
-                        className={
-                          `rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${isSelected
-                            ? (isLightUi ? "bg-white text-[#8f6b22] shadow-sm" : "bg-black/55 text-[#f7f0c1] shadow-sm")
-                            : (isLightUi ? "text-stone-600" : "text-stone-300")}`
-                        }
+                        onClick={() => setIsLeaderboardTableOpen((isOpen) => !isOpen)}
+                        className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold transition-colors ${
+                          isLightUi
+                            ? "text-[#785918] hover:text-stone-900"
+                            : "text-[#f8efbe] hover:text-white [text-shadow:_0_2px_8px_rgba(0,0,0,0.8)]"
+                        }`}
+                        aria-expanded={isLeaderboardTableOpen}
                       >
-                        {option.label}
+                        <span>{isLeaderboardTableOpen ? "Weniger anzeigen" : "Mehr anzeigen"}</span>
+                        {isLeaderboardTableOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
                       </button>
-                    );
-                  })}
-                </div>
-              )}
-
-              {/* ── Section Navigation ── */}
-              {(() => {
-                const STATS_TABS = [
-                  { id: "global",  label: "Global",       icon: Globe,        palette: NAV_COLOR_ORDER[0] },
-                  { id: "weekly",  label: "Diese Woche",  icon: CalendarDays, palette: NAV_COLOR_ORDER[1] },
-                  { id: "me",      label: "Ich",          icon: User,         palette: NAV_COLOR_ORDER[2] },
-                ];
-                return (
-                  <div className="grid grid-cols-3 gap-2">
-                    {STATS_TABS.map(({ id, label, icon: Icon, palette }) => {
-                      const isActive = statsSection === id;
-                      const { gradientClass, shadowStyle } = getNavButtonStyle({ palette, isLightUi, isActive });
-                      return (
-                        <button
-                          key={id}
-                          type="button"
-                          onClick={() => setStatsSection(id)}
-                          className={`relative rounded-2xl border border-[#f0e5a5]/45 ${gradientClass} hover:brightness-105 active:translate-y-px transition-all flex flex-col items-center justify-center gap-1 backdrop-blur-[2px] ${isActive ? "" : "opacity-65"}`}
-                          style={{ boxShadow: shadowStyle, height: "2.9rem" }}
-                          aria-pressed={isActive}
-                        >
-                          <Icon className="text-white" style={{ width: "1.1rem", height: "1.1rem" }} />
-                          <span className="text-white font-semibold" style={{ fontSize: "0.65rem", lineHeight: 1 }}>{label}</span>
-                        </button>
-                      );
-                    })}
+                      </div>
+                    )}
                   </div>
-                );
-              })()}
 
-              {/* ══════════════════════════════════════════
-                  GLOBAL LEADERBOARDS
-              ══════════════════════════════════════════ */}
-              {statsSection === "global" && (
-              <section className="space-y-3">
-
-                {/* Global Sub-Navigation */}
-                <div className="flex gap-2 overflow-x-auto" style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}>
-                  {[
-                    { id: "scans", icon: <ScanSearch className="w-3.5 h-3.5 flex-shrink-0" />, label: "Scans" },
-                    { id: "seeds", icon: <span className="leading-none">🌱</span>, label: "Samen" },
-                    { id: "best", icon: <Trophy className="w-3.5 h-3.5 flex-shrink-0" />, label: "Bestes Ergebnis" },
-                  ].map(({ id, icon, label }) => (
-                    <button
-                      key={id}
-                      type="button"
-                      onClick={() => setGlobalSubSection(id)}
-                      className={`flex-shrink-0 flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all border ${
-                        globalSubSection === id
-                          ? isLightUi ? "bg-stone-800 text-white border-stone-800" : "bg-stone-100/15 text-stone-50 border-stone-100/30"
-                          : isLightUi ? "bg-white text-stone-500 border-stone-200" : "bg-black/25 text-stone-400 border-[#f0e5a5]/15"
-                      }`}
-                    >
-                      {icon}<span>{label}</span>
-                    </button>
-                  ))}
-                </div>
-
-                {isLeaderboardRefreshing ? (
-                  <div className={`flex items-center justify-center gap-2 rounded-xl border px-3 py-8 ${isLightUi ? "border-stone-200 bg-stone-50" : "border-[#f0e5a5]/20 bg-black/20"}`}>
-                    <Loader2 className={`w-4 h-4 animate-spin ${statsBodyClass}`} />
-                    <span className={`text-sm ${statsBodyClass}`}>Bestenliste wird aktualisiert…</span>
-                  </div>
-                ) : (
-                  <>
-                    {/* SCANS sub-section */}
-                    {globalSubSection === "scans" && (() => {
-                      const ranking = effectiveGlobalScanRanking;
-                      const top10 = ranking.slice(0, 10);
-                      const ownInTop = top10.some((e) => e.email === ownEmailLower);
-                      const ownEntry = !ownInTop && ownGlobalScanRank > 0 ? ranking[ownGlobalScanRank - 1] : null;
-                      return (
-                        <div className="space-y-1">
-                          <p className={`text-[11px] uppercase tracking-wide font-medium mb-1.5 ${statsLabelClass}`}>
-                            Scan-Bestenliste ({comparisonRangeLabel}) — Dein Rang: {ownGlobalScanRank > 0 ? `#${ownGlobalScanRank} / ${ranking.length}` : "–"}
-                          </p>
-                          {ranking.length === 0 && <p className={`text-sm ${statsBodyClass}`}>Noch keine Daten.</p>}
-                          {top10.map((entry, i) => renderLeaderboardRow({ entry, rank: i + 1, isOwn: entry.email === ownEmailLower, badge: `${entry.scans}×`, accentColor: "indigo" }))}
-                          {ownEntry && (<><p className={`text-xs text-center my-0.5 ${statsBodyClass}`}>…</p>{renderLeaderboardRow({ entry: ownEntry, rank: ownGlobalScanRank, isOwn: true, badge: `${ownEntry.scans}×`, accentColor: "indigo" })}</>)}
-                        </div>
-                      );
-                    })()}
-
-                    {/* SEEDS sub-section */}
-                    {globalSubSection === "seeds" && (() => {
-                      const ranking = globalSeedRanking;
-                      const top10 = ranking.slice(0, 10);
-                      const ownInTop = top10.some((e) => e.isOwn);
-                      const ownEntry = !ownInTop && ownSeedRank > 0 ? ranking[ownSeedRank - 1] : null;
-                      return (
-                        <div className="space-y-1">
-                          <p className={`text-[11px] uppercase tracking-wide font-medium mb-1.5 ${statsLabelClass}`}>
-                            Samen-Bestenliste ({comparisonRangeLabel}) — Dein Rang: {ownSeedRank > 0 ? `#${ownSeedRank} / ${ranking.length}` : "–"}
-                          </p>
-                          {ranking.length === 0 && <p className={`text-sm ${statsBodyClass}`}>Noch keine Daten.</p>}
-                          {top10.map((entry, i) => renderLeaderboardRow({ entry, rank: i + 1, isOwn: entry.isOwn, badge: `${entry.seeds.toLocaleString()} 🌱`, accentColor: "amber" }))}
-                          {ownEntry && (<><p className={`text-xs text-center my-0.5 ${statsBodyClass}`}>…</p>{renderLeaderboardRow({ entry: ownEntry, rank: ownSeedRank, isOwn: true, badge: `${ownEntry.seeds.toLocaleString()} 🌱`, accentColor: "amber" })}</>)}
-                        </div>
-                      );
-                    })()}
-
-                    {/* BEST sub-section */}
-                    {globalSubSection === "best" && (() => {
-                      const ranking = highestScanResultsRanking;
-                      const top10 = ranking.slice(0, 10);
-                      const ownInTop = top10.some((e) => e.email === ownEmailLower);
-                      const ownEntry = !ownInTop && ownHighestScanResultRank > 0 ? ranking[ownHighestScanResultRank - 1] : null;
-                      const makeExpandDetail = (entry) => {
-                        const chips = getMultiplierChips(entry);
-                        return (
-                          <>
-                            <div className={`font-semibold ${statsTitleClass}`}>
-                              Pflanze: {entry.plantSpeciesName || "Unbekannte Pflanze"}{entry.plantCommonName ? ` (${entry.plantCommonName})` : ""}
-                            </div>
-                            <div className={`mt-0.5 ${statsBodyClass}`}>
-                              Status: {resolveScanStatusLabel(entry.scanStatus)}{entry.formattedAwardedAt ? ` · ${entry.formattedAwardedAt}` : ""}
-                            </div>
-                            {chips.length > 0 && (
-                              <div className="mt-1.5 flex flex-wrap gap-1">
-                                {chips.map((chip) => (
-                                  <Badge key={chip} className={isLightUi ? "bg-fuchsia-100 text-fuchsia-800 text-[10px]" : "bg-fuchsia-500/20 text-fuchsia-100 border border-fuchsia-300/40 text-[10px]"}>{chip}</Badge>
-                                ))}
-                              </div>
-                            )}
-                          </>
-                        );
-                      };
-                      return (
-                        <div className="space-y-1">
-                          <p className={`text-[11px] uppercase tracking-wide font-medium mb-1.5 ${statsLabelClass}`}>
-                            Höchste Scan-Ergebnisse ({comparisonRangeLabel}) — Dein Rang: {ownHighestScanResultRank > 0 ? `#${ownHighestScanResultRank} / ${ranking.length}` : "–"}
-                          </p>
-                          {ranking.length === 0 && <p className={`text-sm ${statsBodyClass}`}>Noch keine Daten.</p>}
-                          {top10.map((entry, i) => renderLeaderboardRow({
-                            entry, rank: i + 1, isOwn: entry.email === ownEmailLower,
-                            badge: entry.rewardAmount.toLocaleString(),
-                            sub: [resolveScanEventLabel(entry.eventSource), entry.formattedAwardedAt].filter(Boolean).join(" · "),
-                            accentColor: "fuchsia",
-                            onRowClick: () => setExpandedHighestScanEntryKey((prev) => prev === entry.detailKey ? null : entry.detailKey),
-                            isExpanded: expandedHighestScanEntryKey === entry.detailKey,
-                            expandDetail: makeExpandDetail(entry),
-                          }))}
-                          {ownEntry && (<><p className={`text-xs text-center my-0.5 ${statsBodyClass}`}>…</p>{renderLeaderboardRow({
-                            entry: ownEntry, rank: ownHighestScanResultRank, isOwn: true,
-                            badge: ownEntry.rewardAmount.toLocaleString(),
-                            sub: [resolveScanEventLabel(ownEntry.eventSource), ownEntry.formattedAwardedAt].filter(Boolean).join(" · "),
-                            accentColor: "fuchsia",
-                            onRowClick: () => setExpandedHighestScanEntryKey((prev) => prev === ownEntry.detailKey ? null : ownEntry.detailKey),
-                            isExpanded: expandedHighestScanEntryKey === ownEntry.detailKey,
-                            expandDetail: makeExpandDetail(ownEntry),
-                          })}</>)}
-                        </div>
-                      );
-                    })()}
-
-                    {/* Taxonomy highlights strip */}
-                    <div className="grid grid-cols-2 gap-2 pt-1">
-                      {[
-                        { label: "Global häufigster Scan", value: globalTopSpeciesName || "—", sub: globalTopSpeciesCount > 0 ? `${globalTopSpeciesCount}× global` : "", color: isLightUi ? "text-blue-700" : "text-blue-300" },
-                        { label: "Top Genus global", value: globalTopGenusName || "—", sub: globalTopGenusCount > 0 ? `${globalTopGenusCount}× global` : "", color: isLightUi ? "text-purple-700" : "text-purple-300" },
-                      ].map(({ label, value, sub, color }) => (
-                        <div key={label} className={`rounded-xl border p-3 ${isLightUi ? "bg-white border-stone-200" : "bg-black/30 border-[#f0e5a5]/18"}`}>
-                          <p className={`text-[10px] uppercase tracking-wide font-medium ${statsLabelClass}`}>{label}</p>
-                          <p className={`text-sm font-bold mt-0.5 truncate ${color}`}>{value}</p>
-                          {sub && <p className={`text-[10px] mt-0.5 ${statsBodyClass}`}>{sub}</p>}
-                        </div>
-                      ))}
-                    </div>
-                  </>
-                )}
-              </section>
-              )}
-
-              {/* ══════════════════════════════════════════
-                  WEEKLY LEADERBOARD
-              ══════════════════════════════════════════ */}
-              {statsSection === "weekly" && (
-              <section className="space-y-3">
-                <div className={`rounded-xl border px-3 py-2.5 ${isLightUi ? "border-lime-200 bg-lime-50" : "border-lime-300/30 bg-lime-500/8"}`}>
-                  <p className={`text-[11px] ${isLightUi ? "text-lime-700" : "text-lime-300"}`}>Dein Rang (Mo–So)</p>
-                  <p className={`text-xl font-bold ${isLightUi ? "text-lime-900" : "text-lime-100"}`}>
-                    {ownWeeklySeedRank > 0 ? `#${ownWeeklySeedRank} von ${progressSeedRanking.length}` : "Noch kein Rang"}
-                  </p>
-                  {ownWeeklySeedEntry && (
-                    <p className={`text-xs mt-0.5 ${isLightUi ? "text-lime-700" : "text-lime-300"}`}>
-                      +{ownWeeklySeedEntry.seeds.toLocaleString()} Samen diese Woche
-                    </p>
+                  {isLeaderboardTableOpen && (
+                    <LeaderboardTable
+                      entries={tableEntries}
+                      ownScore={ownCurrentScore}
+                      maxScore={maxRankingScore}
+                      metric={leaderboardMetric}
+                      onPlayerClick={navigateToPublicProfile}
+                      isLightUi={isLightUi}
+                    />
                   )}
                 </div>
-                <div className="space-y-1">
-                  <p className={`text-[11px] uppercase tracking-wide font-medium mb-1.5 ${statsLabelClass}`}>Meiste Samen (diese Woche)</p>
-                  {isLeaderboardRefreshing ? (
-                    <div className={`flex items-center justify-center gap-2 rounded-xl border px-3 py-8 ${isLightUi ? "border-stone-200 bg-stone-50" : "border-[#f0e5a5]/20 bg-black/20"}`}>
-                      <Loader2 className={`w-4 h-4 animate-spin ${statsBodyClass}`} />
-                      <span className={`text-sm ${statsBodyClass}`}>Wird geladen…</span>
-                    </div>
-                  ) : (() => {
-                    const ranking = progressSeedRanking;
-                    const top10 = ranking.slice(0, 10);
-                    const ownInTop = top10.some((e) => e.isOwn);
-                    const ownEntry = !ownInTop && ownWeeklySeedRank > 0 ? ranking[ownWeeklySeedRank - 1] : null;
-                    return (
-                      <>
-                        {ranking.length === 0 && <p className={`text-sm ${statsBodyClass}`}>Diese Woche noch keine Daten.</p>}
-                        {top10.map((entry, i) => renderLeaderboardRow({ entry, rank: i + 1, isOwn: entry.isOwn, badge: `+${entry.seeds.toLocaleString()} 🌱`, accentColor: "lime" }))}
-                        {ownEntry && (<><p className={`text-xs text-center my-0.5 ${statsBodyClass}`}>…</p>{renderLeaderboardRow({ entry: ownEntry, rank: ownWeeklySeedRank, isOwn: true, badge: `+${ownEntry.seeds.toLocaleString()} 🌱`, accentColor: "lime" })}</>)}
-                      </>
-                    );
-                  })()}
-                </div>
-              </section>
-              )}
-
-              {/* ══════════════════════════════════════════
-                  PERSONAL STATS
-              ══════════════════════════════════════════ */}
-              {statsSection === "me" && (
-              <section className="space-y-3">
-                {/* Stat grid */}
-                <div className="grid grid-cols-2 gap-2">
-                  {[
-                    { label: statsComparisonScope === "season" ? "Scans (Saison)" : "Scans gesamt", value: String(totalScans), sub: `${activeDaysSet.size} aktive Tage`, color: isLightUi ? "text-emerald-700" : "text-emerald-300", big: true },
-                    { label: statsComparisonScope === "season" ? "Saison-Trend" : "Monats-Trend", value: String(currentMonthScans), sub: `${monthTrendDelta >= 0 ? "+" : ""}${monthTrendDelta} vs. Vormonat`, color: monthTrendDelta >= 0 ? (isLightUi ? "text-emerald-700" : "text-emerald-300") : (isLightUi ? "text-rose-700" : "text-rose-300"), big: true },
-                    { label: "Häufigster Scan", value: topSpeciesEntry?.[0] || "—", sub: topSpeciesEntry ? `${topSpeciesEntry[1]}× gescannt` : "", color: isLightUi ? "text-blue-700" : "text-blue-300", big: false },
-                    { label: "Top Genus", value: topGenusEntry?.[0] || "—", sub: topGenusEntry ? `${topGenusEntry[1]}× gescannt` : "", color: isLightUi ? "text-purple-700" : "text-purple-300", big: false },
-                  ].map(({ label, value, sub, color, big }) => (
-                    <div key={label} className={`rounded-xl border p-3 ${isLightUi ? "bg-white border-stone-200" : "bg-black/30 border-[#f0e5a5]/18"}`}>
-                      <p className={`text-[10px] uppercase tracking-wide font-medium ${statsLabelClass}`}>{label}</p>
-                      <p className={`${big ? "text-2xl" : "text-sm"} font-bold mt-0.5 truncate ${color}`}>{value}</p>
-                      {sub && <p className={`text-[10px] mt-0.5 ${statsBodyClass}`}>{sub}</p>}
-                    </div>
-                  ))}
-                </div>
-
-                {/* Own rankings summary */}
-                <div className={`rounded-xl border p-3 space-y-2.5 ${isLightUi ? "bg-white border-stone-200" : "bg-black/30 border-[#f0e5a5]/18"}`}>
-                  <p className={`text-[11px] uppercase tracking-wide font-medium ${statsLabelClass}`}>Deine globalen Ränge</p>
-                  {[
-                    { label: "Scan-Rang", rank: ownGlobalScanRank, total: effectiveGlobalScanRanking.length, sub: null, color: isLightUi ? "text-indigo-700" : "text-indigo-300" },
-                    { label: "Samen-Rang", rank: ownSeedRank, total: globalSeedRanking.length, sub: ownSeeds > 0 ? `${ownSeeds.toLocaleString()} 🌱` : null, color: isLightUi ? "text-amber-700" : "text-amber-300" },
-                    { label: "Wochen-Rang", rank: ownWeeklySeedRank, total: progressSeedRanking.length, sub: ownWeeklySeedEntry ? `+${ownWeeklySeedEntry.seeds.toLocaleString()} 🌱 diese Woche` : null, color: isLightUi ? "text-lime-700" : "text-lime-300" },
-                  ].map(({ label, rank, total, sub, color }) => (
-                    <div key={label} className="flex items-center justify-between gap-2">
-                      <span className={`text-sm ${statsBodyClass}`}>{label}</span>
-                      <div className="text-right">
-                        <span className={`text-sm font-bold ${color}`}>{rank > 0 ? `#${rank} / ${total}` : "–"}</span>
-                        {sub && <p className={`text-[10px] ${statsBodyClass}`}>{sub}</p>}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </section>
               )}
 
             </div>

@@ -6,6 +6,8 @@ import { useUiTheme } from "@/lib/UiThemeContext";
 const BUBBLE_SIZE = 52; // px diameter
 const FLOAT_DURATION = 7; // seconds
 const BURST_DURATION = 900; // ms
+const BURST_RESPONSE_TIMEOUT = 5000; // ms
+const CARE_CHIP_DURATION = 900; // ms
 
 /**
  * A floating green "soap bubble" that spawns at a fixed viewport position and
@@ -77,10 +79,16 @@ export default function GreenCareBubble({ isActive, position, onBurst, onDismiss
     Promise.resolve(onBurst?.())
       .then((result) => {
         const careDelta = Math.max(0, Number(result?.care_delta ?? 0));
-        if (result?.applied && careDelta > 0) setAwardedCareDelta(careDelta);
+        if (result?.applied && careDelta > 0) {
+          setAwardedCareDelta(careDelta);
+          scheduleDismiss(CARE_CHIP_DURATION);
+          return;
+        }
+        scheduleDismiss(BURST_DURATION);
       })
-      .catch(() => {});
-    scheduleDismiss(BURST_DURATION);
+      .catch(() => scheduleDismiss(BURST_DURATION));
+    // Keep the burst mounted while waiting for the server response, but never indefinitely.
+    scheduleDismiss(BURST_RESPONSE_TIMEOUT);
   }, [phase, position, onBurst, scheduleDismiss]);
 
   if (!isActive || typeof document === "undefined" || !document.body) return null;

@@ -3033,6 +3033,7 @@ function HomeContent() {
       ? florabotContextBubble?.message
       : null;
   const playerSeedsDisplay = Math.max(0, Math.round(Number(seedMetricValue) || 0)).toLocaleString("de-DE");
+  const allTimeSeedsDisplay = Math.max(0, Math.round(Number(allTimeSeeds) || 0)).toLocaleString("de-DE");
   const conqueredZonesDisplay = Math.max(0, Math.round(Number(playerClaimedTiles) || 0)).toLocaleString("de-DE");
   const healthSeedBonusDisplay = Math.max(0, Math.round(Number(healthStateBonus) || 0));
 
@@ -3781,6 +3782,10 @@ function HomeContent() {
                       <div className={`-mx-3 -mt-3 flex items-center gap-1.5 p-3 text-sm md:text-base font-semibold [text-shadow:0_1px_2px_rgba(0,0,0,0.9),0_0_8px_rgba(0,0,0,0.7)] ${isLightUi ? "text-stone-800" : "text-stone-100"}`}>
                         <Sprout className={`h-4 w-4 shrink-0 ${isLightUi ? "text-emerald-600" : "text-emerald-400"}`} aria-hidden="true" />
                         <span>{playerSeedsDisplay}</span>
+                      </div>
+                      <div className={`-mx-3 -mt-1.5 flex items-center gap-1.5 p-3 text-sm md:text-base font-semibold [text-shadow:0_1px_2px_rgba(0,0,0,0.9),0_0_8px_rgba(0,0,0,0.7)] ${isLightUi ? "text-[#8f6b22]" : "text-[#f0e5a5]"}`}>
+                        <Sprout className={`h-4 w-4 shrink-0 ${isLightUi ? "text-[#8f6b22]" : "text-[#f0e5a5]"}`} aria-hidden="true" />
+                        <span>{allTimeSeedsDisplay}</span>
                       </div>
                     </>
                   )}
