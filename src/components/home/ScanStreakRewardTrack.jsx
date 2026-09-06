@@ -88,7 +88,11 @@ export default function ScanStreakRewardTrack({ streakDays = 0, jokerCount = 0 }
               <span style={{ color: PFLEGE_TEXT_COLOR }}>+{slot.pflegeDelta} Pflege</span>
               <span className="text-amber-300">+{slot.funkenDelta} Funken</span>
               {slot.bernsteinDelta > 0 && <span className="text-orange-300">+{slot.bernsteinDelta} Bernstein</span>}
-              {slot.willGrantJoker && <span className="text-sky-300">+1 freier Tag</span>}
+              {slot.jokerGrant > 0 && (
+                <span className="text-sky-300">
+                  +{slot.jokerGrant} {slot.jokerGrant === 1 ? "freier Tag" : "freie Tage"}
+                </span>
+              )}
             </div>
           </div>
         ))}

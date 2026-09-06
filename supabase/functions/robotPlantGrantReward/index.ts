@@ -138,7 +138,7 @@ const ROBOT_PLANT_DEFAULT_STATE = {
   care: 72,
   energy: 70,
   streak_days: 0,
-  scan_streak_joker_count: 0,
+  scan_streak_joker_count: SCAN_STREAK_INITIAL_JOKER_COUNT,
   last_streak_scan_date: null as string | null,
 };
 
@@ -159,7 +159,10 @@ const SCAN_LIKE_CARE_GAIN_DAILY_CAP = 5;
 const SCAN_STREAK_PFLEGE_BASE_OFFSET = 2;
 const SCAN_STREAK_PFLEGE_CAP = 10;
 const SCAN_STREAK_FUNKEN_CAP = 3;
+// Every streak (first one and every restart) starts with a full bank of grace days.
+const SCAN_STREAK_INITIAL_JOKER_COUNT = 3;
 const SCAN_STREAK_JOKER_GRANT_DAY = 3;
+const SCAN_STREAK_BOUNDARY_JOKER_GRANT = 2;
 const SCAN_STREAK_WEEK_BOUNDARY_START_DAY = 8;
 const SCAN_STREAK_WEEK_BOUNDARY_INTERVAL = 7;
 // Funken awarded on boundary days (week 1, 2, 3, 4+ completed), index = boundary occurrence k.
@@ -255,9 +258,9 @@ function computeScanStreakOutcome({
   let jokersConsumed = 0;
 
   if (!previousStreakDateIso) {
-    // First ever streak scan - fresh start, no jokers carried over.
+    // First ever streak scan - fresh start with the full grace-day bank.
     streakDays = 1;
-    jokerCount = 0;
+    jokerCount = SCAN_STREAK_INITIAL_JOKER_COUNT;
   } else {
     const previousDate = parseUtcDateOnly(previousStreakDateIso);
     const todayDate = parseUtcDateOnly(todayDateIso);
@@ -276,7 +279,7 @@ function computeScanStreakOutcome({
       jokersConsumed = missedDays;
     } else {
       streakDays = 1;
-      jokerCount = 0;
+      jokerCount = SCAN_STREAK_INITIAL_JOKER_COUNT;
       wasHardReset = true;
     }
   }
@@ -299,8 +302,10 @@ function computeScanStreakOutcome({
       ? SCAN_STREAK_BOUNDARY_BERNSTEIN_AMOUNT
       : 0;
 
-  // Joker grants: +1 the first time day 3 is reached, +1 on every boundary day.
-  const jokerGrant = (streakDays === SCAN_STREAK_JOKER_GRANT_DAY ? 1 : 0) + (isBoundaryDay ? 1 : 0);
+  // Joker grants: +1 the first time day 3 is reached, +2 on every boundary day.
+  const jokerGrant =
+    (streakDays === SCAN_STREAK_JOKER_GRANT_DAY ? 1 : 0) +
+    (isBoundaryDay ? SCAN_STREAK_BOUNDARY_JOKER_GRANT : 0);
   jokerCount += jokerGrant;
 
   return {

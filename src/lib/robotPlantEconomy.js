@@ -195,7 +195,9 @@ export const computeScanStreakPreview = (streakDays = 0) => {
       ? SCAN_STREAK_CONFIG.boundaryBernsteinAmount
       : 0;
 
-  const willGrantJoker = safeStreakDays === SCAN_STREAK_CONFIG.jokerGrantDay || isBoundaryDay;
+  const jokerGrant =
+    (safeStreakDays === SCAN_STREAK_CONFIG.jokerGrantDay ? 1 : 0) +
+    (isBoundaryDay ? SCAN_STREAK_CONFIG.boundaryJokerGrant : 0);
 
   return {
     streakDays: safeStreakDays,
@@ -203,7 +205,8 @@ export const computeScanStreakPreview = (streakDays = 0) => {
     funkenDelta,
     bernsteinDelta,
     isBoundaryDay,
-    willGrantJoker,
+    jokerGrant,
+    willGrantJoker: jokerGrant > 0,
   };
 };
 
