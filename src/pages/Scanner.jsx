@@ -1718,7 +1718,7 @@ export default function Scanner() {
             plant={matchedPlant}
             imageUrl={imageUrl}
             scanImageUrls={scanImageUrls}
-            currentUserId={user?.id}
+            currentUserId={user?.id || user?.auth_id || null}
             onRescan={handleBackToIntro}
             onBackToIntro={handleBackToIntro}
             onResultIndexChange={setCurrentResultIndex}
