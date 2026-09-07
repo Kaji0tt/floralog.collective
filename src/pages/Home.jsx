@@ -125,14 +125,6 @@ const clampDiscoveryMarkerScale = (value) => {
   if (!Number.isFinite(numeric)) return DISCOVERY_MARKER_SCALE_DEFAULT;
   return Math.min(DISCOVERY_MARKER_SCALE_MAX, Math.max(DISCOVERY_MARKER_SCALE_MIN, numeric));
 };
-const SOCIAL_NEWS_NOTIFICATION_TYPES = [
-  "gift_received",
-  "collection_followed",
-  "friendship_accepted",
-  "friend_request_received",
-  "friend_achievement",
-  "scan_liked",
-];
 
 const hashSeedToIndex = (seed, length) => {
   if (!length || length <= 0) return 0;
@@ -764,33 +756,6 @@ function HomeContent() {
     refetchOnWindowFocus: true,
   });
 
-  const { data: unreadFriendsNewsCount = 0 } = useQuery({
-    queryKey: ['friendsUnreadNewsCount', user?.id, user?.email],
-    queryFn: async () => {
-      if (!user?.email) return 0;
-
-      const [byAuthId, byEmail] = await Promise.all([
-        user?.id ? Query.UserNotification.filter({ auth_id: user.id }) : Promise.resolve([]),
-        Query.UserNotification.filter({ user_email: user.email }),
-      ]);
-
-      const dedupedMap = new Map();
-      [...byAuthId, ...byEmail].forEach((notification) => {
-        dedupedMap.set(notification.id, notification);
-      });
-
-      return Array.from(dedupedMap.values()).filter(
-        (notification) =>
-          SOCIAL_NEWS_NOTIFICATION_TYPES.includes(notification.notification_type) &&
-          notification.seen !== true
-      ).length;
-    },
-    enabled: !!user?.email,
-    initialData: 0,
-    staleTime: 15000,
-    refetchOnWindowFocus: true,
-  });
-
   const { data: serverNews = [] } = useQuery({
     queryKey: ["news"],
     queryFn: () => Query.News.list("-created_date"),
@@ -1232,15 +1197,8 @@ function HomeContent() {
       }
     });
 
-    const unsubscribeNews = Query.UserNotification.subscribe((event) => {
-      if (event.type === 'create' || event.type === 'update' || event.type === 'delete') {
-        queryClient.invalidateQueries({ queryKey: ['friendsUnreadNewsCount'] });
-      }
-    });
-
     return () => {
       unsubscribeFriend?.();
-      unsubscribeNews?.();
     };
   }, [user?.email, queryClient]);
 
@@ -2324,7 +2282,7 @@ function HomeContent() {
 
   const hasRedeemableQuests = [...activeRegularQuests, ...activeCollectionQuests].some(q => q.isCompleted) ||
     (activeWeeklyQuest?.isCompleted) || (activeMonthlyQuest?.isCompleted);
-  const hasSocialNotifications = pendingFriendRequests.length > 0 || unreadFriendsNewsCount > 0;
+  const hasSocialNotifications = pendingFriendRequests.length > 0;
   const hasNewQuests = availableRegularQuests.length > 0 || availableCollectionQuests.length > 0 ||
     availableWeeklyQuest || availableMonthlyQuest;
   const quizAvailable = Boolean(openPlantQuiz?.id);
