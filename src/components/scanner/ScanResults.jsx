@@ -8,7 +8,6 @@ import { motion, useMotionValue, useTransform } from "framer-motion";
 // import ShareScanDialog from "./ShareScanDialog";
 import { Query } from "@/api/entities";
 import SpeciesInfoCard from "@/components/collection/SpeciesInfoCard";
-import CommunityTagPanel from "@/components/collection/CommunityTagPanel";
 import CustomLogoAvatar from "@/components/profile/CustomLogoAvatar";
 import ThreatLevelSparks from "@/components/effects/ThreatLevelSparks";
 import {
@@ -465,6 +464,8 @@ export default function ScanResults({
                       showNarrative={!isBlockedResult}
                       isLightUi={false}
                       disableThreatEffects={true}
+                      genusId={currentGenusId}
+                      currentUserId={currentUserId || null}
                       previewStackImages={activePlayerImages.length > 1 ? activePlayerImages : []}
                       topRight={confidencePercentage ? (
                         <Badge className="bg-black/50 border border-stone-500/60 text-stone-100">{confidencePercentage}%</Badge>
@@ -590,19 +591,6 @@ export default function ScanResults({
 
                   {/* Informations-Container - direkt unter dem Hauptcontainer */}
                   <div className="space-y-3 bg-black/30 backdrop-blur-md rounded-xl p-4 border border-[#f0e5a5]/20">
-
-                  {!isBlockedResult && (
-                    <div className="space-y-2 rounded-xl border border-emerald-300/25 bg-black/20 p-3">
-                      <CommunityTagPanel
-                        plantId={currentPlant?.id || null}
-                        genusId={currentGenusId}
-                        currentUserId={currentUserId || null}
-                        isLightUi={false}
-                        embedded
-                      />
-                    </div>
-                  )}
-
                   {isBlockedResult ? (
                       <div className="bg-gradient-to-br from-orange-900/45 to-red-900/40 rounded-xl p-4 border border-orange-300/35 shadow-md">
                           <h4 className="font-bold text-orange-100 mb-2 flex items-center gap-2">

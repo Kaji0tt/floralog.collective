@@ -99,7 +99,14 @@ export default function CustomLogoAvatar({
         <div className={cn("absolute inset-0 flex items-center justify-center", hasLogoLayers && "scale-[1.5]", innerClassName)}>
           {hasLogoLayers && (
             // cqmin keeps this a true circle even when the container itself isn't square.
-            <div className="absolute left-1/2 top-1/2 h-[56cqmin] w-[56cqmin] -translate-x-1/2 -translate-y-1/2 rounded-full bg-black/35" />
+            <div className="absolute left-1/2 top-1/2 h-[72cqmin] w-[72cqmin] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[radial-gradient(circle,rgba(0,0,0,0.35)_0%,rgba(0,0,0,0.3)_42%,rgba(0,0,0,0)_70%)]" />
+          )}
+          {logoAssets?.plant?.imageUrl && (
+            <img
+              src={logoAssets.plant.imageUrl}
+              alt="Logo Pflanze"
+              className="absolute inset-0 w-full h-full object-contain"
+            />
           )}
           {logoAssets?.border?.imageUrl && (
             <img
@@ -109,13 +116,6 @@ export default function CustomLogoAvatar({
               style={logoAssets.borderColor
                 ? { filter: `brightness(0) saturate(100%) ${hexToFilter(logoAssets.borderColor)}` }
                 : undefined}
-            />
-          )}
-          {logoAssets?.plant?.imageUrl && (
-            <img
-              src={logoAssets.plant.imageUrl}
-              alt="Logo Pflanze"
-              className="absolute inset-0 w-full h-full object-contain"
             />
           )}
           {logoAssets?.face?.imageUrl && (

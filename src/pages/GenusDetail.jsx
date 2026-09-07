@@ -1443,7 +1443,7 @@ export default function GenusDetail() {
                                         delete activeFriendActorButtonRef.current[plant.id];
                                       }
                                     }}
-                                    className={`${isActiveVariantActor ? "w-7 h-7 ring-2 ring-emerald-400/70 border-white/60" : "w-5 h-5 border-white/20"} rounded-full overflow-hidden bg-black/35 border shrink-0 transition-all duration-200`}
+                                    className={`${isActiveVariantActor ? "w-7 h-7 ring-2 ring-emerald-400/70 border-white/60" : "w-5 h-5 border-white/20"} rounded-full bg-black/35 border shrink-0 transition-all duration-200`}
                                     title={actor.name || actor.email || "Spieler"}
                                     onClick={(event) => {
                                       event.stopPropagation();
@@ -1457,6 +1457,7 @@ export default function GenusDetail() {
                                     <CustomLogoAvatar
                                       logoAssets={actor.logoAssets}
                                       className="w-full h-full"
+                                      noClip
                                       tooltipText={actor.name || actor.email || "Spieler"}
                                       fallbackText={(actor.name || actor.email || "?").charAt(0).toUpperCase()}
                                       fallbackClassName="text-[9px] font-bold text-white"

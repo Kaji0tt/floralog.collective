@@ -235,6 +235,24 @@ Deno.serve(async (req) => {
       return jsonResponse({ success: true, unlocked: [] });
     }
 
+    if (discovery?.id && matchedZone?.id) {
+      const { data: scanCount, error: zoneStateError } = await adminClient.rpc(
+        "record_robotplant_zone_scan",
+        {
+          p_auth_id: authId,
+          p_zone_id: matchedZone.id,
+          p_discovery_id: discovery.id,
+          p_day_key: dayKey,
+        },
+      );
+
+      if (zoneStateError) {
+        console.error("[grantScanZoneUnlocks] Failed to record zone scan:", zoneStateError);
+      } else {
+        console.log(`[grantScanZoneUnlocks] Recorded zone scan ${discovery.id}; count=${scanCount}`);
+      }
+    }
+
     const { data: rewards, error: rewardsError } = await adminClient
       .from("Rewards")
       .select("id, name, display_name, value, image_url, type, requires_zone_theme, requires_plant_species_id, requires_plant_genus_id")

@@ -763,6 +763,7 @@ export default function HomeMapFeatureRoot({
         scannerLogoAssets={pinOverlayData?.scannerLogoAssets || null}
         discoveries={pinOverlayData?.discoveries || []}
         players={pinOverlayData?.players || null}
+        currentUserId={authId || null}
         isLightUi={isLightUi}
       />
 

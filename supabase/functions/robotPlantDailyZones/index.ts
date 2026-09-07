@@ -1064,6 +1064,21 @@ Deno.serve(async (req) => {
         .in("theme", zoneThemes);
 
       if (!existError && Array.isArray(existing) && existing.length > 0) {
+        const { data: zoneStates, error: zoneStateError } = await adminClient
+          .from("RobotPlantUserZoneState")
+          .select("zone_id, scans_in_zone")
+          .eq("auth_id", authId)
+          .eq("day_key", dayKey)
+          .in("zone_id", existing.map((zone) => zone.id));
+
+        if (zoneStateError) {
+          console.error("[robotPlantDailyZones] Zone-state query error:", zoneStateError);
+          return jsonResponse({ error: "Failed to query zone scan progress" }, 500);
+        }
+
+        const scanCountsByZoneId = new Map(
+          (zoneStates || []).map((state) => [state.zone_id, Number(state.scans_in_zone) || 0]),
+        );
         console.log(`[robotPlantDailyZones] Returning ${existing.length} cached zones for today`);
         return jsonResponse({
           success: true,
@@ -1077,6 +1092,7 @@ Deno.serve(async (req) => {
             radiusM: z.radius_m,
             zoneKey: z.zone_key,
             bonusMultiplier: z.zone_bonus_multiplier || 1.0,
+            scansToday: scanCountsByZoneId.get(z.id) || 0,
           })),
         });
       }
@@ -1247,6 +1263,25 @@ Deno.serve(async (req) => {
       console.warn("[robotPlantDailyZones] Failed to log query metrics:", logError);
     }
 
+    const generatedZoneIds = (insertedZones || []).map((zone) => zone.id);
+    const { data: zoneStates, error: zoneStateError } = generatedZoneIds.length > 0
+      ? await adminClient
+        .from("RobotPlantUserZoneState")
+        .select("zone_id, scans_in_zone")
+        .eq("auth_id", authId)
+        .eq("day_key", dayKey)
+        .in("zone_id", generatedZoneIds)
+      : { data: [], error: null };
+
+    if (zoneStateError) {
+      console.error("[robotPlantDailyZones] Zone-state query error:", zoneStateError);
+      return jsonResponse({ error: "Failed to query zone scan progress" }, 500);
+    }
+
+    const scanCountsByZoneId = new Map(
+      (zoneStates || []).map((state) => [state.zone_id, Number(state.scans_in_zone) || 0]),
+    );
+
     return jsonResponse({
       success: true,
       cached: false,
@@ -1262,6 +1297,7 @@ Deno.serve(async (req) => {
         radiusM: z.radius_m,
         zoneKey: z.zone_key,
         bonusMultiplier: z.zone_bonus_multiplier || 1.0,
+        scansToday: scanCountsByZoneId.get(z.id) || 0,
       })),
     });
   } catch (err) {

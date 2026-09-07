@@ -16,6 +16,7 @@ import SpeciesInfoCard from "@/components/collection/SpeciesInfoCard";
  *   scannerLogoAssets?: object | null,
  *   discoveries?: Array<object>,
  *   players?: Array<{ scannerDisplayName: string, scannerLogoAssets: object | null, scannerAuthId?: string, discoveries: Array<object> }> | null,
+ *   currentUserId?: string | null,
  *   isLightUi?: boolean,
  * }} props
  */
@@ -26,6 +27,7 @@ export default function MapPinDetailOverlay({
   scannerLogoAssets = null,
   discoveries = [],
   players = null,
+  currentUserId = null,
   isLightUi = false,
 }) {
   const [activePlayerIdx, setActivePlayerIdx] = useState(0);
@@ -189,6 +191,7 @@ export default function MapPinDetailOverlay({
                           showPrimaryImage
                           showScientificMeta
                           showNarrative={false}
+                          currentUserId={currentUserId}
                         />
                       ) : (
                         <div
@@ -290,6 +293,7 @@ export default function MapPinDetailOverlay({
                       showPrimaryImage
                       showScientificMeta
                       showNarrative={false}
+                      currentUserId={currentUserId}
                     />
                   )}
                 </div>

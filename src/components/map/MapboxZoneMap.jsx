@@ -53,6 +53,7 @@ const buildZonePopupHtml = (props, isLightUi) => {
   const color = props.color || THEME_MAP_COLORS.meadow;
   const radiusDisplay = props.radiusM ? `${Math.round(props.radiusM)} m` : "";
   const zoneMultiplier = Number(props.zoneMultiplier || 1.5);
+  const scanCount = Math.max(0, Number(props.scansToday || 0));
 
   const cardBg = isLightUi ? "rgba(255,255,255,0.92)" : "rgba(12,14,17,0.86)";
   const cardBorder = isLightUi ? "rgba(200,172,98,0.5)" : "rgba(240,229,165,0.35)";
@@ -73,6 +74,7 @@ const buildZonePopupHtml = (props, isLightUi) => {
         <div style="margin-bottom:4px;color:${mutedColor};">
           Start bei x1.50, sinkt pro weiterem Scan in dieser Zone.
         </div>
+        <div style="margin-bottom:4px;"><span style="font-weight:700;">Scans:</span> ${scanCount}/5</div>
         ${radiusDisplay ? `<div style="color:${mutedColor};">Radius: ${radiusDisplay}</div>` : ""}
       </div>
     </div>
@@ -927,6 +929,7 @@ export default function MapboxZoneMap({
             zone.bonusMultiplier ?? zone.zoneBonusMultiplier ?? zone.zone_bonus_multiplier ?? 1.5
           );
           const zoneMultiplier = Number.isFinite(zoneMultiplierCandidate) ? zoneMultiplierCandidate : 1.5;
+          const scansToday = Math.max(0, Number(zone.scansToday ?? zone.scans_today ?? 0) || 0);
 
           return {
             type: "Feature",
@@ -941,6 +944,7 @@ export default function MapboxZoneMap({
               themeLabel,
               radiusM,
               zoneMultiplier,
+              scansToday,
               centerLat: lat,
               centerLng: lng,
             },

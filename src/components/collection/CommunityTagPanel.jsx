@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Flag, Minus, Plus, Trash2, X } from "lucide-react";
+import { Flag, Loader2, Minus, Plus, Trash2, X } from "lucide-react";
 import { Query } from "@/api/entities";
 import {
   castCommunityTagVote,
@@ -44,7 +44,7 @@ export default function CommunityTagPanel({ plantId = null, genusId = null, curr
     enabled: Boolean(currentUserId),
   });
 
-  const { data: wallets = [] } = useQuery({
+  const { data: wallets = [], isPending: isWalletLoading } = useQuery({
     queryKey: ["userWallet", currentUserId],
     queryFn: () => Query.UserWallet.filter({ auth_id: currentUserId }),
     enabled: Boolean(currentUserId),
@@ -57,7 +57,11 @@ export default function CommunityTagPanel({ plantId = null, genusId = null, curr
   };
 
   const createMutation = useMutation({
-    mutationFn: () => createCommunityTag({ plantId, genusId, value }),
+    mutationFn: () => createCommunityTag({
+      plantId,
+      genusId: plantId ? null : genusId,
+      value,
+    }),
     onSuccess: () => {
       setValue("");
       setShowAddInput(false);
@@ -119,9 +123,10 @@ export default function CommunityTagPanel({ plantId = null, genusId = null, curr
                   type="button"
                   title="Positiv bewerten"
                   onClick={() => voteMutation.mutate({ tagId: tag.id, vote: ownVote === 1 ? null : 1 })}
-                  className={"leading-none " + (ownVote === 1 ? "text-emerald-500" : "opacity-70 hover:opacity-100")}
+                  disabled={voteMutation.isPending}
+                  className={"inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-sm leading-none disabled:cursor-wait " + (ownVote === 1 ? "text-emerald-500" : "opacity-70 hover:opacity-100")}
                 >
-                  +
+                  <Plus className="h-3 w-3" aria-hidden="true" />
                 </button>
               )}
               <span className="max-w-24 truncate">{tag.value}</span>
@@ -130,9 +135,10 @@ export default function CommunityTagPanel({ plantId = null, genusId = null, curr
                   type="button"
                   title="Negativ bewerten"
                   onClick={() => voteMutation.mutate({ tagId: tag.id, vote: ownVote === -1 ? null : -1 })}
-                  className={"leading-none " + (ownVote === -1 ? "text-rose-500" : "opacity-70 hover:opacity-100")}
+                  disabled={voteMutation.isPending}
+                  className={"inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-sm leading-none disabled:cursor-wait " + (ownVote === -1 ? "text-rose-500" : "opacity-70 hover:opacity-100")}
                 >
-                  −
+                  <Minus className="h-3 w-3" aria-hidden="true" />
                 </button>
               )}
               {isCreator && (
@@ -145,7 +151,14 @@ export default function CommunityTagPanel({ plantId = null, genusId = null, curr
         })}
 
         {currentUserId && (
-          showAddInput ? (
+          isWalletLoading ? (
+            <span
+              title="Tag-Berechtigung wird geprüft"
+              className={chipClass + " cursor-wait opacity-70"}
+            >
+              <Loader2 className="h-3 w-3 animate-spin" />
+            </span>
+          ) : showAddInput ? (
             <form
               className="inline-flex items-center gap-1"
               onSubmit={(event) => {
@@ -235,7 +248,12 @@ export default function CommunityTagPanel({ plantId = null, genusId = null, curr
       )}
 
       {currentUserId && (
-          eligible ? (
+          isWalletLoading ? (
+            <p className={`inline-flex items-center gap-1.5 text-xs ${mutedText}`}>
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              Tag-Berechtigung wird geprüft
+            </p>
+          ) : eligible ? (
             <form className="space-y-2" onSubmit={(event) => { event.preventDefault(); if (value.trim() && !hasExactTargetTag) createMutation.mutate(); }}>
               <div className="flex gap-2">
                 <Input value={value} maxLength={32} list={`community-tag-suggestions-${targetId}`} onChange={(event) => setValue(event.target.value)} placeholder="Tag hinzufügen" aria-label="Neuer Community-Tag" />

@@ -1701,6 +1701,27 @@ function HomeContent() {
             : null;
 
           setActiveZone(inRangeZone || null);
+
+          if (Number.isFinite(location?.lat) && Number.isFinite(location?.lng)) {
+            try {
+              const daily = await getRobotPlantDailyZones({
+                latitude: location.lat,
+                longitude: location.lng,
+                authDayKey: zoneGenerationDay || todayKey,
+                mode: "initial",
+              });
+              if (!isCancelled) {
+                const refreshedZones = daily?.zones || [];
+                persistDailyZoneSnapshot(user.id, refreshedZones, daily?.rerollsRemainingToday ?? null);
+                setHeroZones(refreshedZones);
+                if (daily?.rerollsRemainingToday !== undefined && daily?.rerollsRemainingToday !== null) {
+                  setZoneRerollsRemaining(daily.rerollsRemainingToday);
+                }
+              }
+            } catch (error) {
+              console.warn("[Home] Could not refresh cached daily zones:", error);
+            }
+          }
         }
 
         if (!isCancelled) {

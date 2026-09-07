@@ -1,6 +1,6 @@
 import React from "react";
 import { Badge } from "@/components/ui/badge";
-import { ChevronDown, ChevronUp, ExternalLink, Info, Leaf, X } from "lucide-react";
+import { ChevronDown, ChevronUp, ExternalLink, Info, Leaf, Plus, X } from "lucide-react";
 import CommunityTagPanel from "./CommunityTagPanel";
 import {
   getConservationFromPlant,
@@ -972,7 +972,10 @@ export default function SpeciesInfoCard({
                 onTouchEnd={(event) => event.stopPropagation()}
                 className="w-full px-2 py-1.5 flex items-center justify-between text-left"
               >
-                <span className="text-xs font-semibold">Tags</span>
+                <span className="inline-flex items-center gap-1 text-xs font-semibold">
+                  <Plus className="h-3.5 w-3.5" aria-hidden="true" />
+                  Tags
+                </span>
                 {tagsOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
               </button>
 

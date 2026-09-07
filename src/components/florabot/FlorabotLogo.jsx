@@ -47,7 +47,15 @@ export default function FlorabotLogo({
             style={{ transform: `translateY(-${LOGO_LAYER_TOP_MARGIN_PERCENT}%)` }}
           >
             {hasAnyLayer && (
-              <div className="absolute left-1/2 top-1/2 h-[56%] w-[56%] -translate-x-1/2 -translate-y-1/2 rounded-full bg-black/35" />
+              <div className="absolute left-1/2 top-1/2 h-[72%] w-[72%] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[radial-gradient(circle,rgba(0,0,0,0.35)_0%,rgba(0,0,0,0.3)_42%,rgba(0,0,0,0)_70%)]" />
+            )}
+            {assets.plant?.imageUrl && (
+              <img
+                src={assets.plant.imageUrl}
+                alt=""
+                aria-hidden="true"
+                className="absolute inset-0 w-full h-full object-contain"
+              />
             )}
             {assets.border?.imageUrl && (
               <img
@@ -62,14 +70,6 @@ export default function FlorabotLogo({
                       }
                     : undefined
                 }
-              />
-            )}
-            {assets.plant?.imageUrl && (
-              <img
-                src={assets.plant.imageUrl}
-                alt=""
-                aria-hidden="true"
-                className="absolute inset-0 w-full h-full object-contain"
               />
             )}
             {assets.face?.imageUrl && (
