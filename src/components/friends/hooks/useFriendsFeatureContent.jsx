@@ -30,8 +30,11 @@ import { resolveTitleValue } from "@/lib/profileCustomizationOptions";
 import CustomLogoAvatar from "@/components/profile/CustomLogoAvatar";
 import HomeShellBorderGlow from "@/components/effects/HomeShellBorderGlow";
 import GoldGradientCard from "@/components/home/GoldGradientCard";
+import { LockedTooltip } from "@/components/ui/locked-tooltip";
 import { getRgbaFromRgb } from "@/lib/friendColorUtils";
 import { getCurrentWeeklyQuest } from "@/components/quests/QuestRotationHelper";
+import { getConservationFromPlant } from "@/lib/conservationStatus";
+import { computeRarityLabel, getRarityAccentClasses } from "@/lib/plantRarity";
 
 // Sticky pill-tabs header: gold-gradient-bordered glass card when embedded, plain white bar as standalone page header.
 function TabsHeaderContainer({ embedded, className, children }) {
@@ -1393,6 +1396,10 @@ Viel Spaß beim Entdecken! 🌿`;
       const entryEmail = getDiscoveryEmailLower(entry);
       const plant = allPlants.find((p) => p.id === entry.plant_id);
       const profile = profileByEmail.get(entryEmail);
+      const conservation = getConservationFromPlant(plant || {});
+      const rarityLabel = plant?.rarity
+        || plant?.aiData?.rarity
+        || computeRarityLabel(conservation.populationRaw, conservation.threatRaw);
       return {
         id: entry.id,
         discovery: entry,
@@ -1405,6 +1412,7 @@ Viel Spaß beim Entdecken! 🌿`;
         actorBackgroundColor: profile?.background_color || null,
         actorBorderColor: profile?.selected_border_color || '#C7AF8B',
         actorProfileEffect: profile?.selected_profile_effect || null,
+        rarityImageBorderClass: getRarityAccentClasses(rarityLabel, isLightUi).imageBorder,
         scanCount: 1,
         likedByCurrentUser: likedDiscoveryIdSet.has(entry.id),
         likeCount: likeCountByDiscoveryId.get(entry.id) || 0,
@@ -1428,7 +1436,7 @@ Viel Spaß beim Entdecken! 🌿`;
       };
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [recentDiscoveries, allPlants, allGenera, profileByEmail, likedDiscoveryIdSet, likeCountByDiscoveryId, logoAssets, scanRewardByDiscoveryId, currentWeeklyQuestForExplorer, rewardUnlockByDiscoveryId]);
+  }, [recentDiscoveries, allPlants, allGenera, profileByEmail, likedDiscoveryIdSet, likeCountByDiscoveryId, logoAssets, scanRewardByDiscoveryId, currentWeeklyQuestForExplorer, rewardUnlockByDiscoveryId, isLightUi]);
 
   useEffect(() => {
     if (!isExplorerTab || !hasNextExplorerPage) return;
@@ -1872,15 +1880,23 @@ Viel Spaß beim Entdecken! 🌿`;
                                       </div>
                                     )}
                                     {isCommunityPick ? (
-                                      <div className="absolute top-2 left-2 inline-flex items-center gap-1 rounded-full border border-rose-400/60 bg-rose-500/90 px-2 py-0.5 text-[10px] font-bold text-white">
-                                        <Heart className="w-3 h-3 fill-current" />
-                                        Wochenliebling
-                                      </div>
+                                      <LockedTooltip
+                                        content="Der Scan mit den meisten Likes der Woche."
+                                      >
+                                        <div className="absolute top-2 left-2 inline-flex items-center gap-1 rounded-full border border-rose-400/60 bg-rose-500/90 px-2 py-0.5 text-[10px] font-bold text-white">
+                                          <Heart className="w-3 h-3 fill-current" />
+                                          Wochenliebling
+                                        </div>
+                                      </LockedTooltip>
                                     ) : (
-                                      <div className="absolute top-2 left-2 inline-flex items-center gap-1 rounded-full border border-amber-400/60 bg-amber-500/90 px-2 py-0.5 text-[10px] font-bold text-stone-950">
-                                        <Trophy className="w-3 h-3" />
-                                        Scan der Woche
-                                      </div>
+                                      <LockedTooltip
+                                        content="Ein zufälliger Scan aus allen Scans der Woche."
+                                      >
+                                        <div className="absolute top-2 left-2 inline-flex items-center gap-1 rounded-full border border-amber-400/60 bg-amber-500/90 px-2 py-0.5 text-[10px] font-bold text-stone-950">
+                                          <Trophy className="w-3 h-3" />
+                                          Scan der Woche
+                                        </div>
+                                      </LockedTooltip>
                                     )}
                                   </div>
                                   <CardContent className="p-3 space-y-1.5">
@@ -2025,8 +2041,8 @@ Viel Spaß beim Entdecken! 🌿`;
                         <div className="relative z-10 px-2 pt-2">
                           <button
                             type="button"
-                            className="block w-full relative overflow-hidden rounded-xl"
-                            style={{ aspectRatio: "4/3", border: `1px solid ${entry.actorBorderColor}66` }}
+                            className={`block w-full relative overflow-hidden rounded-xl border-2 ${entry.rarityImageBorderClass}`}
+                            style={{ aspectRatio: "4/3" }}
                             onClick={() => openExplorerDiscoveryInFriendCollection(entry)}
                           >
                             {entry.discovery?.image_url ? (

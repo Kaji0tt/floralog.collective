@@ -420,6 +420,8 @@ function HomeContent() {
   });
   const healthStatsPanelRef = useRef(null);
   const eventStripeContainerRef = useRef(null);
+  const heroTitleRef = useRef(null);
+  const rewardCardsRef = useRef(null);
   const [eventStripeHeightPx, setEventStripeHeightPx] = useState(null);
   const [heroStageSizePx, setHeroStageSizePx] = useState(0);
   const [heroMapInstance, setHeroMapInstance] = useState(null);
@@ -3731,7 +3733,7 @@ function HomeContent() {
           >
             <div className={`relative z-10 h-full flex flex-col ${activePanel === "map" ? "px-0 py-0" : "px-2 md:px-4"} ${isLightUi ? "text-stone-800" : "text-stone-100"}`}>
               {activePanel === null && (
-                <div className="pointer-events-none absolute inset-x-4 top-4 z-20 flex max-w-[65%] flex-col md:inset-x-8 md:top-6">
+                <div ref={heroTitleRef} className="pointer-events-none absolute inset-x-4 top-4 z-20 flex max-w-[65%] flex-col md:inset-x-8 md:top-6">
                   {showShopStack ? (
                     <>
                       <h1
@@ -3934,6 +3936,8 @@ function HomeContent() {
                       isLightUi={isLightUi}
                       profile={effectiveUser}
                       logoAssets={logoAssets}
+                      heroTitleRef={heroTitleRef}
+                      rewardCardsRef={rewardCardsRef}
                       profileBadges={!showHealthStatsPanel && !showShopStack ? (
                         <HomeProfileBadgesPanel
                           isLightUi={isLightUi}
@@ -4020,6 +4024,7 @@ function HomeContent() {
                       </div>
                     ) : (
                       <div
+                        ref={rewardCardsRef}
                         className="relative z-10 flex flex-initial flex-col gap-2"
                       >
                         <div

@@ -4,6 +4,7 @@ import BadgeCircleIcon, {
   MUTED_CIRCLE_BORDER_GRADIENT,
   MUTED_CIRCLE_SHADOW,
 } from "@/components/home/BadgeCircleIcon";
+import { buildRewardUnlockDescription } from "@/lib/rewardUnlockDescription";
 
 const REWARD_TYPE_ICONS = {
   background: BookImage,
@@ -20,83 +21,19 @@ const getRewardTypeIcon = (reward) => {
   return REWARD_TYPE_ICONS[reward?.type] || Gift;
 };
 
-const getQuestRequirementDescription = (quest) => {
-  if (!quest) return null;
-
-  const requirement = quest.requirement || quest.description;
-  return requirement ? `${quest.title}: ${requirement}` : `Schließe die Quest „${quest.title}“ ab.`;
-};
-
-const getAchievementRequirementDescription = (achievement) => {
-  if (!achievement) return null;
-
-  const requirement = achievement.requirement || achievement.description;
-  return requirement ? `${achievement.title}: ${requirement}` : `Erreiche den Erfolg „${achievement.title}“.`;
-};
-
-const getZoneRewardRequirementDescription = (reward, { genera = [], plants = [] } = {}) => {
-  const zoneNames = {
-    water: "Wasserzone",
-    forest: "Waldzone",
-    meadow: "Wiesenzone",
-    urban: "Urbanzone",
-  };
-  const genusId = String(reward?.requires_plant_genus_id || "").trim();
-  const speciesId = String(reward?.requires_plant_species_id || "").trim();
-  const zoneName = zoneNames[String(reward?.requires_zone_theme || "").trim()];
-  const genusName = genusId ? genera.find((genus) => genus.id === genusId)?.genus_name : null;
-  const speciesName = speciesId ? plants.find((plant) => plant.id === speciesId)?.species_name : null;
-  const plantName = speciesName || genusName;
-
-  return plantName && zoneName ? `Scanne ${plantName} in einer ${zoneName}.` : null;
-};
-
-const formatRandomChance = (randomChance) => {
-  const denominator = Number(randomChance);
-  if (!Number.isFinite(denominator) || denominator <= 0) return null;
-
-  return `${Number((100 / denominator).toFixed(2)).toLocaleString("de-DE")}%`;
-};
-
 // Static "what needs to be done to unlock this" description (no live progress numbers here).
 const buildRequirementDescription = (
   reward,
   { quests = [], weeklyQuests = [], monthlyQuests = [], achievements = [], genera = [], plants = [] } = {}
-) => {
-  if (!reward) return "";
-  const specificQuest = quests.find((quest) => quest.id === reward.requires_quest);
-  if (specificQuest) return getQuestRequirementDescription(specificQuest);
-  const zoneRequirement = getZoneRewardRequirementDescription(reward, { genera, plants });
-  if (zoneRequirement) return zoneRequirement;
-  if (reward.requires_donor) return "Nur für Unterstützer.";
-  if (reward.requires_referrals) return `Werbe ${reward.requires_referrals} Freund${reward.requires_referrals > 1 ? "e" : ""}.`;
-  if (reward.requires_rare_plants) return `Entdecke ${reward.requires_rare_plants} seltene Pflanze${reward.requires_rare_plants > 1 ? "n" : ""}.`;
-  if (reward.requires_gifts) return `Erhalte ${reward.requires_gifts} Geschenk${reward.requires_gifts > 1 ? "e" : ""}.`;
-  if (reward.requires_weekly_quests) return `Schließe ${reward.requires_weekly_quests} Wochenquest${reward.requires_weekly_quests > 1 ? "s" : ""} ab.`;
-  if (reward.requires_monthly_quests) return `Schließe ${reward.requires_monthly_quests} Monatsquest${reward.requires_monthly_quests > 1 ? "s" : ""} ab.`;
-  if (reward.requires_quest) return "Schließe die verknüpfte Quest ab.";
-
-  const linkedQuest = [...quests, ...weeklyQuests, ...monthlyQuests].find(
-    (quest) => quest.reward_name === reward.name
-  );
-  if (linkedQuest) return getQuestRequirementDescription(linkedQuest);
-
-  const linkedAchievement = achievements.find((achievement) => achievement.reward_name === reward.name);
-  if (linkedAchievement) return getAchievementRequirementDescription(linkedAchievement);
-
-  const randomEventDescriptions = {
-    scan: "Kann zufällig bei einem Scan freigeschaltet werden",
-    weekly_scan: "Kann zufällig bei einem wöchentlichen Scan freigeschaltet werden",
-    monthly_scan: "Kann zufällig bei einem monatlichen Scan freigeschaltet werden",
-    gift_scan: "Kann zufällig bei einem Geschenk-Scan freigeschaltet werden",
-    rare_scan: "Kann zufällig beim Scan einer seltenen Pflanze freigeschaltet werden",
-  };
-  const randomEventDescription = randomEventDescriptions[reward.random_event];
-  const randomChance = formatRandomChance(reward.random_chance);
-  return randomEventDescription
-    ? `${randomEventDescription}${randomChance ? ` (${randomChance} Chance).` : "."}`
-    : "Wird durch eine besondere Spielaktion freigeschaltet.";
-};
+) => buildRewardUnlockDescription(reward, {
+  quests,
+  weeklyQuests,
+  monthlyQuests,
+  achievements,
+  genera,
+  plants,
+  fallback: "Wird durch eine besondere Spielaktion freigeschaltet.",
+});
 
 // Live progress (current/target) for the requirement types we actually have counters for.
 const buildRewardProgress = (reward, { completedWeeklyQuestCount = 0, completedMonthlyQuestCount = 0 } = {}) => {

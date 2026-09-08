@@ -1,4 +1,5 @@
 import { LOGO_ACCESSORY_SECTIONS, LOGO_ACCESSORY_DEFAULT_UNLOCKED_IDS } from "@/lib/logoAccessoryAssets";
+import { buildRewardUnlockDescription } from "@/lib/rewardUnlockDescription";
 
 const LOGO_ACCESSORY_REWARD_TYPES = new Set(["logo_accessory", "accessory"]);
 const PROFILE_EFFECT_REWARD_TYPES = new Set(["profile_effect"]);
@@ -154,59 +155,11 @@ export const getUnlockedColorBackgrounds = (scannedPlantsCount = 0) => {
   });
 };
 
-const getBackgroundUnlockCondition = (reward) => {
-  if (!reward) return null;
+const getBackgroundUnlockCondition = (reward, context = {}) =>
+  buildRewardUnlockDescription(reward, context);
 
-  if (reward?.requires_donor) return "Nur fuer Unterstuetzer freischaltbar.";
-
-  const requiredReferrals = Math.max(0, Number(reward?.requires_referrals || 0));
-  if (requiredReferrals > 0) {
-    return `Wirb ${requiredReferrals} Freund${requiredReferrals > 1 ? "e" : ""}.`;
-  }
-
-  const requiredRarePlants = Math.max(0, Number(reward?.requires_rare_plants || 0));
-  if (requiredRarePlants > 0) {
-    return `Entdecke ${requiredRarePlants} seltene Pflanze${requiredRarePlants > 1 ? "n" : ""}.`;
-  }
-
-  const requiredWeeklyQuests = Math.max(0, Number(reward?.requires_weekly_quests || 0));
-  if (requiredWeeklyQuests > 0) {
-    return `Nimm an ${requiredWeeklyQuests} Wochenquests teil.`;
-  }
-
-  if (reward?.requires_quest) {
-    return "Schliesse eine Quest ab.";
-  }
-
-  return "Noch nicht freigeschaltet.";
-};
-
-const getProfileEffectUnlockCondition = (reward) => {
-  if (!reward) return null;
-
-  if (reward?.requires_donor) return "Nur fuer Unterstuetzer freischaltbar.";
-
-  const requiredReferrals = Math.max(0, Number(reward?.requires_referrals || 0));
-  if (requiredReferrals > 0) {
-    return `Wirb ${requiredReferrals} Freund${requiredReferrals > 1 ? "e" : ""}.`;
-  }
-
-  const requiredRarePlants = Math.max(0, Number(reward?.requires_rare_plants || 0));
-  if (requiredRarePlants > 0) {
-    return `Entdecke ${requiredRarePlants} seltene Pflanze${requiredRarePlants > 1 ? "n" : ""}.`;
-  }
-
-  const requiredWeeklyQuests = Math.max(0, Number(reward?.requires_weekly_quests || 0));
-  if (requiredWeeklyQuests > 0) {
-    return `Nimm an ${requiredWeeklyQuests} Wochenquests teil.`;
-  }
-
-  if (reward?.requires_quest) {
-    return "Schliesse eine Quest ab.";
-  }
-
-  return "Noch nicht freigeschaltet.";
-};
+const getProfileEffectUnlockCondition = (reward, context = {}) =>
+  buildRewardUnlockDescription(reward, context);
 
 const getProfileEffectPurchaseMeta = (reward) => {
   const configuredSparkPrice = Number(reward?.spark_price || 0);
@@ -228,7 +181,7 @@ const getProfileEffectPurchaseMeta = (reward) => {
   };
 };
 
-export const getUnlockedProfileEffectOptions = ({ rewards = [], userRewards = [] } = {}) => {
+export const getUnlockedProfileEffectOptions = ({ rewards = [], userRewards = [], achievements = [], genera = [], plants = [] } = {}) => {
   const unlockedRewardIds = new Set(
     (Array.isArray(userRewards) ? userRewards : []).map((entry) => entry?.reward_id).filter(Boolean)
   );
@@ -254,14 +207,14 @@ export const getUnlockedProfileEffectOptions = ({ rewards = [], userRewards = []
         purchaseKind: "profile_effect",
         source: "reward",
         isLocked,
-        unlockCondition: isLocked ? getProfileEffectUnlockCondition(reward) : null,
+        unlockCondition: isLocked ? getProfileEffectUnlockCondition(reward, { achievements, genera, plants }) : null,
         ...(purchaseMeta || {}),
       };
     })
     .sort((left, right) => String(left.label || "").localeCompare(String(right.label || ""), "de"));
 };
 
-export const getUnlockedLogoEffectOptions = ({ rewards = [], userRewards = [] } = {}) => {
+export const getUnlockedLogoEffectOptions = ({ rewards = [], userRewards = [], achievements = [], genera = [], plants = [] } = {}) => {
   const unlockedRewardIds = new Set(
     (Array.isArray(userRewards) ? userRewards : []).map((entry) => entry?.reward_id).filter(Boolean)
   );
@@ -287,7 +240,7 @@ export const getUnlockedLogoEffectOptions = ({ rewards = [], userRewards = [] } 
         purchaseKind: "logo_effect",
         source: "reward",
         isLocked,
-        unlockCondition: isLocked ? getProfileEffectUnlockCondition(reward) : null,
+        unlockCondition: isLocked ? getProfileEffectUnlockCondition(reward, { achievements, genera, plants }) : null,
         ...(purchaseMeta || {}),
       };
     })
@@ -378,7 +331,7 @@ export const getUnlockedTitleOptions = ({
   );
 };
 
-export const getUnlockedPresetBackgrounds = ({ rewards = [], userRewards = [] } = {}) => {
+export const getUnlockedPresetBackgrounds = ({ rewards = [], userRewards = [], achievements = [], genera = [], plants = [] } = {}) => {
   const unlockedRewardIds = new Set(
     (Array.isArray(userRewards) ? userRewards : []).map((entry) => entry?.reward_id).filter(Boolean)
   );
@@ -414,7 +367,7 @@ export const getUnlockedPresetBackgrounds = ({ rewards = [], userRewards = [] } 
         isPurchasable,
         sparkPrice: isPurchasable ? sparkPrice : 0,
         amberPrice: isPurchasable ? amberPrice : 0,
-        unlockCondition: isLocked ? getBackgroundUnlockCondition(reward) : null,
+        unlockCondition: isLocked ? getBackgroundUnlockCondition(reward, { achievements, genera, plants }) : null,
       };
     })
     .sort((left, right) => String(left.label || "").localeCompare(String(right.label || ""), "de"));
@@ -445,8 +398,11 @@ export const getUnlockedBackgroundSections = ({
   rewards = [],
   userRewards = [],
   scannedPlantsCount = 0,
+  achievements = [],
+  genera = [],
+  plants = [],
 } = {}) => {
-  const presetOptions = getUnlockedPresetBackgrounds({ rewards, userRewards });
+  const presetOptions = getUnlockedPresetBackgrounds({ rewards, userRewards, achievements, genera, plants });
   const colorOptions = getUnlockedColorBackgrounds(scannedPlantsCount);
 
   return [
@@ -506,58 +462,18 @@ const getRewardUnlockedAccessoryIds = ({ rewards = [], userRewards = [] } = {}) 
   return unlockedAccessoryIds;
 };
 
-const getAccessoryUnlockCondition = (accessoryId, rewards = [], genera = [], plants = []) => {
+const getAccessoryUnlockCondition = (accessoryId, rewards = [], genera = [], plants = [], achievements = []) => {
   const rewardsForAccessory = (Array.isArray(rewards) ? rewards : [])
     .filter((reward) => rewardMatchesAccessory(reward, accessoryId));
 
   if (rewardsForAccessory.length === 0) return null;
 
-  const reward = rewardsForAccessory[0];
-
-  const requiredReferrals = Math.max(0, Number(reward?.requires_referrals || 0));
-  const requiredReferralSeeds = Math.max(0, Number(reward?.requires_referred_seeds_progress || 0));
-  if (requiredReferrals > 0 && requiredReferralSeeds > 0) {
-    return `Wirb ${requiredReferrals} Freund${requiredReferrals > 1 ? "e" : ""} und erreiche mit ${requiredReferrals > 1 ? "ihnen" : "ihm"} jeweils ${requiredReferralSeeds} Samen.`;
-  }
-  if (requiredReferrals > 0) {
-    return `Wirb ${requiredReferrals} Freund${requiredReferrals > 1 ? "e" : ""}.`;
-  }
-  if (reward?.requires_donor) {
-    return "Nur fuer Unterstuetzer freischaltbar.";
-  }
-  if (reward?.requires_rare_plants) {
-    const count = Number(reward.requires_rare_plants);
-    return `Entdecke ${count} seltene Pflanze${count > 1 ? "n" : ""}.`;
+  for (const reward of rewardsForAccessory) {
+    const description = buildRewardUnlockDescription(reward, { achievements, genera, plants, fallback: null });
+    if (description) return description;
   }
 
-  const zoneTranslations = {
-    water: "Wasserzone",
-    forest: "Waldzone",
-    meadow: "Wiese",
-    urban: "Stadt",
-  };
-
-  const conditions = rewardsForAccessory.map((zoneReward) => {
-    const genusId = String(zoneReward?.requires_plant_genus_id || "").trim();
-    const speciesId = String(zoneReward?.requires_plant_species_id || "").trim();
-    const zoneTheme = String(zoneReward?.requires_zone_theme || "").trim();
-    const zoneName = zoneTranslations[zoneTheme] || zoneTheme;
-
-    const genusName = genusId
-      ? ((Array.isArray(genera) ? genera : []).find((g) => g.id === genusId)?.genus_name || null)
-      : null;
-    const speciesName = speciesId
-      ? ((Array.isArray(plants) ? plants : []).find((p) => p.id === speciesId)?.species_name || null)
-      : null;
-    const plantLabel = speciesName || genusName;
-
-    if (plantLabel && zoneName) {
-      return `${plantLabel} in einer ${zoneName} scannen`;
-    }
-    return null;
-  }).filter(Boolean);
-
-  return conditions.length > 0 ? conditions[0] : null;
+  return null;
 };
 
 const getAccessoryPurchaseMeta = (accessoryId, rewards = []) => {
@@ -596,7 +512,7 @@ const getAccessoryPurchaseMeta = (accessoryId, rewards = []) => {
   };
 };
 
-const buildFallbackAccessorySections = ({ rewardUnlockedIds = new Set(), rewards = [], genera = [], plants = [] } = {}) => {
+const buildFallbackAccessorySections = ({ rewardUnlockedIds = new Set(), rewards = [], genera = [], plants = [], achievements = [] } = {}) => {
   return LOGO_ACCESSORY_SECTIONS.map((section) => ({
     key: section.key,
     title: section.title,
@@ -608,7 +524,7 @@ const buildFallbackAccessorySections = ({ rewardUnlockedIds = new Set(), rewards
         const isUnlocked = isDefaultUnlocked || rewardUnlockedIds.has(option.value);
         // Legacy (retired) assets are hidden from the shop unless the user owns/defaults into them.
         if (option.isLegacy && !isUnlocked) return null;
-        const unlockCondition = !isUnlocked ? getAccessoryUnlockCondition(option.value, rewards, genera, plants) : null;
+        const unlockCondition = !isUnlocked ? getAccessoryUnlockCondition(option.value, rewards, genera, plants, achievements) : null;
         const purchaseMeta = (!isUnlocked && !option.isLegacy) ? getAccessoryPurchaseMeta(option.value, rewards) : null;
         return {
           ...option,
@@ -621,12 +537,12 @@ const buildFallbackAccessorySections = ({ rewardUnlockedIds = new Set(), rewards
   }));
 };
 
-export const getAccessorySections = ({ logoAssets = [], rewards = [], userRewards = [], genera = [], plants = [] } = {}) => {
+export const getAccessorySections = ({ logoAssets = [], rewards = [], userRewards = [], genera = [], plants = [], achievements = [] } = {}) => {
   const rewardUnlockedIds = getRewardUnlockedAccessoryIds({ rewards, userRewards });
 
   const normalizedLogoAssets = Array.isArray(logoAssets) ? logoAssets : [];
   if (normalizedLogoAssets.length === 0) {
-    return buildFallbackAccessorySections({ rewardUnlockedIds, rewards, genera, plants });
+    return buildFallbackAccessorySections({ rewardUnlockedIds, rewards, genera, plants, achievements });
   }
 
   const grouped = {
@@ -656,7 +572,7 @@ export const getAccessorySections = ({ logoAssets = [], rewards = [], userReward
     // Legacy or shop_hidden assets are hidden from the shop unless the user explicitly owns them.
     if ((isLegacy || isShopHidden) && !isUnlocked) continue;
 
-    const unlockCondition = !isUnlocked ? getAccessoryUnlockCondition(assetId, rewards, genera, plants) : null;
+    const unlockCondition = !isUnlocked ? getAccessoryUnlockCondition(assetId, rewards, genera, plants, achievements) : null;
     const purchaseMeta = (!isUnlocked && !isLegacy) ? getAccessoryPurchaseMeta(assetId, rewards) : null;
 
     grouped[assetType].push({
@@ -721,6 +637,9 @@ export const getUnlockedProfileCustomizationCatalog = ({
     userDiscoveries,
     scannedPlantsCount,
     uniqueSpeciesCount,
+    achievements,
+    genera,
+    plants,
   });
   const titleOptions = getUnlockedTitleOptions({
     achievements,
@@ -728,9 +647,9 @@ export const getUnlockedProfileCustomizationCatalog = ({
     rewards,
     userRewards,
   });
-  const profileEffectOptions = getUnlockedProfileEffectOptions({ rewards, userRewards });
-  const logoEffectOptions = getUnlockedLogoEffectOptions({ rewards, userRewards });
-  const accessorySections = getAccessorySections({ logoAssets, rewards, userRewards, genera, plants });
+  const profileEffectOptions = getUnlockedProfileEffectOptions({ rewards, userRewards, achievements, genera, plants });
+  const logoEffectOptions = getUnlockedLogoEffectOptions({ rewards, userRewards, achievements, genera, plants });
+  const accessorySections = getAccessorySections({ logoAssets, rewards, userRewards, genera, plants, achievements });
 
   return {
     scannedPlantsCount,

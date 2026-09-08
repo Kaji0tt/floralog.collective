@@ -43,7 +43,7 @@ async function triggerDeviceVibration(durationMs) {
     try {
       await Haptics.vibrate({ duration: durationMs });
       return;
-    } catch (_err) {
+    } catch {
       // Fallback unten versuchen, falls das native Plugin fehlschlaegt.
     }
   }
@@ -98,9 +98,7 @@ function buildRewardSteps(rewardDetails, isInActiveZone) {
   if (preStreakSteps.length > 0) {
     preStreakSteps[preStreakSteps.length - 1].result = rewardDetails.preStreakReward;
   }
-  const positivePreStreak = preStreakSteps.filter((step) => step.positive);
-  const negativePreStreak = preStreakSteps.filter((step) => !step.positive);
-  const steps = [...positivePreStreak, ...negativePreStreak];
+  const steps = [...preStreakSteps];
 
   const currentReward = rewardDetails.preStreakReward;
 

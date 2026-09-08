@@ -25,6 +25,7 @@ const BADGE_LOGO_UNIT_MAX_WIDTH_REM = 22;
 const PROFILE_BADGE_REWARD_CLEARANCE_PX = 8;
 // Extra upward shift for the badges container relative to its logo-anchored position.
 const PROFILE_BADGES_EXTRA_LIFT_PX = 20;
+const HERO_TITLE_LOGO_CLEARANCE_PX = 8;
 // Only needs to clear the floating name/title overlay now that the badge arc no longer renders here.
 const LOGO_ROW_TOP_REM = .0;
 
@@ -586,6 +587,8 @@ export default function HomeCollectionStripes({
   onBadgeClick,
   elevateLogo = false,
   profileBadges = null,
+  heroTitleRef = null,
+  rewardCardsRef = null,
   className = "",
   isHealthView = false,
 }) {
@@ -599,6 +602,8 @@ export default function HomeCollectionStripes({
   const [badgeLogoScale, setBadgeLogoScale] = useState(1);
   const [profileBadgesTopPx, setProfileBadgesTopPx] = useState(null);
   const [healthLogoReservedHeightPx, setHealthLogoReservedHeightPx] = useState(null);
+  const [heroContentOffsetPx, setHeroContentOffsetPx] = useState(0);
+  const profileBadgesRef = useRef(/** @type {HTMLDivElement | null} */ (null));
   const badgeLogoScaleRef = useRef(1);
   // Remembers the scale (and its rendered pixel height) computed for the default (content-stack)
   // view, so the health-view logo permanently locks to that exact size instead of shrinking.
@@ -644,6 +649,23 @@ export default function HomeCollectionStripes({
       const nextTop = Math.max(0, Math.min(logoBottom, maxBadgeBottom));
       setProfileBadgesTopPx((previousTop) => (
         previousTop !== null && Math.abs(previousTop - nextTop) < 0.5 ? previousTop : nextTop
+      ));
+
+      const titleRect = heroTitleRef?.current?.getBoundingClientRect();
+      const badgesRect = profileBadgesRef.current?.getBoundingClientRect();
+      const rewardsRect = rewardCardsRef?.current?.getBoundingClientRect();
+      const titleOverlapsLogo = titleRect &&
+        titleRect.left < logoRect.right &&
+        titleRect.right > logoRect.left;
+      const requiredOffset = titleOverlapsLogo
+        ? Math.max(0, titleRect.bottom + HERO_TITLE_LOGO_CLEARANCE_PX - logoRect.top + heroContentOffsetPx)
+        : 0;
+      const availableOffset = badgesRect && rewardsRect
+        ? heroContentOffsetPx + Math.max(0, rewardsRect.top - badgesRect.bottom - PROFILE_BADGE_REWARD_CLEARANCE_PX)
+        : 0;
+      const nextHeroContentOffset = Math.min(requiredOffset, availableOffset);
+      setHeroContentOffsetPx((previousOffset) => (
+        Math.abs(previousOffset - nextHeroContentOffset) < 0.5 ? previousOffset : nextHeroContentOffset
       ));
     }
     // logoHeight/logoWidth: size of the logo button in unit-coordinate space (removes unit scale,
@@ -707,6 +729,15 @@ export default function HomeCollectionStripes({
     if (observer && logoButtonRef.current) {
       observer.observe(logoButtonRef.current);
     }
+    if (observer && profileBadgesRef.current) {
+      observer.observe(profileBadgesRef.current);
+    }
+    if (observer && heroTitleRef?.current) {
+      observer.observe(heroTitleRef.current);
+    }
+    if (observer && rewardCardsRef?.current) {
+      observer.observe(rewardCardsRef.current);
+    }
 
     return () => {
       if (rafId) {
@@ -717,7 +748,7 @@ export default function HomeCollectionStripes({
       viewport?.removeEventListener("resize", scheduleUpdate);
       viewport?.removeEventListener("scroll", scheduleUpdate);
     };
-  }, [updateBadgeLogoScale]);
+  }, [heroTitleRef, rewardCardsRef, updateBadgeLogoScale]);
 
   useEffect(() => {
     let firstFrameId = null;
@@ -731,7 +762,7 @@ export default function HomeCollectionStripes({
       if (firstFrameId) window.cancelAnimationFrame(firstFrameId);
       if (secondFrameId) window.cancelAnimationFrame(secondFrameId);
     };
-  }, [badgeLogoScale, isHealthView, profileBadges, updateBadgeLogoScale]);
+  }, [badgeLogoScale, heroContentOffsetPx, isHealthView, profileBadges, updateBadgeLogoScale]);
 
   useEffect(() => {
     return () => {
@@ -892,7 +923,7 @@ export default function HomeCollectionStripes({
       >
         <div
           className="absolute inset-0 flex justify-center items-start"
-          style={{ pointerEvents: "none" }}
+          style={{ pointerEvents: "none", transform: `translateY(${heroContentOffsetPx}px)` }}
         >
           <div
             ref={badgeLogoUnitRef}
@@ -926,6 +957,7 @@ export default function HomeCollectionStripes({
         </div>
         {profileBadges && profileBadgesTopPx !== null ? (
           <div
+            ref={profileBadgesRef}
             className="absolute inset-x-0 z-[130]"
             style={{ top: `${Math.max(0, profileBadgesTopPx - PROFILE_BADGES_EXTRA_LIFT_PX)}px` }}
           >

@@ -74,7 +74,7 @@ const LockedTooltip = ({ children, content, unstyled = false, contentClassName =
   });
 
   const renderedContent = unstyled ? content : (
-    <div className={`rounded-2xl border backdrop-blur-sm p-3.5 shadow-xl border-amber-400/60 bg-white/88 text-stone-800 dark:border-amber-300/40 dark:bg-black/75 dark:text-white/90 ${contentClassName}`}>
+    <div className={`rounded-2xl border border-white/20 bg-black/85 p-3.5 text-white/95 shadow-xl backdrop-blur-xl ${contentClassName}`}>
       {content}
     </div>
   );
