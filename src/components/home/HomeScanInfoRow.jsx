@@ -1,4 +1,5 @@
 import { MapPin, Mountain, Sprout, Zap } from "lucide-react";
+import { LockedTooltip } from "@/components/ui/locked-tooltip";
 
 const toPercentBonus = (multiplier) => Math.round((Number(multiplier || 1) - 1) * 100);
 
@@ -17,11 +18,31 @@ export default function HomeScanInfoRow({
   const carePercent = toPercentBonus(careMultiplier);
 
   const items = [
-    { Icon: Mountain, value: `${zonePercent >= 0 ? "+" : ""}${zonePercent}%`, label: "Zonen-Multiplikator" },
-    { Icon: MapPin, value: String(conqueredZonesDisplay), label: "Geclaimte Zonen" },
+    {
+      Icon: Mountain,
+      value: `${zonePercent >= 0 ? "+" : ""}${zonePercent}%`,
+      label: "Zonen-Multiplikator",
+      description: "Bonus durch deine eroberten Zonen.",
+    },
+    {
+      Icon: MapPin,
+      value: String(conqueredZonesDisplay),
+      label: "Geclaimte Zonen",
+      description: "Anzahl der von dir eroberten Zonen.",
+    },
 
-    { Icon: Zap, value: `+${Math.max(0, Math.round(Number(activityBonusDisplay) || 0))}`, label: "Aktivitätsbonus" },
-    { Icon: Sprout, value: `${carePercent >= 0 ? "+" : ""}${carePercent}%`, label: "Pflege-Bonus" },
+    {
+      Icon: Zap,
+      value: `+${Math.max(0, Math.round(Number(activityBonusDisplay) || 0))}`,
+      label: "Aktivitätsbonus",
+      description: "Zusätzliche Samen durch deine aktuelle Aktivität.",
+    },
+    {
+      Icon: Sprout,
+      value: `${carePercent >= 0 ? "+" : ""}${carePercent}%`,
+      label: "Pflege-Bonus",
+      description: "Bonus durch die Pflege deiner Florabot-Pflanze.",
+    },
   ];
   const leftItems = items.slice(0, 2);
   const rightItems = items.slice(2, 4);
@@ -32,15 +53,25 @@ export default function HomeScanInfoRow({
     : "linear-gradient(to bottom right, #333333, rgba(70, 67, 58, 0.85), #8f6b22)";
 
   const renderItem = (item) => (
-    <span
+    <LockedTooltip
       key={item.label}
-      className="relative inline-flex min-w-0 items-center gap-1"
-      title={item.label}
-      aria-label={item.label}
+      content={(
+        <div className="space-y-1">
+          <p className="text-xs font-semibold">{item.label}</p>
+          <p className="text-[11px] leading-snug">{item.description}</p>
+          <p className="text-[11px]"><span className="font-semibold">Wert:</span> {item.value}</p>
+        </div>
+      )}
     >
-      <item.Icon className="h-3.5 w-3.5 shrink-0" />
-      <span className="truncate font-semibold">{item.value}</span>
-    </span>
+      <span
+        className="relative inline-flex min-w-0 cursor-pointer items-center gap-1"
+        title={item.label}
+        aria-label={`${item.label}: ${item.value}`}
+      >
+        <item.Icon className="h-3.5 w-3.5 shrink-0" />
+        <span className="truncate font-semibold">{item.value}</span>
+      </span>
+    </LockedTooltip>
   );
 
   const renderPill = (pillItems, sideClassName) => (

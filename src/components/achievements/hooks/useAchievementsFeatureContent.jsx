@@ -68,6 +68,42 @@ const resolveQuestSeedReward = ({ questType, seedReward }) => {
   return DEFAULT_QUEST_SEED_REWARD_BY_TYPE.regular;
 };
 
+const QUEST_REDEEM_TABLE_BY_TYPE = {
+  regular: "UserQuest",
+  weekly: "UserWeeklyQuest",
+  monthly: "UserMonthlyQuest",
+};
+
+const markQuestRedeemedOnce = async ({ userQuestId, questType, redeemedAt }) => {
+  const tableName = QUEST_REDEEM_TABLE_BY_TYPE[questType];
+  if (!tableName) throw new Error(`Unknown quest type: ${questType}`);
+
+  const { data, error } = await supabase
+    .from(tableName)
+    .update({
+      redeemed: "true",
+      redeemed_date: redeemedAt,
+      status: "redeemed",
+    })
+    .eq("id", userQuestId)
+    .or("status.eq.completed,completed.eq.true")
+    .or("status.is.null,status.neq.redeemed")
+    .or("redeemed.is.null,redeemed.eq.false")
+    .select("id")
+    .maybeSingle();
+
+  if (error) throw error;
+  if (!data) {
+    throw new Error("Diese Quest wurde bereits eingelöst oder ist nicht mehr einlösbar.");
+  }
+
+  return data;
+};
+
+const isLegacyQuestFlagTrue = (value) => (
+  value === true || String(value ?? "").trim().toLowerCase() === "true"
+);
+
 /**
  * @param {any} error
  */
@@ -913,28 +949,11 @@ export function useAchievementsFeatureContent({
 
       const currentUser = await getCurrentUser();
 
-      // ── 1. Quest-Status als erstes auf 'redeemed' setzen ──────────────────
-      // Wichtig: Status-Update VOR dem Seed-Grant, damit die Quest immer als
-      // eingeloest gilt – auch wenn der Seed-Grant später fehlschlägt.
-      if (questType === 'regular') {
-        await Query.UserQuest.update(userQuestId, {
-          redeemed: true,
-          redeemed_date: now,
-          status: 'redeemed'
-        });
-      } else if (questType === 'weekly') {
-        await Query.UserWeeklyQuest.update(userQuestId, {
-          redeemed: true,
-          redeemed_date: now,
-          status: 'redeemed'
-        });
-      } else if (questType === 'monthly') {
-        await Query.UserMonthlyQuest.update(userQuestId, {
-          redeemed: true,
-          redeemed_date: now,
-          status: 'redeemed'
-        });
-      }
+      await markQuestRedeemedOnce({
+        userQuestId,
+        questType,
+        redeemedAt: now,
+      });
 
       // ── 2. Samen gutschreiben (idempotent, Fehler blockieren nicht die UI) ─
       let grantedBalance = NaN;
@@ -1268,30 +1287,30 @@ export function useAchievementsFeatureContent({
     if (uq.status) {
       return uq.status === 'active' || uq.status === 'completed';
     }
-    return uq.accepted && !uq.redeemed;
+    return uq.accepted && !isLegacyQuestFlagTrue(uq.redeemed);
   };
 
   const isCompletedStatus = (uq) => {
     if (!uq) return false;
     if (uq.status) {
-      return uq.status === 'completed' || uq.status === 'redeemed';
+      return uq.status === 'completed' || uq.status === 'redeemed' || isLegacyQuestFlagTrue(uq.completed);
     }
-    return !!uq.completed;
+    return isLegacyQuestFlagTrue(uq.completed);
   };
 
   const isRedeemedStatus = (uq) => {
     if (!uq) return false;
     if (uq.status) {
-      return uq.status === 'redeemed';
+      return uq.status === 'redeemed' || isLegacyQuestFlagTrue(uq.redeemed);
     }
-    return !!uq.redeemed;
+    return isLegacyQuestFlagTrue(uq.redeemed);
   };
 
   // Reguläre Quests (angenommen & nicht eingelöst)
   const activeRegularQuests = quests.
   filter((q) => {
     const userQuest = userQuests.find((uq) => uq.quest_id === q.id);
-    return isActiveOrCompleted(userQuest) && !(userQuest?.status === 'redeemed' || userQuest?.redeemed);
+    return isActiveOrCompleted(userQuest) && !isRedeemedStatus(userQuest);
   }).
   map((q) => {
     const userQuest = userQuests.find((uq) => uq.quest_id === q.id);
@@ -1359,7 +1378,7 @@ export function useAchievementsFeatureContent({
     ? resolveQuestSeedReward({ questType: 'weekly', seedReward: displayedWeeklyQuest.seed_reward })
     : resolveQuestSeedReward({ questType: 'weekly', seedReward: null });
   const weeklyRewardDisplayName = weeklyReward?.display_name ? `${weeklySeedReward} Samen + 10 Funken + ${weeklyReward.display_name}` : `${weeklySeedReward} Samen + 10 Funken`;
-  const activeWeeklyQuest = displayedWeeklyQuest && currentWeeklyUserQuest && isActiveOrCompleted(currentWeeklyUserQuest) && !(currentWeeklyUserQuest.status === 'redeemed' || currentWeeklyUserQuest.redeemed) ?
+  const activeWeeklyQuest = displayedWeeklyQuest && currentWeeklyUserQuest && isActiveOrCompleted(currentWeeklyUserQuest) && !isRedeemedStatus(currentWeeklyUserQuest) ?
   {
     ...displayedWeeklyQuest,
     userQuestId: currentWeeklyUserQuest.id,
@@ -1381,7 +1400,7 @@ export function useAchievementsFeatureContent({
     ? resolveQuestSeedReward({ questType: 'monthly', seedReward: currentMonthlyQuest.seed_reward })
     : resolveQuestSeedReward({ questType: 'monthly', seedReward: null });
   const monthlyRewardDisplayName = monthlyReward?.display_name ? `${monthlySeedReward} Samen + 15 Funken + ${monthlyReward.display_name}` : `${monthlySeedReward} Samen + 15 Funken`;
-  const activeMonthlyQuest = currentMonthlyQuest && currentMonthlyUserQuest && isActiveOrCompleted(currentMonthlyUserQuest) && !(currentMonthlyUserQuest.status === 'redeemed' || currentMonthlyUserQuest.redeemed) ?
+  const activeMonthlyQuest = currentMonthlyQuest && currentMonthlyUserQuest && isActiveOrCompleted(currentMonthlyUserQuest) && !isRedeemedStatus(currentMonthlyUserQuest) ?
   {
     ...currentMonthlyQuest,
     userQuestId: currentMonthlyUserQuest.id,
@@ -2546,7 +2565,7 @@ export function useAchievementsFeatureContent({
                                   <Button
                                     onClick={(e) => {
                                       e.stopPropagation();
-                                      const allCompleted = [...userQuests, ...userWeeklyQuests, ...userMonthlyQuests].filter((q) => q.redeemed);
+                                      const allCompleted = [...userQuests, ...userWeeklyQuests, ...userMonthlyQuests].filter(isRedeemedStatus);
                                       redeemQuestMutation.mutate({
                                         userQuestId: quest.userQuestId,
                                         questType: quest.type,

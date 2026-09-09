@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { ChevronLeft, ChevronRight, X, Leaf } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import CustomLogoAvatar from "@/components/profile/CustomLogoAvatar";
@@ -240,7 +240,7 @@ export default function MapPinDetailOverlay({
               className={`relative w-full overflow-hidden rounded-[1.75rem] border shadow-[0_18px_60px_rgba(0,0,0,0.28)] ${
                 isLightUi
                   ? "border-stone-200/80 bg-white/96 text-stone-900 backdrop-blur-xl"
-                  : "border-[#f0e5a5]/22 bg-[#0c0e11]/94 text-stone-100 backdrop-blur-xl"
+                  : "border-transparent bg-[#131710] text-stone-100"
               }`}
             >
               <button
@@ -249,7 +249,7 @@ export default function MapPinDetailOverlay({
                 className={`absolute right-3 top-3 z-10 flex h-9 w-9 items-center justify-center rounded-full border transition-colors ${
                   isLightUi
                     ? "border-stone-300/70 bg-white/80 text-stone-700 hover:bg-stone-100"
-                    : "border-[#f0e5a5]/30 bg-black/50 text-stone-200 hover:bg-black/70"
+                    : "border-[#f0e5a5]/45 bg-[#252b20] text-[#fff8d5] hover:bg-[#333b2b]"
                 }`}
                 aria-label="Schließen"
               >
@@ -259,13 +259,13 @@ export default function MapPinDetailOverlay({
               <div className="flex w-full flex-col gap-4 p-4 pr-14 sm:p-5 sm:pr-16">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0 flex-1">
-                    <p className={`text-[11px] font-semibold uppercase tracking-[0.22em] ${isLightUi ? "text-emerald-700" : "text-lime-200"}`}>
+                    <p className={`text-[11px] font-semibold uppercase tracking-[0.22em] ${isLightUi ? "text-emerald-700" : "text-[#f0e5a5]"}`}>
                       Scan-Detail
                     </p>
-                    <h2 className={`mt-1 truncate text-base font-bold sm:text-lg ${isLightUi ? "text-stone-900" : "text-stone-100"}`}>
+                    <h2 className={`mt-1 truncate text-base font-bold sm:text-lg ${isLightUi ? "text-stone-900" : "text-white"}`}>
                       {activePlayer.scannerDisplayName}
                     </h2>
-                    <p className={`mt-1 text-xs ${isLightUi ? "text-stone-500" : "text-stone-400"}`}>
+                    <p className={`mt-1 text-xs ${isLightUi ? "text-stone-600" : "text-stone-200"}`}>
                       {activePlayer.discoveries.length === 1
                         ? "1 Scan an diesem Ort"
                         : `${activePlayer.discoveries.length} Scans an diesem Ort`}
@@ -298,6 +298,13 @@ export default function MapPinDetailOverlay({
                   )}
                 </div>
               </div>
+              {!isLightUi && (
+                <div
+                  aria-hidden="true"
+                  className="gold-gradient-border-mask gold-gradient-border-mask-thin"
+                  style={{ background: "linear-gradient(to bottom right, #f0e5a5, rgba(200,172,98,0.85), #8f6b22)" }}
+                />
+              )}
             </div>
           </motion.div>
         ))}

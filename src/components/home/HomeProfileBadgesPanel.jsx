@@ -1,5 +1,6 @@
 import { Leaf } from "lucide-react";
 import BadgeCircleIcon from "@/components/home/BadgeCircleIcon";
+import { LockedTooltip } from "@/components/ui/locked-tooltip";
 
 const BADGE_RANK_ICON_STYLE = {
   gray: "text-[#9ca3af]",
@@ -73,22 +74,34 @@ export default function HomeProfileBadgesPanel({
 
           const Icon = badge?.Icon || Leaf;
           const rankKey = String(badge?.rankKey || "gray").toLowerCase();
+          const rankLabel = badge?.rankMeta?.label || "Grau";
           const iconToneClass = BADGE_RANK_ICON_STYLE[rankKey] || BADGE_RANK_ICON_STYLE.gray;
           const valueLabel = resolveBadgeValueLabel(badge);
 
           return (
             <div key={badge.id} className="relative min-w-0">
-              <BadgeCircleIcon
-                className="absolute left-1/2 top-0 z-10 shrink-0"
-                style={{ transform: `translateX(-50%) ${circleTransform}` }}
-                contentClassName="flex-col gap-0.5"
-                aria-label={`${badge.label}: ${valueLabel}`}
+              <LockedTooltip
+                content={(
+                  <div className="space-y-1">
+                    <p className="text-xs font-semibold">{badge.label}</p>
+                    <p className="text-[11px] leading-snug">{badge.description}</p>
+                    <p className="text-[11px]"><span className="font-semibold">Wert:</span> {valueLabel}</p>
+                    <p className="text-[11px]"><span className="font-semibold">Rang:</span> {rankLabel}</p>
+                  </div>
+                )}
               >
-                <Icon className={`h-5 w-5 ${iconToneClass}`} />
-                <span className="w-full max-w-[3rem] truncate text-center text-[10px] leading-none font-bold text-stone-50">
-                  {valueLabel}
-                </span>
-              </BadgeCircleIcon>
+                <BadgeCircleIcon
+                  className="absolute left-1/2 top-0 z-10 shrink-0"
+                  style={{ transform: `translateX(-50%) ${circleTransform}` }}
+                  contentClassName="flex-col gap-0.5"
+                  aria-label={`${badge.label}: ${valueLabel}, Rang ${rankLabel}`}
+                >
+                  <Icon className={`h-5 w-5 ${iconToneClass}`} />
+                  <span className="w-full max-w-[3rem] truncate text-center text-[10px] leading-none font-bold text-stone-50">
+                    {valueLabel}
+                  </span>
+                </BadgeCircleIcon>
+              </LockedTooltip>
             </div>
           );
         })}
