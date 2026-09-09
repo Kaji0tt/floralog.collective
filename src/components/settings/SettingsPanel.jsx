@@ -4,7 +4,7 @@ import { upsertUserProfile, updateEmail, updatePassword } from "@/api/authServic
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   LogOut, Mail, Heart, FileText,
-  Edit2, CheckCircle, X, Trash2, Sun, Loader2, ShieldCheck,
+  Edit2, CheckCircle, X, Trash2, Sun, Loader2, ShieldCheck, Lock,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useNavigate } from "react-router-dom";

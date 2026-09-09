@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { Settings, Bug, Info, HeartPulse, Palette, Bell, Menu, CircleAlert } from "lucide-react";
+import { trackAction } from "@/api/analyticsService";
 import ImpressumDialog from "@/components/legal/ImpressumDialog";
 import ServerNewsDialog from "@/components/home/ServerNewsDialog";
 
@@ -35,6 +36,9 @@ export default function HomeHeroSideNav({
   const iconTone = isLightUi ? "text-[#8f6b22]" : "text-[#f0e5a5]";
 
   const toggleExpanded = (key) => {
+    if (expandedKey !== key) {
+      trackAction("home_options_open", { sourcePage: "Home" });
+    }
     setExpandedKey((prev) => (prev === key ? null : key));
   };
 
@@ -58,7 +62,11 @@ export default function HomeHeroSideNav({
               </button>
               <button
                 type="button"
-                onClick={() => { setExpandedKey(null); onOpenBugReport?.(); }}
+                onClick={() => {
+                  trackAction("home_bug_report_open", { sourcePage: "Home" });
+                  setExpandedKey(null);
+                  onOpenBugReport?.();
+                }}
                 aria-label="Bug melden"
                 className="flex h-8 w-8 items-center justify-center"
               >
@@ -67,6 +75,7 @@ export default function HomeHeroSideNav({
               <button
                 type="button"
                 onClick={() => {
+                  trackAction("home_server_news_open", { sourcePage: "Home" });
                   setExpandedKey(null);
                   if (onOpenServerNews) {
                     onOpenServerNews();
@@ -84,7 +93,11 @@ export default function HomeHeroSideNav({
               </button>
               <button
                 type="button"
-                onClick={() => { setExpandedKey(null); setImpressumOpen(true); }}
+                onClick={() => {
+                  trackAction("home_imprint_open", { sourcePage: "Home" });
+                  setExpandedKey(null);
+                  setImpressumOpen(true);
+                }}
                 aria-label="Impressum"
                 className="flex h-8 w-8 items-center justify-center"
               >
@@ -106,7 +119,10 @@ export default function HomeHeroSideNav({
         {hasOpenQuiz ? (
           <button
             type="button"
-            onClick={() => onOpenQuiz?.()}
+            onClick={() => {
+              trackAction("home_quiz_open", { sourcePage: "Home" });
+              onOpenQuiz?.();
+            }}
             aria-label="Offenes Pflanzenquiz öffnen"
             className={`${CIRCLE_BUTTON_CLASS} rounded-full border border-emerald-300/75 bg-emerald-500/80 text-white shadow-[0_0_18px_rgba(52,211,153,0.48)] backdrop-blur-xl transition-colors hover:bg-emerald-400/90`}
           >

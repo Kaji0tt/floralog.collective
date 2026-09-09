@@ -23,25 +23,34 @@ const JOURNEY_NODES = [
   { id: "home",                       label: "Home",           level: 0, parent: null,                    angle: 0,    color: "#15803d" },
   // Level 1 – direct from Home
   { id: "home_scan_click",            label: "Scannen",        level: 1, parent: "home",                  angle: -90,  color: "#22c55e" },
-  { id: "home_logo_overlay_open",     label: "Overlay",        level: 1, parent: "home",                  angle: -42,  color: "#0ea5e9" },
-  { id: "bottomnav_collection",       label: "Kollektion",     level: 1, parent: "home",                  angle: 6,    color: "#6366f1" },
-  { id: "bottomnav_achievements",     label: "Erfolge",        level: 1, parent: "home",                  angle: 52,   color: "#f59e0b" },
-  { id: "bottomnav_social",           label: "Social",         level: 1, parent: "home",                  angle: 132,  color: "#10b981" },
-  { id: "bottomnav_map",              label: "Karte",          level: 1, parent: "home",                  angle: 180,  color: "#06b6d4" },
-  { id: "home_milestone_action",      label: "Milestone",      level: 1, parent: "home",                  angle: -140, color: "#f97316" },
-  { id: "home_settings_open",         label: "Einstellungen",  level: 1, parent: "home",                  angle: -165, color: "#78716c" },
-  { id: "home_panel_return",          label: "← Zurück",       level: 1, parent: "home",                  angle: 215,  color: "#94a3b8" },
-  // Level 2 – from Overlay
-  { id: "home_overlay_health_stats",  label: "Pflanzenstatus", level: 2, parent: "home_logo_overlay_open", angle: -72,  color: "#ec4899" },
-  { id: "home_overlay_shop_open",     label: "Shop",           level: 2, parent: "home_logo_overlay_open", angle: -18,  color: "#f59e0b" },
-  // Level 2 – from Erfolge
-  { id: "achievements_view_leaderboard", label: "Rangliste",  level: 2, parent: "bottomnav_achievements",  angle: 28,   color: "#fbbf24" },
-  { id: "achievements_view_quests",      label: "Aufgaben",   level: 2, parent: "bottomnav_achievements",  angle: 55,   color: "#fb923c" },
-  { id: "achievements_view_achievements",label: "Vergleiche", level: 2, parent: "bottomnav_achievements",  angle: 80,   color: "#fdba74" },
-  // Level 2 – from Social
-  { id: "social_tab_explorer",        label: "Forscher Log",   level: 2, parent: "bottomnav_social",       angle: 108,  color: "#34d399" },
-  { id: "social_tab_news",            label: "Neuigkeiten",    level: 2, parent: "bottomnav_social",       angle: 135,  color: "#6ee7b7" },
-  { id: "social_tab_friends",         label: "Freunde",        level: 2, parent: "bottomnav_social",       angle: 158,  color: "#a7f3d0" },
+  { id: "home_customize_open",        label: "Anpassen",       level: 1, parent: "home",                  angle: -58,  color: "#d97706" },
+  { id: "home_health_open",           label: "Gesundheit",     level: 1, parent: "home",                  angle: -26,  color: "#e11d48" },
+  { id: "home_quiz_open",             label: "Quiz",           level: 1, parent: "home",                  angle: 4,    color: "#059669" },
+  { id: "bottomnav_collection",       label: "Kollektion",     level: 1, parent: "home",                  angle: 34,   color: "#6366f1" },
+  { id: "bottomnav_achievements",     label: "Aufgaben",       level: 1, parent: "home",                  angle: 70,   color: "#f59e0b" },
+  { id: "bottomnav_social",           label: "Log",            level: 1, parent: "home",                  angle: 120,  color: "#10b981" },
+  { id: "bottomnav_map",              label: "Karte",          level: 1, parent: "home",                  angle: 154,  color: "#06b6d4" },
+  { id: "home_options_open",          label: "Optionen",       level: 1, parent: "home",                  angle: 186,  color: "#57534e" },
+  { id: "home_event_stripe_weekly",   label: "Wochenaufgabe",  level: 1, parent: "home",                  angle: 220,  color: "#f59e0b" },
+  { id: "home_event_stripe_monthly",  label: "Monatsaufgabe",  level: 1, parent: "home",                  angle: 250,  color: "#f97316" },
+  { id: "bottomnav_home",             label: "Home-Button",    level: 1, parent: "home",                  angle: 282,  color: "#15803d" },
+  { id: "home_panel_return",          label: "Header zurück",  level: 1, parent: "home",                  angle: 314,  color: "#94a3b8" },
+  { id: "home_settings_open",         label: "Einstellungen",  level: 1, parent: "home",                  angle: 344,  color: "#78716c" },
+  // Level 2 – from Anpassen
+  { id: "home_badge_customize_open",  label: "Abzeichen",      level: 2, parent: "home_customize_open",   angle: -72,  color: "#ca8a04" },
+  { id: "home_shop_stack_save",       label: "Speichern",      level: 2, parent: "home_customize_open",   angle: -42,  color: "#65a30d" },
+  // Level 2 – from Optionen
+  { id: "home_bug_report_open",       label: "Bugreport",      level: 2, parent: "home_options_open",     angle: 178,  color: "#dc2626" },
+  { id: "home_server_news_open",      label: "Server-News",    level: 2, parent: "home_options_open",     angle: 196,  color: "#0284c7" },
+  { id: "home_imprint_open",          label: "Impressum",      level: 2, parent: "home_options_open",     angle: 214,  color: "#64748b" },
+  // Level 2 – from Aufgaben
+  { id: "achievements_view_leaderboard", label: "Rangliste",  level: 2, parent: "bottomnav_achievements", angle: 48,   color: "#fbbf24" },
+  { id: "achievements_view_quests",      label: "Aufgaben",   level: 2, parent: "bottomnav_achievements", angle: 70,   color: "#fb923c" },
+  { id: "achievements_view_achievements",label: "Vergleiche", level: 2, parent: "bottomnav_achievements", angle: 92,   color: "#fdba74" },
+  // Level 2 – from Log
+  { id: "social_tab_explorer",        label: "Forscher-Log",   level: 2, parent: "bottomnav_social",       angle: 102,  color: "#34d399" },
+  { id: "social_tab_news",            label: "Neuigkeiten",    level: 2, parent: "bottomnav_social",       angle: 120,  color: "#6ee7b7" },
+  { id: "social_tab_friends",         label: "Freunde",        level: 2, parent: "bottomnav_social",       angle: 138,  color: "#a7f3d0" },
 ];
 
 /** Edges to draw. */

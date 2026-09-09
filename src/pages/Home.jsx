@@ -1374,11 +1374,19 @@ function HomeContent() {
     }
 
     if (shouldOpenSettings) {
+      trackAction("home_settings_open", {
+        sourcePage: "Home",
+        metadata: { entryPoint: "route_state" },
+      });
       setActivePanel("settings");
       setShowHealthStatsPanel(false);
     }
 
     if (shouldOpenCollection) {
+      trackAction("bottomnav_collection", {
+        sourcePage: "Home",
+        metadata: { entryPoint: "route_state" },
+      });
       setEmbeddedSelectedCollectionId(openCollectionId);
       setActivePanel("collection");
       setShowHealthStatsPanel(false);
@@ -3364,6 +3372,7 @@ function HomeContent() {
 
     setShowHealthStatsPanel(false);
     setShowShopStack(true);
+    trackAction("home_customize_open", { sourcePage: "Home" });
     return true;
   };
 
@@ -3916,7 +3925,12 @@ function HomeContent() {
                       playerAmber={playerAmber}
                       user={effectiveUser}
                       isHealthViewActive={showHealthStatsPanel}
-                      onToggleHealthView={() => setShowHealthStatsPanel((prev) => !prev)}
+                      onToggleHealthView={() => {
+                        if (!showHealthStatsPanel) {
+                          trackAction("home_health_open", { sourcePage: "Home" });
+                        }
+                        setShowHealthStatsPanel((prev) => !prev);
+                      }}
                       onOpenSettings={() => {
                         trackAction("home_settings_open", { sourcePage: "Home" });
                         setActivePanel("settings");

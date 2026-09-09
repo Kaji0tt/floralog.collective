@@ -35,14 +35,18 @@ export async function trackAction(eventName, { sourcePage = null, metadata = {} 
     const authUser = await getCurrentAuthUser();
     if (!authUser?.id) return;
 
-    await supabase.from("UserActionEvent").insert([{
+    const { error } = await supabase.from("UserActionEvent").insert([{
       auth_id: authUser.id,
       event_name: String(eventName),
       source_page: sourcePage ?? null,
       metadata: metadata || {},
     }]);
-  } catch {
+    if (error) {
+      console.warn("[analyticsService] trackAction error:", error.message);
+    }
+  } catch (error) {
     // Fire-and-forget: tracking must never break UI interactions.
+    console.warn("[analyticsService] trackAction error:", error?.message || error);
   }
 }
 
@@ -55,17 +59,29 @@ export async function trackAction(eventName, { sourcePage = null, metadata = {} 
 export async function fetchActionEvents30d() {
   try {
     const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
-    const { data, error } = await supabase
-      .from("UserActionEvent")
-      .select("id, auth_id, event_name, source_page, metadata, created_at")
-      .gte("created_at", since)
-      .order("created_at", { ascending: false });
-    if (error) {
-      console.warn("[analyticsService] fetchActionEvents30d error:", error?.message);
-      return [];
+    const pageSize = 1000;
+    const events = [];
+
+    for (let from = 0; ; from += pageSize) {
+      const { data, error } = await supabase
+        .from("UserActionEvent")
+        .select("id, auth_id, event_name, source_page, metadata, created_at")
+        .gte("created_at", since)
+        .order("created_at", { ascending: false })
+        .range(from, from + pageSize - 1);
+      if (error) {
+        console.warn("[analyticsService] fetchActionEvents30d error:", error.message);
+        return [];
+      }
+
+      const page = data || [];
+      events.push(...page);
+      if (page.length < pageSize) break;
     }
-    return data || [];
-  } catch {
+
+    return events;
+  } catch (error) {
+    console.warn("[analyticsService] fetchActionEvents30d error:", error?.message || error);
     return [];
   }
 }
