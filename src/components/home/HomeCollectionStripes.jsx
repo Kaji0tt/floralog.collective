@@ -648,7 +648,7 @@ export default function HomeCollectionStripes({
       const maxBadgeBottom = Math.max(0, viewportNode.clientHeight - PROFILE_BADGE_REWARD_CLEARANCE_PX);
       const nextTop = Math.max(0, Math.min(logoBottom, maxBadgeBottom));
       setProfileBadgesTopPx((previousTop) => (
-        previousTop !== null && Math.abs(previousTop - nextTop) < 0.5 ? previousTop : nextTop
+        previousTop !== null && Math.abs(previousTop - nextTop) < 1.5 ? previousTop : nextTop
       ));
 
       const titleRect = heroTitleRef?.current?.getBoundingClientRect();
@@ -665,7 +665,7 @@ export default function HomeCollectionStripes({
         : 0;
       const nextHeroContentOffset = Math.min(requiredOffset, availableOffset);
       setHeroContentOffsetPx((previousOffset) => (
-        Math.abs(previousOffset - nextHeroContentOffset) < 0.5 ? previousOffset : nextHeroContentOffset
+        Math.abs(previousOffset - nextHeroContentOffset) < 1.5 ? previousOffset : nextHeroContentOffset
       ));
     }
     // logoHeight/logoWidth: size of the logo button in unit-coordinate space (removes unit scale,
@@ -696,7 +696,7 @@ export default function HomeCollectionStripes({
       nextScale = contentStackMaxScaleRef.current;
     }
 
-    setBadgeLogoScale((prevScale) => (Math.abs(prevScale - nextScale) < 0.01 ? prevScale : nextScale));
+    setBadgeLogoScale((prevScale) => (Math.abs(prevScale - nextScale) < 0.015 ? prevScale : nextScale));
   }, [isHealthView]);
 
   useEffect(() => {
@@ -719,15 +719,15 @@ export default function HomeCollectionStripes({
     viewport?.addEventListener("resize", scheduleUpdate);
     viewport?.addEventListener("scroll", scheduleUpdate);
 
+    // NOTE: badgeLogoUnitRef/logoButtonRef are intentionally NOT observed here - their own
+    // (untransformed) layout box size is fixed by CSS and only ever changes via a breakpoint
+    // (already covered by the `resize` listener above). Observing them used to feed their
+    // scale-derived bounding-rect noise back into the very calculation that sets that scale,
+    // producing a self-reinforcing measure->set->measure loop that showed up as a visible
+    // shake/jitter of the logo and badges.
     const observer = typeof ResizeObserver !== "undefined" ? new ResizeObserver(() => scheduleUpdate()) : null;
     if (observer && badgeLogoViewportRef.current) {
       observer.observe(badgeLogoViewportRef.current);
-    }
-    if (observer && badgeLogoUnitRef.current) {
-      observer.observe(badgeLogoUnitRef.current);
-    }
-    if (observer && logoButtonRef.current) {
-      observer.observe(logoButtonRef.current);
     }
     if (observer && profileBadgesRef.current) {
       observer.observe(profileBadgesRef.current);
@@ -750,6 +750,10 @@ export default function HomeCollectionStripes({
     };
   }, [heroTitleRef, rewardCardsRef, updateBadgeLogoScale]);
 
+  // Intentionally excludes `badgeLogoScale`/`heroContentOffsetPx` from the deps below - those are
+  // OUTPUTS of updateBadgeLogoScale, not external inputs. Re-running this settle-pass whenever they
+  // change turned it into a feedback loop (state change -> effect -> recompute -> state change -> ...)
+  // that manifested as a continuous jitter/shake of the logo and badges.
   useEffect(() => {
     let firstFrameId = null;
     let secondFrameId = null;
@@ -762,7 +766,7 @@ export default function HomeCollectionStripes({
       if (firstFrameId) window.cancelAnimationFrame(firstFrameId);
       if (secondFrameId) window.cancelAnimationFrame(secondFrameId);
     };
-  }, [badgeLogoScale, heroContentOffsetPx, isHealthView, profileBadges, updateBadgeLogoScale]);
+  }, [isHealthView, profileBadges, updateBadgeLogoScale]);
 
   useEffect(() => {
     return () => {
