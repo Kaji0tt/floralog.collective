@@ -6,6 +6,8 @@ const buildAssetUrl = (fileName) => {
   return entry ? entry[1] : new URL(`../../design/${fileName}`, import.meta.url).href;
 };
 
+const LOCAL_PREVIEW_ENABLED = import.meta.env.DEV;
+
 export const LOGO_ACCESSORY_DEFAULTS = {
   selected_face_asset: "face_default",
   selected_plant_asset: "plant_leaf",
@@ -25,10 +27,7 @@ export const LOGO_ACCESSORY_DEFAULT_UNLOCKED_IDS = new Set([
   "face_default",
   "face_mask",
   "face_smile",
-  // Local-only test slots (see design/*_test.png) - kept default-unlocked for quick local preview.
-  "face_test",
-  "plant_test",
-  "border_test",
+  ...(LOCAL_PREVIEW_ENABLED ? ["face_test", "plant_test", "border_test"] : []),
 ]);
 
 // Shared border-tint presets used by both the Shop and the guest pre-registration picker.
@@ -54,8 +53,7 @@ const faceOptions = [
   { id: "face_bug", label: "Bug", fileName: "default/face_bug.png" },
   { id: "face_mask", label: "Mask", fileName: "default/face_mask.png" },
   { id: "face_smile", label: "Smile", fileName: "default/face_smile.png" },
-  // Local-only preview slot: swap design/face_test.png with candidate artwork to test before it goes through the real asset pipeline.
-  { id: "face_test", label: "Test", fileName: "face_test.png" },
+  ...(LOCAL_PREVIEW_ENABLED ? [{ id: "face_test", label: "Test", fileName: "face_test.png" }] : []),
   { id: "face_blush", label: "Blush", fileName: "face_blush.png" },
   { id: "face_golem", label: "Golem", fileName: "face_golem.png" },
   { id: "face_marien", label: "Marien", fileName: "face_marien.png" },
@@ -71,8 +69,7 @@ const faceOptions = [
 ];
 
 const plantOptions = [
-  // Local-only preview slot: swap design/plant_test.png with candidate artwork to test before it goes through the real asset pipeline.
-  { id: "plant_test", label: "Test", fileName: "plant_test.png" },
+  ...(LOCAL_PREVIEW_ENABLED ? [{ id: "plant_test", label: "Test", fileName: "plant_test.png" }] : []),
   { id: "plant_forest_eiche", label: "Eiche", fileName: "plant_forest_eiche.png" },
   { id: "plant_forest_moos", label: "Moos", fileName: "plant_forest_moos.png" },
   { id: "plant_forest_waldmeister", label: "Waldmeister", fileName: "plant_forest_waldmeister.png" },
@@ -98,8 +95,7 @@ const borderOptions = [
   { id: "border_hacked", label: "Hacked", fileName: "default/border_hacked.png" },
   { id: "border_orbit", label: "Orbit", fileName: "default/border_orbit.png" },
   { id: "border_triad", label: "Triad", fileName: "default/border_triad.png" },
-  // Local-only preview slot: swap design/border_test.png with candidate artwork to test before it goes through the real asset pipeline.
-  { id: "border_test", label: "Test", fileName: "border_test.png" },
+  ...(LOCAL_PREVIEW_ENABLED ? [{ id: "border_test", label: "Test", fileName: "border_test.png" }] : []),
   { id: "border_efeu", label: "Efeu", fileName: "border_efeu.png" },
   { id: "border_hawaii", label: "Hawaii", fileName: "border_hawaii.png" },
   { id: "border_maori", label: "Maori", fileName: "border_maori.png" },
