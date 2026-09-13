@@ -721,6 +721,7 @@ export default function MapboxZoneMap({
   zones = [],
   userLocation = null,
   fallbackCenter = null,
+  focusCenter = null,
   discoveryPoints = [],
   claimedTiles = [],
   currentAuthId = null,
@@ -871,11 +872,23 @@ export default function MapboxZoneMap({
     const map = mapRef.current;
     if (!map) return;
 
-    const syncMapCenterToPlayer = () => {
+    const resolveRecenterTarget = () => {
+      const focusLng = Number(focusCenter?.lng);
+      const focusLat = Number(focusCenter?.lat);
+      if (Number.isFinite(focusLng) && Number.isFinite(focusLat)) {
+        return { targetLng: focusLng, targetLat: focusLat };
+      }
+
       const userLng = Number(userLocation?.lng);
       const userLat = Number(userLocation?.lat);
-      const targetLng = Number.isFinite(userLng) ? userLng : Number(fallbackCenter?.lng);
-      const targetLat = Number.isFinite(userLat) ? userLat : Number(fallbackCenter?.lat);
+      return {
+        targetLng: Number.isFinite(userLng) ? userLng : Number(fallbackCenter?.lng),
+        targetLat: Number.isFinite(userLat) ? userLat : Number(fallbackCenter?.lat),
+      };
+    };
+
+    const syncMapCenterToPlayer = () => {
+      const { targetLng, targetLat } = resolveRecenterTarget();
 
       if (!Number.isFinite(targetLng) || !Number.isFinite(targetLat)) {
         return;
@@ -902,8 +915,7 @@ export default function MapboxZoneMap({
     const updateMapData = () => {
       const userLng = Number(userLocation?.lng);
       const userLat = Number(userLocation?.lat);
-      const targetLng = Number.isFinite(userLng) ? userLng : Number(fallbackCenter?.lng);
-      const targetLat = Number.isFinite(userLat) ? userLat : Number(fallbackCenter?.lat);
+      const { targetLng, targetLat } = resolveRecenterTarget();
 
       if (Number.isFinite(targetLng) && Number.isFinite(targetLat)) {
         map.easeTo({
@@ -1356,6 +1368,8 @@ export default function MapboxZoneMap({
     discoveryPoints,
     fallbackCenter?.lat,
     fallbackCenter?.lng,
+    focusCenter?.lat,
+    focusCenter?.lng,
     hideClaimLogos,
     isLightUi,
     onDiscoveryImageClick,

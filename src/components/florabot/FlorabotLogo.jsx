@@ -88,7 +88,7 @@ export default function FlorabotLogo({
           style={{ transform: `translateY(-${LOGO_LAYER_TOP_MARGIN_PERCENT}%)` }}
         >
           <HomeRarityBorderGlow
-            active={safeProfile.selected_profile_effect === "rarity_border_glow"}
+            active={safeProfile.selected_logo_effect === "rarity_border_glow"}
             borderColor={assets.borderColor}
             borderImageUrl={assets.border?.imageUrl}
           />

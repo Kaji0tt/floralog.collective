@@ -1,4 +1,14 @@
 import { CheckCircle2, Leaf, X } from "lucide-react";
+import GoldGradientCard from "@/components/home/GoldGradientCard";
+
+// Matches the zone circle colors drawn on the map (THEME_MAP_COLORS in MapboxZoneMap.jsx) so the
+// corner badge is recognizable as "this zone's theme" at a glance.
+const ZONE_BADGE_THEME_STYLE = {
+  forest: "border-emerald-300/45 bg-emerald-500/25",
+  urban: "border-amber-300/45 bg-amber-500/25",
+  water: "border-sky-300/45 bg-sky-500/25",
+  meadow: "border-lime-300/45 bg-lime-500/25",
+};
 
 /**
  * Bottom-sheet zone detail card shown after tapping a zone (list or map circle).
@@ -15,20 +25,20 @@ export default function ZoneDetailSheet({ zone, isLightUi, onClose, onOpenScans,
 
   const targetPlants = Array.isArray(zone.targetPlants) ? zone.targetPlants : [];
   const ThemeIcon = zone.themeIcon;
+  const previewBorderGradient = isLightUi
+    ? "linear-gradient(to bottom right, #e8d9a8, #c8ac62, rgba(143,107,34,0.7))"
+    : "linear-gradient(to bottom right, #f0e5a5, rgba(200,172,98,0.85), #8f6b22)";
 
   return (
-    <div
-      className={`relative shrink-0 border-t px-4 py-3 sm:px-5 transition-[opacity] duration-300 ${
-        isLightUi
-          ? "border-[#c0a860]/25 bg-[#f5f1e6] text-stone-900"
-          : "border-[#f0e5a5]/14 bg-[#10140f] text-stone-100"
-      }`}
-    >
-      <div className="flex items-stretch gap-3">
+    <div className="pointer-events-auto relative shrink-0 px-3 pb-3 pt-2 transition-[opacity] duration-300 sm:px-4">
+      <GoldGradientCard tinted={true} contentClassName="relative overflow-hidden">
+      <div
+        className="absolute inset-0 rounded-3xl backdrop-blur-lg backdrop-saturate-250"
+        style={{ background: "rgba(28, 23, 4, 0.59)", boxShadow: "inset 0 2px 22px rgba(0,0,0,0.55)" }}
+      />
+      <div className="relative flex items-stretch gap-3 px-4 py-3 sm:px-5">
         {/* Left column: preview image, full row height */}
-        <div className={`relative w-24 shrink-0 overflow-hidden rounded-2xl border sm:w-28 ${
-          isLightUi ? "border-[#c8ac62]/40" : "border-[#f0e5a5]/20"
-        }`}>
+        <div className="relative w-24 shrink-0 overflow-hidden rounded-2xl sm:w-28">
           {zone.themeImage ? (
             <img src={zone.themeImage} alt={zone.themeLabel} className="h-full w-full object-cover" />
           ) : (
@@ -38,11 +48,16 @@ export default function ZoneDetailSheet({ zone, isLightUi, onClose, onOpenScans,
           )}
           {ThemeIcon && (
             <span className={`absolute bottom-1.5 right-1.5 flex h-6 w-6 items-center justify-center rounded-full border ${
-              isLightUi ? "border-white/60 bg-white/85 text-stone-700" : "border-black/30 bg-black/60 text-stone-100"
-            }`}>
+              ZONE_BADGE_THEME_STYLE[zone.themeKey] || "border-black/30 bg-black/60"
+            } ${zone.themeIconClass || "text-stone-100"}`}>
               <ThemeIcon className="h-3.5 w-3.5" />
             </span>
           )}
+          <div
+            aria-hidden="true"
+            className="gold-gradient-border-mask"
+            style={{ background: previewBorderGradient }}
+          />
         </div>
 
         {/* Middle column: title, scan progress, multiplier - stacked in reading order, no forced spacing */}
@@ -173,6 +188,7 @@ export default function ZoneDetailSheet({ zone, isLightUi, onClose, onOpenScans,
           </div>
         </div>
       </div>
+      </GoldGradientCard>
     </div>
   );
 }

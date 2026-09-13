@@ -12,6 +12,7 @@ export default function GoldGradientCard({
   contentClassName = "",
   borderClassName = "",
   blur = false,
+  tinted = true,
   rounded = "3xl",
   shadow = true,
   children,
@@ -33,7 +34,7 @@ export default function GoldGradientCard({
       className={`relative ${roundedClass} ${shadowClass} ${className}`}
       {...rest}
     >
-      {blur && (
+      {blur && tinted && (
         // Dedicated blur layer, kept between content and the border-mask sibling below
         // (never directly adjacent to a mask-composite element - avoids the iOS compositing bug).
         <div
@@ -45,13 +46,17 @@ export default function GoldGradientCard({
       )}
       <div
         className={`relative h-full w-full ${roundedClass} ${
-          blur
+          !tinted
             ? isLightUi
               ? "text-stone-800"
               : "text-stone-100"
-            : isLightUi
-              ? "bg-white/70 text-stone-800"
-              : "bg-black/25 text-stone-100"
+            : blur
+              ? isLightUi
+                ? "text-stone-800"
+                : "text-stone-100"
+              : isLightUi
+                ? "bg-white/70 text-stone-800"
+                : "bg-black/25 text-stone-100"
         } ${contentClassName}`}
       >
         {children}

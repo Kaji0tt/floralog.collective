@@ -589,6 +589,15 @@ export const getAccessorySections = ({ logoAssets = [], rewards = [], userReward
     });
   }
 
+  // Merge in local-only *_test.png options (never present in the real DB catalog) so they stay
+  // selectable in the shop for local asset previewing without touching the shared LogoAsset table.
+  for (const section of LOGO_ACCESSORY_SECTIONS) {
+    for (const option of section.options) {
+      if (!option.id.endsWith("_test")) continue;
+      grouped[section.key].push({ ...option, isLocked: false });
+    }
+  }
+
   return [
     {
       key: "face",

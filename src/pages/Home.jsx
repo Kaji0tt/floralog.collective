@@ -1510,6 +1510,7 @@ function HomeContent() {
         selected_border_asset: userData.selected_border_asset,
         selected_border_color: userData.selected_border_color,
         selected_profile_effect: userData.selected_profile_effect,
+        selected_logo_effect: userData.selected_logo_effect,
         background_image_url: userData.background_image_url,
         background_color: userData.background_color
       };
@@ -2978,11 +2979,10 @@ function HomeContent() {
   const streakMultiplier = Math.max(1, Math.min(7, streakDays <= 1 ? 1 : streakDays));
 
   const zoneMultiplierCandidate = Number(
-    activeZone?.bonusMultiplier ?? activeZone?.zoneBonusMultiplier ?? activeZone?.zone_bonus_multiplier ?? 1.5
+    activeZone?.bonusMultiplier ?? activeZone?.zoneBonusMultiplier ?? activeZone?.zone_bonus_multiplier
   );
-  const zoneMultiplier = Number.isFinite(zoneMultiplierCandidate) && zoneMultiplierCandidate > 0
-    ? zoneMultiplierCandidate
-    : 1.5;
+  const hasZoneMultiplier = Number.isFinite(zoneMultiplierCandidate) && zoneMultiplierCandidate > 0;
+  const zoneMultiplier = hasZoneMultiplier ? zoneMultiplierCandidate : 1;
 
   const careMultiplier = computeCareMultiplier(safeCare);
 
@@ -4087,7 +4087,7 @@ function HomeContent() {
                       className="mb-[clamp(0.35rem,0.8vh,0.55rem)]"
                       isLightUi={isLightUi}
                       conqueredZonesDisplay={conqueredZonesDisplay}
-                      zoneMultiplier={zoneMultiplier}
+                      zoneMultiplier={hasZoneMultiplier ? zoneMultiplier : null}
                       careMultiplier={careMultiplier}
                       activityBonusDisplay={healthSeedBonusDisplay}
                     />

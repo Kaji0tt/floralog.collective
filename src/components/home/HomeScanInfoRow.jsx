@@ -1,7 +1,10 @@
 import { MapPin, Mountain, Sprout, Zap } from "lucide-react";
 import { LockedTooltip } from "@/components/ui/locked-tooltip";
 
-const toPercentBonus = (multiplier) => Math.round((Number(multiplier || 1) - 1) * 100);
+const toPercentBonus = (multiplier) => {
+  const value = Number(multiplier);
+  return Number.isFinite(value) && value > 0 ? Math.round((value - 1) * 100) : null;
+};
 
 /**
  * Always-visible row of the 4 multiplier indicators currently applied on Home.
@@ -9,7 +12,7 @@ const toPercentBonus = (multiplier) => Math.round((Number(multiplier || 1) - 1) 
 export default function HomeScanInfoRow({
   isLightUi = false,
   conqueredZonesDisplay = "0",
-  zoneMultiplier = 1,
+  zoneMultiplier = null,
   careMultiplier = 1,
   activityBonusDisplay = 0,
   className = "",
@@ -20,15 +23,15 @@ export default function HomeScanInfoRow({
   const items = [
     {
       Icon: Mountain,
-      value: `${zonePercent >= 0 ? "+" : ""}${zonePercent}%`,
+      value: zonePercent === null ? "n/a" : `${zonePercent >= 0 ? "+" : ""}${zonePercent}%`,
       label: "Zonen-Multiplikator",
-      description: "Bonus durch deine eroberten Zonen.",
+      description: "Multiplikator der aktuell aktiven Zone.",
     },
     {
       Icon: MapPin,
       value: String(conqueredZonesDisplay),
-      label: "Geclaimte Zonen",
-      description: "Anzahl der von dir eroberten Zonen.",
+      label: "Eroberte Tiles",
+      description: "Anzahl der von dir eroberten Tiles.",
     },
 
     {

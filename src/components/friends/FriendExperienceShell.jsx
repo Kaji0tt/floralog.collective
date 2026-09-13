@@ -194,7 +194,7 @@ export default function FriendExperienceShell({
           }`}
         />
         <HomeShellBorderGlow active={friendUser?.selected_profile_effect === "shell_border_glow"} />
-        <HomeRarityBorderGlow active={friendUser?.selected_profile_effect === "rarity_border_glow"} borderColor={friendUser?.selected_border_color} />
+        <HomeRarityBorderGlow active={friendUser?.selected_logo_effect === "rarity_border_glow"} borderColor={friendUser?.selected_border_color} />
 
         <div className="relative z-10 h-full flex flex-col px-4 md:px-8 py-4 md:py-6">
           <header className="shrink-0 flex items-start justify-between gap-3">
