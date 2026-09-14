@@ -20,7 +20,7 @@ import { ChevronDown, ChevronUp } from "lucide-react";
  *   ownScore: number,
  *   maxScore: number,
  *   metric: "seeds" | "highest_scan",
- *   onPlayerClick?: (email: string) => void,
+ *   onPlayerClick?: (email?: string, authId?: string) => void,
  *   isLightUi?: boolean,
  * }} props
  */
@@ -116,6 +116,7 @@ export default function LeaderboardTable({
               <div className="w-8 h-8 rounded-full overflow-hidden border border-stone-400/40 flex-shrink-0 bg-black/40">
                 <CustomLogoAvatar
                   logoAssets={entry.logoAssets}
+                  playerAuthId={entry.authId}
                   className="w-full h-full"
                   tooltipText={entry.name || "Unbekannt"}
                   fallbackText={entry.name?.charAt(0) || "?"}
@@ -126,15 +127,15 @@ export default function LeaderboardTable({
               <div className="min-w-0 flex-1">
                 <button
                   type="button"
-                  onClick={() => entry.email && onPlayerClick && onPlayerClick(entry.email)}
-                  disabled={!entry.email}
+                  onClick={() => onPlayerClick?.(entry.email, entry.authId)}
+                  disabled={!entry.email && !entry.authId}
                   className={`block text-left text-xs font-bold truncate p-0 m-0 border-0 bg-transparent transition-colors ${
                     entry.isOwn
                       ? "text-lime-300"
                       : isLightUi
                       ? "text-stone-900 hover:text-emerald-700"
                       : "text-stone-100 hover:text-lime-300"
-                  } ${entry.email ? "cursor-pointer" : "cursor-default"}`}
+                  } ${entry.email || entry.authId ? "cursor-pointer" : "cursor-default"}`}
                 >
                   {entry.name || "Unbekannt"}
                 </button>

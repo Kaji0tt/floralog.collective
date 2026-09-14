@@ -2055,16 +2055,19 @@ export function useAchievementsFeatureContent({
   const maxRankingScore = activeLeaderboardRanking[0]?.score || 1;
   const userLogoAssets = useMemo(() => resolveEquippedLogoAssetsWithCatalog(user, logoAssets), [user, logoAssets]);
 
-  const navigateToPublicProfile = (email) => {
+  const navigateToPublicProfile = (email, authId = null) => {
     const emailValue = String(email || "").trim();
-    if (!emailValue) return;
+    const authIdValue = String(authId || "").trim();
+    if (!emailValue && !authIdValue) return;
 
-    if (user?.email && emailValue.toLowerCase() === user.email.toLowerCase()) {
+    if ((user?.id && authIdValue === user.id) || (user?.email && emailValue.toLowerCase() === user.email.toLowerCase())) {
       navigate(createPageUrl("Home"));
       return;
     }
 
-    navigate(createPageUrl(`FriendProfile?email=${encodeURIComponent(emailValue)}`));
+    if (authIdValue) {
+      navigate(createPageUrl(`FriendProfile?auth_id=${encodeURIComponent(authIdValue)}`));
+    }
   };
 
   const moduleChips = [
@@ -2191,6 +2194,7 @@ export function useAchievementsFeatureContent({
           <div className="w-10 h-10 flex-shrink-0 rounded-full overflow-hidden border-2 border-stone-300/40">
             <CustomLogoAvatar
               logoAssets={logo}
+              playerAuthId={entry.authId}
               className="w-full h-full"
               tooltipText={entry.name || entry.email || "Unbekannt"}
               fallbackText={entry.name?.charAt(0)?.toUpperCase() || "?"}
@@ -2201,7 +2205,7 @@ export function useAchievementsFeatureContent({
           <div className="flex-1 min-w-0">
             <button
               type="button"
-              onClick={(e) => { e.stopPropagation(); navigateToPublicProfile(entry.email); }}
+              onClick={(e) => { e.stopPropagation(); navigateToPublicProfile(entry.email, entry.authId); }}
               disabled={!entry.email}
               className={`block w-full text-left text-[15px] font-semibold truncate p-0 m-0 border-0 bg-transparent ${statsTitleClass} ${entry.email ? "cursor-pointer" : "cursor-default"}`}
             >

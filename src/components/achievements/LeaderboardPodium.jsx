@@ -13,7 +13,7 @@ import CustomLogoAvatar from "@/components/profile/CustomLogoAvatar";
  *     logoAssets?: any,
  *   }>,
  *   metric: "seeds" | "highest_scan",
- *   onPlayerClick?: (email: string) => void,
+ *   onPlayerClick?: (email?: string, authId?: string) => void,
  *   isLightUi?: boolean,
  *   fillAvailable?: boolean,
  * }} props
@@ -58,7 +58,7 @@ export default function LeaderboardPodium({
         className={`basis-0 flex-1 flex flex-col items-center justify-start px-1 min-w-0 cursor-pointer group transition-transform active:scale-95 ${
           isFirst ? "z-10 -mx-1" : "z-0"
         }`}
-        onClick={() => entry.email && onPlayerClick && onPlayerClick(entry.email)}
+        onClick={() => onPlayerClick?.(entry.email, entry.authId)}
       >
         {/* Avatar (clean without extra circle rings or clipping) */}
         <div className="relative flex flex-col items-center">
@@ -71,6 +71,7 @@ export default function LeaderboardPodium({
             <CustomLogoAvatar
               noClip
               logoAssets={entry.logoAssets}
+              playerAuthId={entry.authId}
               className="w-full h-full"
               tooltipText={entry.name || "Unbekannt"}
               fallbackText={entry.name?.charAt(0)?.toUpperCase() || "?"}

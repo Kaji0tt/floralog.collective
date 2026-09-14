@@ -34,10 +34,6 @@
       "type": "string",
       "description": "Hintergrundfarbe"
     },
-    "favorite_plant_id": {
-      "type": "string",
-      "description": "ID der Lieblingspflanze"
-    },
     "donor_status": {
       "type": "boolean",
       "default": false,

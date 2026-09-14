@@ -705,10 +705,10 @@ export default function GenusDetail() {
   const friendProfileLogoAssets = resolveEquippedLogoAssetsWithCatalog(friendProfile || {}, logoAssets);
 
   const openFriendProfile = (actor) => {
-    const email = String(actor?.email || "").trim();
-    if (!email) return;
+    const authId = String(actor?.authId || "").trim();
+    if (!authId) return;
     setOpenFriendTooltipKey(null);
-    navigate(createPageUrl(`FriendProfile?email=${encodeURIComponent(email)}`));
+    navigate(createPageUrl(`FriendProfile?auth_id=${encodeURIComponent(authId)}`));
   };
 
   const expandedPlantData = expandedPlant
@@ -1456,6 +1456,7 @@ export default function GenusDetail() {
                                   >
                                     <CustomLogoAvatar
                                       logoAssets={actor.logoAssets}
+                                      playerAuthId={actor.authId}
                                       className="w-full h-full"
                                       noClip
                                       tooltipText={actor.name || actor.email || "Spieler"}
@@ -1603,6 +1604,7 @@ export default function GenusDetail() {
                   <div className="absolute top-3 left-3 w-14 h-14 rounded-full overflow-hidden shadow-lg bg-black/25">
                     <CustomLogoAvatar
                       logoAssets={friendEmail ? friendProfileLogoAssets : activeExpandedFriendActor?.logoAssets}
+                      playerAuthId={friendEmail ? friendProfile?.auth_id : activeExpandedFriendActor?.authId}
                       className="w-full h-full"
                       tooltipText={friendEmail
                         ? (friendProfile?.display_name || friendProfile?.user_email || "Spieler")

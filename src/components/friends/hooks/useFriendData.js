@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Query } from "@/api/entities";
 import { getCurrentUser } from "@/api/userApi";
+import { getFriendshipStatus, getPublicPlayerProfile } from "@/api/publicPlayerProfile";
 import { useUiTheme } from "@/lib/UiThemeContext";
 import { computeAverageColorFromImage } from "@/lib/friendColorUtils";
 
@@ -16,26 +17,35 @@ import { computeAverageColorFromImage } from "@/lib/friendColorUtils";
  * - Applies the friend's ui_theme as a scoped override via UiThemeContext
  *   (restored automatically when the Friend page unmounts)
  *
- * @param {string|null} friendEmail - From ?email= URL param
+ * @param {string|null} friendEmail - Legacy ?email= URL param
+ * @param {string|null} friendAuthId - Canonical ?auth_id= URL param
  */
-export function useFriendData(friendEmail) {
+export function useFriendData(friendEmail, friendAuthId = null) {
   const { pushThemeOverride, popThemeOverride } = useUiTheme();
 
   const [currentUser, setCurrentUser] = useState(null);
+  const [currentUserResolved, setCurrentUserResolved] = useState(false);
   const [friendUser, setFriendUser] = useState(null);
   const [averageColor, setAverageColor] = useState(null);
 
   // ── Load visiting user ─────────────────────────────────────────────────────
   useEffect(() => {
     let cancelled = false;
-    getCurrentUser().then((u) => { if (!cancelled) setCurrentUser(u); });
+    getCurrentUser()
+      .then((user) => {
+        if (!cancelled) setCurrentUser(user || null);
+      })
+      .finally(() => {
+        if (!cancelled) setCurrentUserResolved(true);
+      });
     return () => { cancelled = true; };
   }, []);
 
   // ── Friend's PublicProfile (world-readable) ────────────────────────────────
   const { data: publicProfile, isLoading: publicProfileLoading } = useQuery({
-    queryKey: ["publicProfile", friendEmail],
+    queryKey: ["publicProfile", friendAuthId || friendEmail],
     queryFn: async () => {
+      if (friendAuthId) return getPublicPlayerProfile(friendAuthId);
       if (!friendEmail) return null;
       const profiles = await Query.PublicProfile.list();
       return (
@@ -44,19 +54,24 @@ export function useFriendData(friendEmail) {
         ) ?? null
       );
     },
-    enabled: !!friendEmail,
+    enabled: !!friendAuthId || !!friendEmail,
     staleTime: 0,
     refetchOnMount: "always",
   });
 
   // ── Friendship record (to gate access to sub-pages) ────────────────────────
   const { data: myFriendship, isLoading: friendshipLoading } = useQuery({
-    queryKey: ["myFriendship", currentUser?.email, friendEmail],
+    queryKey: ["myFriendship", currentUser?.email, friendUser?.auth_id || friendEmail],
     queryFn: async () => {
-      if (!currentUser?.email || !friendEmail) return null;
+      if (friendUser?.auth_id) {
+        const status = await getFriendshipStatus(friendUser.auth_id);
+        return status ? { status } : null;
+      }
+      const resolvedFriendEmail = friendUser?.user_email || friendEmail;
+      if (!currentUser?.email || !resolvedFriendEmail) return null;
       const allFriends = await Query.Friend.list();
       const meL = currentUser.email.toLowerCase();
-      const theyL = friendEmail.toLowerCase();
+      const theyL = resolvedFriendEmail.toLowerCase();
       return (
         allFriends.find(
           (f) =>
@@ -67,7 +82,7 @@ export function useFriendData(friendEmail) {
         ) ?? null
       );
     },
-    enabled: !!currentUser?.email && !!friendEmail,
+    enabled: !!currentUser?.email && !!(friendUser?.user_email || friendEmail),
     staleTime: 10_000,
   });
 
@@ -76,13 +91,13 @@ export function useFriendData(friendEmail) {
 
   // ── Resolve friendUser (profile → friendship fallback → minimal stub) ──────
   useEffect(() => {
-    if (!friendEmail) {
+    if (!friendAuthId && !friendEmail) {
       setFriendUser(null);
       return;
     }
     if (publicProfile) {
       setFriendUser(publicProfile);
-    } else if (!publicProfileLoading && !friendshipLoading) {
+    } else if (!publicProfileLoading && !friendAuthId && !friendshipLoading) {
       // No public profile found — use a minimal stub so the shell can render
       setFriendUser({
         email: friendEmail,
@@ -100,7 +115,7 @@ export function useFriendData(friendEmail) {
         auth_id: null,
       });
     }
-  }, [publicProfile, friendEmail, publicProfileLoading, friendshipLoading]);
+  }, [publicProfile, friendAuthId, friendEmail, publicProfileLoading, friendshipLoading]);
 
   // ── Background color ───────────────────────────────────────────────────────
   useEffect(() => {
@@ -125,14 +140,14 @@ export function useFriendData(friendEmail) {
     return () => {
       popThemeOverride();
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [friendUser?.ui_theme]);
 
   const isLoading =
-    !currentUser || publicProfileLoading || friendshipLoading || !friendUser;
+    publicProfileLoading || !friendUser || (!currentUserResolved && !friendAuthId);
 
   return {
     friendEmail,
+    friendAuthId: friendUser?.auth_id || friendAuthId,
     friendUser,
     currentUser,
     myFriendship,

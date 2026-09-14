@@ -1,3 +1,4 @@
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { useUiTheme } from "@/lib/UiThemeContext";
@@ -8,8 +9,9 @@ import HomeRarityBorderGlow from "@/components/effects/HomeRarityBorderGlow";
 import { getRgbaFromRgb } from "@/lib/friendColorUtils";
 import { getNavButtonStyle, NAV_COLOR_ORDER } from "@/components/navigation/navButtonStyles";
 import { hexToFilter } from "@/lib/hexToFilter";
-import { Leaf, Users, Lock, Scroll, Home as HomeIcon } from "lucide-react";
+import { Leaf, Users, Lock, Scroll, Home as HomeIcon, UserPlus } from "lucide-react";
 import { motion } from "framer-motion";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 
 // ─── Friend tab definitions ───────────────────────────────────────────────────
 const FRIEND_TABS = [
@@ -41,6 +43,8 @@ export default function FriendExperienceShell({
   friendLogoAssets,
   activeTab,
   friendEmail,
+  friendAuthId,
+  showFriendsTab = false,
   averageColor,
   isLoading,
   accessDenied,
@@ -49,6 +53,7 @@ export default function FriendExperienceShell({
 }) {
   const navigate = useNavigate();
   const { isLightUi } = useUiTheme();
+  const [showSocialLockedDialog, setShowSocialLockedDialog] = useState(false);
 
   // HomeBackgroundShell expects a user-like object with background fields
   const bgUser = friendUser
@@ -59,18 +64,25 @@ export default function FriendExperienceShell({
     : null;
 
   // ── Bottom nav items ─────────────────────────────────────────────────────
-  const navItems = FRIEND_TABS.map((tab) => {
+  const visibleTabs = FRIEND_TABS;
+  const navItems = useMemo(() => visibleTabs.map((tab) => {
     const isActive = tab.id === activeTab;
+    const isLocked = tab.id === "friends" && !showFriendsTab;
     const { gradientClass, shadowStyle } = getNavButtonStyle({
-      palette: NAV_COLOR_ORDER[FRIEND_TABS.findIndex((item) => item.id === tab.id)],
+      palette: NAV_COLOR_ORDER[visibleTabs.findIndex((item) => item.id === tab.id)],
       isLightUi,
-      isActive,
+      isActive: isActive && !isLocked,
     });
     return {
-      label:         tab.label,
-      icon:          tab.icon,
-      isActive,
-      onClick:       () => {
+      label: tab.label,
+      icon: tab.icon,
+      isActive: isActive && !isLocked,
+      isDisabled: isLocked,
+      onClick: () => {
+        if (isLocked) {
+          setShowSocialLockedDialog(true);
+          return;
+        }
         if (isActive) return;
         if (typeof onTabChange === "function") {
           onTabChange(tab.id);
@@ -78,14 +90,16 @@ export default function FriendExperienceShell({
         }
         navigate(
           createPageUrl(
-            `FriendProfile?email=${encodeURIComponent(friendEmail ?? "")}&tab=${encodeURIComponent(tab.id)}`
+            friendAuthId
+              ? `FriendProfile?auth_id=${encodeURIComponent(friendAuthId)}&tab=${encodeURIComponent(tab.id)}`
+              : `FriendProfile?email=${encodeURIComponent(friendEmail ?? "")}&tab=${encodeURIComponent(tab.id)}`
           )
         );
       },
       gradientClass,
       shadowStyle,
     };
-  });
+  }), [activeTab, friendAuthId, friendEmail, isLightUi, navigate, onTabChange, showFriendsTab, visibleTabs]);
 
   // ── Loading state ────────────────────────────────────────────────────────
   if (isLoading) {
@@ -102,56 +116,6 @@ export default function FriendExperienceShell({
     );
   }
 
-  // ── Access denied state ──────────────────────────────────────────────────
-  if (accessDenied) {
-    return (
-      <HomeBackgroundShell user={null} getRgbaFromRgb={getRgbaFromRgb}>
-        <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.28, ease: "easeOut" }}
-          className="flex flex-col items-center justify-center h-full gap-6 text-center px-6 w-full"
-        >
-          <div
-            className={`w-16 h-16 rounded-full flex items-center justify-center ${
-              isLightUi ? "bg-red-100" : "bg-red-900/30"
-            }`}
-          >
-            <Lock
-              className={`w-8 h-8 ${isLightUi ? "text-red-600" : "text-red-400"}`}
-            />
-          </div>
-          <div>
-            <h2
-              className={`text-2xl font-bold mb-2 ${
-                isLightUi ? "text-stone-900" : "text-stone-100"
-              }`}
-            >
-              Zugriff verweigert
-            </h2>
-            <p
-              className={`text-base ${
-                isLightUi ? "text-stone-600" : "text-stone-400"
-              }`}
-            >
-              Du musst mit dieser Person befreundet sein, um diese Seite zu sehen.
-            </p>
-          </div>
-          <button
-            onClick={() => navigate(createPageUrl("Friends"))}
-            className={`px-6 py-3 rounded-xl font-semibold transition-all ${
-              isLightUi
-                ? "bg-white/80 border border-[#c8ac62]/55 text-[#8f6b22] hover:bg-white"
-                : "bg-black/35 border border-[#f0e5a5]/35 text-[#f0e5a5] hover:bg-black/45"
-            }`}
-          >
-            Zurück zu Freunden
-          </button>
-        </motion.div>
-      </HomeBackgroundShell>
-    );
-  }
-
   const friendDisplayName =
     friendUser?.display_name || friendUser?.full_name || friendEmail;
   const friendTitle =
@@ -160,15 +124,25 @@ export default function FriendExperienceShell({
   // ── Normal layout ────────────────────────────────────────────────────────
   return (
     <HomeBackgroundShell user={bgUser} getRgbaFromRgb={getRgbaFromRgb}>
+      <Dialog open={showSocialLockedDialog} onOpenChange={setShowSocialLockedDialog}>
+        <DialogContent className={`max-w-md rounded-2xl border ${isLightUi ? "border-[#c8ac62]/40 bg-white text-stone-900" : "border-[#f0e5a5]/20 bg-[#151912] text-stone-100"}`}>
+          <DialogHeader>
+            <div className="mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-amber-500/15 text-amber-400">
+              <UserPlus className="h-6 w-6" />
+            </div>
+            <DialogTitle className="text-xl">Freundesdaten gesperrt</DialogTitle>
+            <DialogDescription className={isLightUi ? "text-stone-600" : "text-stone-300"}>
+              Du musst mit dieser Person befreundet sein, bevor du deren Social-Ansicht öffnest.
+            </DialogDescription>
+          </DialogHeader>
+        </DialogContent>
+      </Dialog>
+
       <motion.div
         initial={{ opacity: 0, y: 14 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.45, ease: "easeOut" }}
-        className={`relative h-full w-full max-w-md md:max-w-3xl rounded-[2rem] overflow-hidden border ${
-          isLightUi
-            ? "border-[#dfc98b]/75 shadow-[0_20px_64px_rgba(160,125,45,0.22)]"
-            : "border-[#d7cf9c]/65 shadow-[0_20px_80px_rgba(0,0,0,0.55)]"
-        }`}
+        className="relative h-full w-full overflow-hidden"
       >
         <div
           className="absolute inset-0"
@@ -187,11 +161,6 @@ export default function FriendExperienceShell({
               ? "linear-gradient(180deg, rgba(255, 248, 221, 0.92) 0%, rgba(243, 229, 183, 0.9) 100%)"
               : "linear-gradient(180deg, rgba(126, 171, 98, 0.45) 0%, rgba(10, 22, 15, 0.78) 100%)",
           }}
-        />
-        <div
-          className={`absolute inset-0 pointer-events-none rounded-[2rem] border ${
-            isLightUi ? "border-[#f4e6b7]/85" : "border-[#f0e5a5]/30"
-          }`}
         />
         <HomeShellBorderGlow active={friendUser?.selected_profile_effect === "shell_border_glow"} />
         <HomeRarityBorderGlow active={friendUser?.selected_logo_effect === "rarity_border_glow"} borderColor={friendUser?.selected_border_color} />

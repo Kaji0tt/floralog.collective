@@ -565,6 +565,7 @@ export default function ScanResults({
                             >
                               <CustomLogoAvatar
                                 logoAssets={player.logoAssets}
+                                playerAuthId={player.authId}
                                 className="w-full h-full"
                                 tooltipText={player.name}
                                 fallbackText={(player.name || "?").charAt(0).toUpperCase()}

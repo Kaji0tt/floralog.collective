@@ -18,7 +18,7 @@ import GoldGradientCard from "@/components/home/GoldGradientCard";
  *     logoAssets?: any,
  *   } | null,
  *   metric: "seeds" | "highest_scan",
- *   onOpponentClick?: (email: string) => void,
+ *   onOpponentClick?: (email?: string, authId?: string) => void,
  *   isLightUi?: boolean,
  * }} props
  */
@@ -107,6 +107,7 @@ export default function LeaderboardUserCard({
             <CustomLogoAvatar
               noClip
               logoAssets={userLogoAssets}
+              playerAuthId={user?.id}
               className="w-full h-full"
               tooltipText={user?.display_name || user?.full_name || "Du"}
               fallbackText={user?.display_name?.charAt(0) || "D"}
@@ -160,7 +161,7 @@ export default function LeaderboardUserCard({
         {nextOpponent && ownRank > 1 ? (
           <div
             className="flex items-center gap-2 pl-3 border-l border-[#f0e5a5]/20 cursor-pointer group min-w-0"
-            onClick={() => nextOpponent.email && onOpponentClick && onOpponentClick(nextOpponent.email)}
+            onClick={() => onOpponentClick?.(nextOpponent.email, nextOpponent.authId)}
           >
             <div className="text-right min-w-0">
               <span className="text-[9px] uppercase tracking-wide text-stone-400 block truncate">
@@ -178,6 +179,7 @@ export default function LeaderboardUserCard({
               <CustomLogoAvatar
                 noClip
                 logoAssets={nextOpponent.logoAssets}
+                playerAuthId={nextOpponent.authId}
                 className="w-full h-full"
                 tooltipText={nextOpponent.name || "Gegner"}
                 fallbackText={nextOpponent.name?.charAt(0) || "G"}

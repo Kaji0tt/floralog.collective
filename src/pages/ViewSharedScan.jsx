@@ -262,6 +262,7 @@ export default function ViewSharedScan() {
             <div className="flex items-center gap-3">
               <CustomLogoAvatar
                 logoAssets={senderLogoAssets}
+                playerAuthId={senderProfile?.auth_id}
                 className="w-12 h-12 border-2 border-white"
                 tooltipText={senderProfile?.display_name || senderProfile?.full_name || senderProfile?.user_email || "Unbekannt"}
                 fallbackText={senderProfile?.display_name?.charAt(0).toUpperCase() || "?"}

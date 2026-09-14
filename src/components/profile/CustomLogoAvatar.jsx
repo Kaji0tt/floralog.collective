@@ -3,6 +3,8 @@ import { createPortal } from "react-dom";
 import { Leaf } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { hexToFilter } from "@/lib/hexToFilter";
+import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/popover";
+import PlayerInfoCard from "@/components/profile/PlayerInfoCard";
 
 /**
  * @param {{
@@ -18,6 +20,7 @@ import { hexToFilter } from "@/lib/hexToFilter";
  *   fallbackClassName?: string,
  *   leafClassName?: string,
  *   tooltipText?: string,
+ *   playerAuthId?: string | null,
  *   noClip?: boolean,
  * }} props
  */
@@ -29,11 +32,13 @@ export default function CustomLogoAvatar({
   fallbackClassName,
   leafClassName,
   tooltipText,
+  playerAuthId = null,
   noClip = false,
 }) {
   const rootRef = useRef(null);
   const closeTimeoutRef = useRef(null);
   const [isTooltipOpen, setIsTooltipOpen] = useState(false);
+  const [isPlayerCardOpen, setIsPlayerCardOpen] = useState(false);
   const [tooltipPosition, setTooltipPosition] = useState({ top: 0, left: 0 });
 
   const hasLogoLayers = Boolean(
@@ -70,6 +75,12 @@ export default function CustomLogoAvatar({
   };
 
   const handleAvatarClick = (event) => {
+    if (playerAuthId) {
+      event.stopPropagation();
+      event.preventDefault();
+      setIsPlayerCardOpen((open) => !open);
+      return;
+    }
     if (!resolvedTooltipText) return;
     event.stopPropagation();
     event.preventDefault();
@@ -77,63 +88,71 @@ export default function CustomLogoAvatar({
   };
 
   const handleKeyDown = (event) => {
-    if (!resolvedTooltipText) return;
+    if (!resolvedTooltipText && !playerAuthId) return;
     if (event.key === "Enter" || event.key === " ") {
       event.preventDefault();
       event.stopPropagation();
-      openTooltip();
+      if (playerAuthId) setIsPlayerCardOpen((open) => !open);
+      else openTooltip();
     }
   };
 
+  const renderLogo = (sizeClass = className) => (
+    <div
+      ref={sizeClass === className ? rootRef : undefined}
+      className={cn("relative", !noClip && "rounded-full overflow-hidden", sizeClass)}
+      style={{ containerType: "size" }}
+      onClick={sizeClass === className ? handleAvatarClick : undefined}
+      onKeyDown={sizeClass === className ? handleKeyDown : undefined}
+      role={sizeClass === className && (resolvedTooltipText || playerAuthId) ? "button" : undefined}
+      tabIndex={sizeClass === className && (resolvedTooltipText || playerAuthId) ? 0 : undefined}
+      aria-expanded={sizeClass === className && playerAuthId ? isPlayerCardOpen : undefined}
+    >
+      <div className={cn("absolute inset-0 flex items-center justify-center", hasLogoLayers && "scale-[1.5]", innerClassName)}>
+        {hasLogoLayers && (
+          <div className="absolute left-1/2 top-1/2 h-[72cqmin] w-[72cqmin] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[radial-gradient(circle,rgba(0,0,0,0.35)_0%,rgba(0,0,0,0.3)_42%,rgba(0,0,0,0)_70%)]" />
+        )}
+        {logoAssets?.plant?.imageUrl && <img src={logoAssets.plant.imageUrl} alt="Logo Pflanze" className="absolute inset-0 h-full w-full object-contain" />}
+        {logoAssets?.border?.imageUrl && (
+          <img
+            src={logoAssets.border.imageUrl}
+            alt="Logo Rahmen"
+            className="absolute inset-0 h-full w-full object-contain"
+            style={logoAssets.borderColor ? { filter: `brightness(0) saturate(100%) ${hexToFilter(logoAssets.borderColor)}` } : undefined}
+          />
+        )}
+        {logoAssets?.face?.imageUrl && <img src={logoAssets.face.imageUrl} alt="Logo Gesicht" className="absolute inset-0 h-full w-full object-contain" />}
+        {!hasLogoLayers && (
+          fallbackText
+            ? <span className={cn("text-xs font-semibold text-white", fallbackClassName)}>{fallbackText}</span>
+            : <Leaf className={cn("h-full w-full text-white", leafClassName)} />
+        )}
+      </div>
+    </div>
+  );
+
   return (
     <>
-      <div
-        ref={rootRef}
-        className={cn("relative", !noClip && "rounded-full overflow-hidden", className)}
-        style={{ containerType: "size" }}
-        onClick={handleAvatarClick}
-        onKeyDown={handleKeyDown}
-        role={resolvedTooltipText ? "button" : undefined}
-        tabIndex={resolvedTooltipText ? 0 : undefined}
-      >
-        <div className={cn("absolute inset-0 flex items-center justify-center", hasLogoLayers && "scale-[1.5]", innerClassName)}>
-          {hasLogoLayers && (
-            // cqmin keeps this a true circle even when the container itself isn't square.
-            <div className="absolute left-1/2 top-1/2 h-[72cqmin] w-[72cqmin] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[radial-gradient(circle,rgba(0,0,0,0.35)_0%,rgba(0,0,0,0.3)_42%,rgba(0,0,0,0)_70%)]" />
-          )}
-          {logoAssets?.plant?.imageUrl && (
-            <img
-              src={logoAssets.plant.imageUrl}
-              alt="Logo Pflanze"
-              className="absolute inset-0 w-full h-full object-contain"
+      {playerAuthId ? (
+        <Popover open={isPlayerCardOpen} onOpenChange={setIsPlayerCardOpen}>
+          <PopoverAnchor asChild>{renderLogo()}</PopoverAnchor>
+          <PopoverContent
+            className="w-auto border-0 bg-transparent p-0 shadow-none"
+            sideOffset={10}
+            onClick={(event) => event.stopPropagation()}
+            onPointerDown={(event) => event.stopPropagation()}
+          >
+            <PlayerInfoCard
+              playerAuthId={playerAuthId}
+              fallbackName={resolvedTooltipText}
+              logo={renderLogo("h-24 w-24")}
+              onNavigate={() => setIsPlayerCardOpen(false)}
             />
-          )}
-          {logoAssets?.border?.imageUrl && (
-            <img
-              src={logoAssets.border.imageUrl}
-              alt="Logo Rahmen"
-              className="absolute inset-0 w-full h-full object-contain"
-              style={logoAssets.borderColor
-                ? { filter: `brightness(0) saturate(100%) ${hexToFilter(logoAssets.borderColor)}` }
-                : undefined}
-            />
-          )}
-          {logoAssets?.face?.imageUrl && (
-            <img
-              src={logoAssets.face.imageUrl}
-              alt="Logo Gesicht"
-              className="absolute inset-0 w-full h-full object-contain"
-            />
-          )}
-          {!hasLogoLayers && (
-            fallbackText
-              ? <span className={cn("text-xs font-semibold text-white", fallbackClassName)}>{fallbackText}</span>
-              : <Leaf className={cn("w-full h-full text-white", leafClassName)} />
-          )}
-        </div>
-      </div>
+          </PopoverContent>
+        </Popover>
+      ) : renderLogo()}
 
-      {isTooltipOpen && resolvedTooltipText && createPortal(
+      {!playerAuthId && isTooltipOpen && resolvedTooltipText && createPortal(
         <div
           className="fixed z-[1300] pointer-events-none -translate-x-1/2 -translate-y-full"
           style={{

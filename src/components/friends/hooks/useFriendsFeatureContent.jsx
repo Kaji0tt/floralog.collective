@@ -824,7 +824,7 @@ export function useFriendsFeatureContent({
           userEmail: requesterProfile?.user_email || requesterEmail,
           notificationType: "friendship_accepted",
           ...buildNotificationPayload("friendshipAccepted", { accepterName }),
-          actionUrl: `FriendProfile?email=${encodeURIComponent(user.email)}`,
+          actionUrl: `FriendProfile?auth_id=${encodeURIComponent(user.id)}`,
           displayLocation: "banner",
           createdBy: user.email
         });
@@ -2020,8 +2020,8 @@ Viel Spaß beim Entdecken! 🌿`;
                             className={`flex-shrink-0 transition-opacity ${entry.actorEmail && entry.actorEmail !== ownEmailLower ? "hover:opacity-80" : "cursor-default"}`}
                             onClick={(e) => {
                               e.stopPropagation();
-                              if (entry.actorEmail && entry.actorEmail !== ownEmailLower) {
-                                navigate(createPageUrl(`FriendProfile?email=${entry.actorEmail}`));
+                              if (entry.actorAuthId && entry.actorAuthId !== user?.id) {
+                                navigate(createPageUrl(`FriendProfile?auth_id=${encodeURIComponent(entry.actorAuthId)}`));
                               }
                             }}
                             onMouseDown={(e) => e.stopPropagation()}
@@ -2029,6 +2029,7 @@ Viel Spaß beim Entdecken! 🌿`;
                             <div className="w-11 h-11">
                               <CustomLogoAvatar
                                 logoAssets={entry.actorLogoAssets}
+                                playerAuthId={entry.actorAuthId}
                                 className="w-full h-full"
                                 fallbackText={entry.actorName?.charAt(0)?.toUpperCase() || "?"}
                                 fallbackClassName="text-sm font-bold text-white"
@@ -2290,6 +2291,7 @@ Viel Spaß beim Entdecken! 🌿`;
                               <div className="w-12 h-12 rounded-full overflow-hidden flex items-center justify-center text-white font-bold text-lg shadow-md flex-shrink-0">
                                 <CustomLogoAvatar
                                   logoAssets={requesterData.logoAssets}
+                                  playerAuthId={requesterData.authId}
                                   className="w-full h-full"
                                   fallbackText={requesterData.name?.[0]?.toUpperCase() || "?"}
                                   fallbackClassName="text-lg font-bold text-white"
@@ -2373,12 +2375,13 @@ Viel Spaß beim Entdecken! 🌿`;
                         className={`${friendTileClass} ${interactiveHoverClass} w-full max-w-full overflow-hidden p-2.5 md:p-3 transition-all flex items-center justify-between gap-2.5`}
                       >
                         <button
-                          onClick={() => navigate(createPageUrl(`FriendProfile?email=${friendData.email}`))}
+                          onClick={() => friendData.authId && navigate(createPageUrl(`FriendProfile?auth_id=${encodeURIComponent(friendData.authId)}`))}
                           className="flex items-center gap-2.5 flex-1 min-w-0 max-w-full text-left"
                         >
                           <div className="w-9 h-9 rounded-full overflow-hidden flex items-center justify-center text-white font-bold text-sm shadow-md flex-shrink-0">
                             <CustomLogoAvatar
                               logoAssets={friendData.logoAssets}
+                              playerAuthId={friendData.authId}
                               className="w-full h-full"
                               fallbackText={friendData.name?.[0]?.toUpperCase() || friendData.email?.[0]?.toUpperCase()}
                               fallbackClassName="text-sm font-bold text-white"

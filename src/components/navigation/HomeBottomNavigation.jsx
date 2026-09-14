@@ -46,9 +46,11 @@ export default function HomeBottomNavigation({
   const renderNavButton = (item) => (
     <button
       key={item.label}
-      onClick={item.onClick}
+      onClick={item.isDisabled ? undefined : item.onClick}
       aria-label={item.label}
-      className="relative flex flex-col items-center hover:brightness-110 active:translate-y-px transition-all"
+      aria-disabled={item.isDisabled || undefined}
+      disabled={item.isDisabled}
+      className={`relative flex flex-col items-center transition-all ${item.isDisabled ? "cursor-not-allowed opacity-45 grayscale" : "hover:brightness-110 active:translate-y-px"}`}
       style={{
         height: `${navButtonHeightRem.toFixed(2)}rem`,
         maxHeight: `${navButtonHeightRem.toFixed(2)}rem`,

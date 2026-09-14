@@ -6,7 +6,7 @@ import { supabase } from "@/api/supabaseClient";
 import { createPageUrl } from "@/utils";
 import { useUiTheme } from "@/lib/UiThemeContext";
 import { motion } from "framer-motion";
-import { Users, Star, ChevronRight, Leaf, Loader2 } from "lucide-react";
+import { Users, Star, ChevronRight, Loader2 } from "lucide-react";
 import { resolveEquippedLogoAssetsWithCatalog } from "@/lib/logoAccessoryAssets";
 import CustomLogoAvatar from "@/components/profile/CustomLogoAvatar";
 
@@ -45,95 +45,30 @@ export default function FriendFriendsPanel({ friendUser, friendEmail, currentUse
 
   const friends = useMemo(() => allFriendRecords, [allFriendRecords]);
 
-  const { data: allPublicProfiles = [], isLoading: profilesLoading } = useQuery({
-    queryKey: ["allPublicProfiles"],
-    queryFn: () => Query.PublicProfile.list(),
-    // Custom logo/avatar changes by other players must show up on re-entering this panel.
-    refetchOnMount: 'always',
-    refetchOnWindowFocus: true,
-  });
-
   const { data: logoAssets = [] } = useQuery({
     queryKey: ["logoAssets"],
     queryFn: () => Query.LogoAsset.list(),
     staleTime: 60000,
   });
 
-  const profileByEmail = useMemo(
-    () =>
-      new Map(
-        (allPublicProfiles || [])
-          .filter((profile) => !!profile?.user_email)
-          .map((profile) => [String(profile.user_email).toLowerCase(), profile])
-      ),
-    [allPublicProfiles]
-  );
-
-  const profileByAuthId = useMemo(
-    () =>
-      new Map(
-        (allPublicProfiles || [])
-          .filter((profile) => !!profile?.auth_id)
-          .map((profile) => [profile.auth_id, profile])
-      ),
-    [allPublicProfiles]
-  );
-
-  const getFriendData = (record) => {
-    const sentBy = record.request_sent_by || "";
-    const sentTo = record.request_sent_to || "";
-    const sentByL = sentBy.toLowerCase();
-    const sentToL = sentTo.toLowerCase();
-    const friendEmailL = friendEmail?.toLowerCase() || "";
-
-    let otherEmail = null;
-    if (friendEmailL && sentByL === friendEmailL) {
-      otherEmail = sentTo;
-    } else if (friendEmailL && sentToL === friendEmailL) {
-      otherEmail = sentBy;
-    }
-
-    let otherProfile = otherEmail ? profileByEmail.get(otherEmail.toLowerCase()) : null;
-    let otherAuthId = otherProfile?.auth_id || null;
-
-    // Fall back to auth-based matching when participant emails are outdated.
-    if (!otherAuthId && record.auth_id && record.auth_id !== friendAuthId) {
-      otherAuthId = record.auth_id;
-    }
-
-    if (otherAuthId) {
-      otherProfile = profileByAuthId.get(otherAuthId) || otherProfile;
-    }
-
-    if (!otherEmail && otherProfile?.user_email) {
-      otherEmail = otherProfile.user_email;
-    }
-
-    if (!otherEmail && !otherProfile) return null;
-
+  const getFriendData = (profile) => {
+    if (!profile?.auth_id) return null;
     return {
-      id: record.id,
-      authId: otherProfile?.auth_id || otherAuthId || null,
-      email: otherEmail,
-      name: otherProfile?.display_name || otherProfile?.full_name || otherEmail,
-      logoAssets: resolveEquippedLogoAssetsWithCatalog(otherProfile || {}, logoAssets),
-      level: otherProfile?.level || 1,
-      title: otherProfile?.selected_title || otherProfile?.title || "Pflanzen-Anfänger",
+      id: profile.auth_id,
+      authId: profile.auth_id,
+      name: profile.display_name || profile.full_name || "Spieler",
+      logoAssets: resolveEquippedLogoAssetsWithCatalog(profile, logoAssets),
+      title: profile.selected_title || profile.title || "Pflanzen-Anfänger",
     };
   };
 
   const handleFriendClick = (data) => {
     const isCurrentUserByAuth =
       !!currentUser?.id && !!data.authId && data.authId === currentUser.id;
-    const isCurrentUserByEmail =
-      !!currentUser?.email &&
-      !!data.email &&
-      data.email.toLowerCase() === currentUser.email.toLowerCase();
-
-    if (isCurrentUserByAuth || isCurrentUserByEmail) {
+    if (isCurrentUserByAuth) {
       navigate(createPageUrl("Home"));
-    } else if (data.email) {
-      navigate(createPageUrl(`FriendProfile?email=${encodeURIComponent(data.email)}`));
+    } else if (data.authId) {
+      navigate(createPageUrl(`FriendProfile?auth_id=${encodeURIComponent(data.authId)}`));
     } else {
       navigate(createPageUrl("Friends"));
     }
@@ -149,7 +84,7 @@ export default function FriendFriendsPanel({ friendUser, friendEmail, currentUse
   const textSecondary = isLightUi ? "text-stone-600" : "text-stone-300";
   const textMuted = isLightUi ? "text-stone-500" : "text-stone-400";
 
-  if ((recordsLoading || profilesLoading) && allFriendRecords.length === 0) {
+  if (recordsLoading && allFriendRecords.length === 0) {
     return (
       <div className="h-full flex items-center justify-center">
         <div className={`flex items-center gap-2 text-sm ${textSecondary}`}>
@@ -187,7 +122,7 @@ export default function FriendFriendsPanel({ friendUser, friendEmail, currentUse
 
             return (
               <motion.button
-                key={record.id}
+                key={data.authId}
                 onClick={() => handleFriendClick(data)}
                 initial={{ opacity: 0, x: -16 }}
                 animate={{ opacity: 1, x: 0 }}
@@ -199,9 +134,10 @@ export default function FriendFriendsPanel({ friendUser, friendEmail, currentUse
                 <div className="w-11 h-11 rounded-full flex items-center justify-center font-bold text-base shadow-md overflow-hidden flex-shrink-0">
                   <CustomLogoAvatar
                     logoAssets={data.logoAssets}
+                    playerAuthId={data.authId}
                     className="w-full h-full"
-                    tooltipText={data.name || data.email || "Freund"}
-                    fallbackText={data.name?.[0]?.toUpperCase() || data.email?.[0]?.toUpperCase()}
+                    tooltipText={data.name || "Freund"}
+                    fallbackText={data.name?.[0]?.toUpperCase()}
                     fallbackClassName="text-white text-base font-bold"
                     leafClassName="w-5 h-5 text-white"
                   />
@@ -225,7 +161,7 @@ export default function FriendFriendsPanel({ friendUser, friendEmail, currentUse
                   <div className={`text-xs flex items-center gap-1 mt-0.5 ${textSecondary}`}>
                     <Star className="w-3 h-3 text-amber-500 flex-shrink-0" />
                     <span className="truncate">
-                      Level {data.level} • {data.title}
+                      {data.title}
                     </span>
                   </div>
                 </div>

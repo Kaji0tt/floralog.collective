@@ -12,12 +12,12 @@ import FriendExperienceShell from "@/components/friends/FriendExperienceShell";
 import FriendCollectionPanel from "@/components/friends/FriendCollectionPanel";
 import FriendAchievementsPanel from "@/components/friends/FriendAchievementsPanel";
 import FriendFriendsPanel from "@/components/friends/FriendFriendsPanel";
-import { computeOverallPlantHealth, computePlantHealthState } from "@/lib/robotPlantEconomy";
+import { computeOverallPlantHealth } from "@/lib/robotPlantEconomy";
 import { motion, AnimatePresence } from "framer-motion";
 import { Leaf, UserPlus, Clock } from "lucide-react";
-import { HomeMilestoneStripe } from "@/components/home/HomeCollectionStripes";
 import { resolveEquippedLogoAssetsWithCatalog } from "@/lib/logoAccessoryAssets";
 import FlorabotLogo from "@/components/florabot/FlorabotLogo";
+import PlayerScanHighlights from "@/components/profile/PlayerScanHighlights";
 import { evaluateProfileBadges, buildSelectedProfileBadges } from "@/lib/profileBadges";
 import { getRarityLevelFromLabel } from "@/lib/plantRarity";
 import { getProfileBadgeIconComponent } from "@/lib/profileBadgeIcons";
@@ -69,26 +69,7 @@ const BADGE_ARC_POSITIONS = [
   { left: "83.3333%", topRem: HERO_BADGE_TOP_SIDE_REM },
 ];
 
-function buildFriendKpiFeed(friendSeeds, friendClaimedTiles, overallHealth) {
-  return [
-    {
-      id: "friend-kpi",
-      kind: "kpi",
-      title: "Statistiken",
-      kpiSummary: {
-        playerSeedsDisplay: String(Math.round(friendSeeds)),
-        conqueredZonesDisplay: String(Math.round(friendClaimedTiles)),
-        healthSeedBonusDisplay: overallHealth != null ? Math.round(overallHealth) : 0,
-        securedMultiplier: null,
-        zoneHintText: "",
-        nearestZoneDirectionIcon: "",
-        nearestZoneDistanceKm: null,
-      },
-    },
-  ];
-}
-
-function PetAnimation({ attribute, nonce, logoRef }) {
+function PetAnimation({ attribute, nonce }) {
   const color = FRIEND_HEALTH_STAT_COLORS[attribute] || "#22c55e";
 
   return (
@@ -171,13 +152,9 @@ function FriendProfileHomePanel({
   isLightUi,
   isFriend,
   hasPendingRequest,
-  isLoading,
   cardBase,
   textPrimary,
   textSecondary,
-  friendSeeds,
-  friendClaimedTiles,
-  displayedOverallPlantHealth,
   friendUser,
   logoAssets,
   selectedFriendBadges,
@@ -186,6 +163,7 @@ function FriendProfileHomePanel({
   petFriendMutation,
   sendFriendRequestMutation,
   showNoFriendAccessHint,
+  scanHighlights,
 }) {
   const [petAnimAttribute, setPetAnimAttribute] = useState(null);
   const [petAnimNonce, setPetAnimNonce] = useState(0);
@@ -263,11 +241,6 @@ function FriendProfileHomePanel({
   const petsRemaining = Math.max(0, PET_DAILY_LIMIT - (petsMadeToday ?? 0));
   const canPet = isFriend && petsRemaining > 0 && !petFriendMutation.isPending;
   const safeBotName = String(botName || "Florabot").trim() || "Florabot";
-
-  const kpiFeed = useMemo(
-    () => buildFriendKpiFeed(friendSeeds, friendClaimedTiles, displayedOverallPlantHealth),
-    [friendSeeds, friendClaimedTiles, displayedOverallPlantHealth]
-  );
 
   const badgeSlots = Array.from({ length: 3 }, (_, i) => selectedFriendBadges?.[i] || null);
 
@@ -391,14 +364,7 @@ function FriendProfileHomePanel({
           </div>
         </section>
 
-        {/* KPI Stripe — below logo, same position as in Home screen */}
-        <div className="shrink-0" style={{ height: "3.35rem" }}>
-          <HomeMilestoneStripe
-            isLightUi={isLightUi}
-            milestoneFeed={kpiFeed}
-            controlsScale={1}
-          />
-        </div>
+        <PlayerScanHighlights highlights={scanHighlights} className="shrink-0" />
 
         {/* Action button */}
         <div className="shrink-0">
@@ -451,19 +417,6 @@ function FriendProfileHomePanel({
             </button>
           )}
         </div>
-
-        {showNoFriendAccessHint && (
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
-            className={`rounded-2xl backdrop-blur-md p-4 text-center ${cardBase}`}
-          >
-            <p className={`text-sm ${textSecondary}`}>
-              Schicke eine Freundschaftsanfrage, um die Erfolge, Sammlungen und Freundesliste zu sehen.
-            </p>
-          </motion.div>
-        )}
       </div>
     </div>
   );
@@ -475,8 +428,9 @@ export default function FriendProfile() {
   const [searchParams, setSearchParams] = useSearchParams();
 
   const friendEmail = searchParams.get("email");
+  const friendAuthId = searchParams.get("auth_id");
   const requestedTab = searchParams.get("tab");
-  const activeTab = VALID_FRIEND_TABS.includes(requestedTab) ? requestedTab : "profile";
+  const requestedActiveTab = VALID_FRIEND_TABS.includes(requestedTab) ? requestedTab : "profile";
 
   const {
     friendUser,
@@ -485,7 +439,28 @@ export default function FriendProfile() {
     hasPendingRequest,
     averageColor,
     isLoading,
-  } = useFriendData(friendEmail);
+  } = useFriendData(friendEmail, friendAuthId);
+
+  const isProfileOwner = Boolean(currentUser?.id && friendUser?.auth_id === currentUser.id);
+  const canViewFriends = isProfileOwner || isFriend;
+  const activeTab = requestedActiveTab === "friends" && !isLoading && !canViewFriends
+    ? "profile"
+    : requestedActiveTab;
+
+  useEffect(() => {
+    if (isLoading || requestedActiveTab !== "friends" || canViewFriends) return;
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.set("tab", "profile");
+    setSearchParams(nextParams, { replace: true });
+  }, [canViewFriends, isLoading, requestedActiveTab, searchParams, setSearchParams]);
+
+  useEffect(() => {
+    if (!friendEmail || !friendUser?.auth_id) return;
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.set("auth_id", friendUser.auth_id);
+    nextParams.delete("email");
+    setSearchParams(nextParams, { replace: true });
+  }, [friendEmail, friendUser?.auth_id, searchParams, setSearchParams]);
 
   const { data: logoAssets = [] } = useQuery({
     queryKey: ["logoAssets"],
@@ -741,7 +716,7 @@ export default function FriendProfile() {
 
   const sendFriendRequestMutation = useMutation({
     mutationFn: async () => {
-      await sendFriendRequest(friendEmail);
+      await sendFriendRequest(friendEmail, friendUser?.auth_id);
       const senderName =
         currentUser?.display_name || currentUser?.full_name || currentUser?.email;
       try {
@@ -795,23 +770,6 @@ export default function FriendProfile() {
     careValue,
   });
 
-  const plantHealthState = computePlantHealthState({
-    overallPlantHealth,
-    energyValue,
-    dataQualityValue,
-    careValue,
-  });
-
-  const resolvedPlantHealthState = isPlantHealthPending
-    ? { label: "Status wird geladen", color: "#6b7280", scanEventBonus: 0 }
-    : plantHealthState;
-  const healthStateBonus = Number(resolvedPlantHealthState?.scanEventBonus ?? 0);
-  const healthStats = [
-    { id: "energy", label: "Energie", value: Math.round(energyValue), color: FRIEND_HEALTH_STAT_COLORS.energy },
-    { id: "data-quality", label: "Daten", value: Math.round(dataQualityValue), color: FRIEND_HEALTH_STAT_COLORS["data-quality"] },
-    { id: "care", label: "Pflege", value: Math.round(careValue), color: FRIEND_HEALTH_STAT_COLORS.care },
-  ];
-
   const displayedOverallPlantHealth = isPlantHealthPending ? null : overallPlantHealth;
   const friendAllTimeSeeds = Math.max(
     0,
@@ -824,7 +782,6 @@ export default function FriendProfile() {
     ) || null;
   }, [seasonStartDate, friendSeasonSeedLeaderboard, friendUser?.auth_id]);
   const friendSeasonSeedsValue = Math.max(0, Number(friendSeasonSeedEntry?.weekly_seed_total ?? 0));
-  const friendSeeds = seasonStartDate ? friendSeasonSeedsValue : friendAllTimeSeeds;
   const friendClaimedTiles = Math.max(
     0,
     Number(friendRobotPlant?.claimed_tiles_count ?? friendRobotPlant?.claimedTilesCount ?? 0)
@@ -929,14 +886,19 @@ export default function FriendProfile() {
 
   const friendBotName = String(friendUser?.bot_name || "Florabot").trim() || "Florabot";
 
-  const isPublicProfile = friendUser?.public_profile !== false;
-  const showNoFriendAccessHint = !isFriend && !hasPendingRequest && !isPublicProfile && !isLoading;
-  const contentAccessDenied = activeTab !== "profile" && !isFriend && !isPublicProfile && !isLoading;
+  const showNoFriendAccessHint = !isFriend && !hasPendingRequest && !isLoading;
+  const contentAccessDenied = activeTab === "friends" && !canViewFriends && !isLoading;
 
   const handleTabChange = (nextTab) => {
     if (!VALID_FRIEND_TABS.includes(nextTab)) return;
+    if (nextTab === "friends" && !canViewFriends) return;
     const nextParams = new URLSearchParams(searchParams);
-    if (friendEmail) nextParams.set("email", friendEmail);
+    if (friendUser?.auth_id || friendAuthId) {
+      nextParams.set("auth_id", friendUser?.auth_id || friendAuthId);
+      nextParams.delete("email");
+    } else if (friendEmail) {
+      nextParams.set("email", friendEmail);
+    }
     nextParams.set("tab", nextTab);
     setSearchParams(nextParams);
   };
@@ -947,6 +909,8 @@ export default function FriendProfile() {
       friendLogoAssets={friendLogoAssets}
       activeTab={activeTab}
       friendEmail={friendEmail}
+      friendAuthId={friendUser?.auth_id || friendAuthId}
+      showFriendsTab={canViewFriends}
       averageColor={averageColor}
       isLoading={isLoading}
       accessDenied={contentAccessDenied}
@@ -971,13 +935,9 @@ export default function FriendProfile() {
           isLightUi={isLightUi}
           isFriend={isFriend}
           hasPendingRequest={hasPendingRequest}
-          isLoading={isLoading}
           cardBase={cardBase}
           textPrimary={textPrimary}
           textSecondary={textSecondary}
-          friendSeeds={friendSeeds}
-          friendClaimedTiles={friendClaimedTiles}
-          displayedOverallPlantHealth={displayedOverallPlantHealth}
           friendUser={friendUser}
           logoAssets={logoAssets}
           selectedFriendBadges={selectedFriendBadges}
@@ -986,6 +946,7 @@ export default function FriendProfile() {
           petFriendMutation={petFriendMutation}
           sendFriendRequestMutation={sendFriendRequestMutation}
           showNoFriendAccessHint={showNoFriendAccessHint}
+          scanHighlights={friendUser?.scan_highlights}
         />
       )}
     </FriendExperienceShell>

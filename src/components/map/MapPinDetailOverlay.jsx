@@ -118,6 +118,7 @@ export default function MapPinDetailOverlay({
                           <div className={`transition-all duration-200 ${isActive ? "h-16 w-16" : "h-10 w-10"}`}>
                             <CustomLogoAvatar
                               logoAssets={player.scannerLogoAssets}
+                              playerAuthId={player.scannerAuthId}
                               noClip
                               className="h-full w-full"
                               fallbackText={player.scannerDisplayName?.charAt(0)?.toUpperCase() || "?"}
@@ -150,6 +151,7 @@ export default function MapPinDetailOverlay({
                   <div className="h-24 w-24">
                     <CustomLogoAvatar
                       logoAssets={activePlayer.scannerLogoAssets}
+                      playerAuthId={activePlayer.scannerAuthId}
                       noClip
                       className="h-full w-full"
                       fallbackText={activePlayer.scannerDisplayName?.charAt(0)?.toUpperCase() || "?"}
