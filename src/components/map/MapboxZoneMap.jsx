@@ -1,8 +1,22 @@
 import { useEffect, useRef } from "react";
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
+import proj4 from "proj4";
 import { hexToFilter } from "@/lib/hexToFilter";
 import { NEARBY_DISCOVERY_RADIUS_METERS } from "@/lib/discoveryMap";
+
+// Must match the EPSG:3035 definition used by the backend tile grid (see e.g.
+// supabase/functions/robotPlantDailyZones/index.ts) so the sonar grid lines up with real game tiles.
+const EPSG_3035 = "+proj=laea +lat_0=52 +lon_0=10 +x_0=4321000 +y_0=3210000 +datum=ETRS89 +units=m +no_defs +type=crs";
+proj4.defs("EPSG:3035", EPSG_3035);
+const toGameTileMeters = (lng, lat) => {
+  const [x, y] = proj4("EPSG:4326", "EPSG:3035", [lng, lat]);
+  return { x, y };
+};
+const toLngLatFromGameTileMeters = (x, y) => {
+  const [lng, lat] = proj4("EPSG:3035", "EPSG:4326", [x, y]);
+  return { lng, lat };
+};
 
 const THEME_MAP_COLORS = {
   forest: "#007a3f",
@@ -19,8 +33,9 @@ const THEME_MAP_LABELS = {
 };
 
 const TILE_HALF_SIZE_M = 50;
-// Distance (in meters) between sonar grid lines, matching the game's 50x50m location tiles.
-const GRID_SPACING_M = 50;
+// Same size as the authoritative backend tile grid (EPSG:3035, 100m tiles - see TILE_SIZE_M in
+// supabase/functions/robotPlantDailyZones, getTileClaims, etc.), so the sonar grid matches real game tiles.
+const GRID_SPACING_M = 100;
 const GRID_LINE_COLOR = "rgba(94, 234, 212, 0.16)";
 const GRID_LINE_COLOR_MAJOR = "rgba(94, 234, 212, 0.32)";
 
@@ -107,28 +122,26 @@ const SONAR_MAP_STYLE = {
 };
 
 // Above this many lines per axis the grid is skipped entirely (guards against WebGL/context-loss
-// crashes when the user zooms out far enough that a 50m grid would need tens of thousands of lines).
+// crashes when the user zooms out far enough that a 100m grid would need tens of thousands of lines).
 const GRID_MAX_LINES_PER_AXIS = 400;
+// Points sampled along each grid line when reprojecting back to lng/lat, so the (tiny) LAEA curvature
+// at map-viewport scale is respected instead of drawing a naive straight line between two endpoints.
+const GRID_LINE_SEGMENTS = 4;
 
-// Builds a 50x50m grid of GeoJSON lines around the given lng/lat bounds using a local equirectangular
-// projection (visual-only; not the authoritative backend tile grid, but aligned to real-world meters).
-const buildSonarGridFeatureCollection = (bounds, refLat) => {
+// Builds a grid of GeoJSON lines matching the real EPSG:3035 100m game tiles within the given lng/lat
+// bounds: reprojects the viewport into the same metric CRS the backend uses, snaps to tile boundaries,
+// then reprojects each line back to lng/lat.
+const buildSonarGridFeatureCollection = (bounds) => {
   if (!bounds) return { type: "FeatureCollection", features: [] };
 
-  const latMetersPerDegree = 111320;
-  const lngMetersPerDegree = 111320 * Math.cos((refLat * Math.PI) / 180);
-  const safeLngMpd = Math.abs(lngMetersPerDegree) < 1e-6 ? 1e-6 : lngMetersPerDegree;
+  const corners = [bounds.getSouthWest(), bounds.getNorthWest(), bounds.getNorthEast(), bounds.getSouthEast()];
+  const metricCorners = corners.map((corner) => toGameTileMeters(corner.lng, corner.lat));
 
   const padding = GRID_SPACING_M * 2;
-  const west = bounds.getWest();
-  const east = bounds.getEast();
-  const south = bounds.getSouth();
-  const north = bounds.getNorth();
-
-  const xMin = west * safeLngMpd - padding;
-  const xMax = east * safeLngMpd + padding;
-  const yMin = south * latMetersPerDegree - padding;
-  const yMax = north * latMetersPerDegree + padding;
+  const xMin = Math.min(...metricCorners.map((p) => p.x)) - padding;
+  const xMax = Math.max(...metricCorners.map((p) => p.x)) + padding;
+  const yMin = Math.min(...metricCorners.map((p) => p.y)) - padding;
+  const yMax = Math.max(...metricCorners.map((p) => p.y)) + padding;
 
   const lineCountX = (xMax - xMin) / GRID_SPACING_M;
   const lineCountY = (yMax - yMin) / GRID_SPACING_M;
@@ -142,35 +155,25 @@ const buildSonarGridFeatureCollection = (bounds, refLat) => {
   const startY = Math.floor(yMin / GRID_SPACING_M) * GRID_SPACING_M;
 
   for (let x = startX; x <= xMax; x += GRID_SPACING_M) {
-    const lng = x / safeLngMpd;
     const isMajor = Math.round(x / GRID_SPACING_M) % 10 === 0;
-    features.push({
-      type: "Feature",
-      geometry: {
-        type: "LineString",
-        coordinates: [
-          [lng, yMin / latMetersPerDegree],
-          [lng, yMax / latMetersPerDegree],
-        ],
-      },
-      properties: { major: isMajor },
-    });
+    const coordinates = [];
+    for (let i = 0; i <= GRID_LINE_SEGMENTS; i += 1) {
+      const y = yMin + ((yMax - yMin) * i) / GRID_LINE_SEGMENTS;
+      const { lng, lat } = toLngLatFromGameTileMeters(x, y);
+      coordinates.push([lng, lat]);
+    }
+    features.push({ type: "Feature", geometry: { type: "LineString", coordinates }, properties: { major: isMajor } });
   }
 
   for (let y = startY; y <= yMax; y += GRID_SPACING_M) {
-    const lat = y / latMetersPerDegree;
     const isMajor = Math.round(y / GRID_SPACING_M) % 10 === 0;
-    features.push({
-      type: "Feature",
-      geometry: {
-        type: "LineString",
-        coordinates: [
-          [xMin / safeLngMpd, lat],
-          [xMax / safeLngMpd, lat],
-        ],
-      },
-      properties: { major: isMajor },
-    });
+    const coordinates = [];
+    for (let i = 0; i <= GRID_LINE_SEGMENTS; i += 1) {
+      const x = xMin + ((xMax - xMin) * i) / GRID_LINE_SEGMENTS;
+      const { lng, lat } = toLngLatFromGameTileMeters(x, y);
+      coordinates.push([lng, lat]);
+    }
+    features.push({ type: "Feature", geometry: { type: "LineString", coordinates }, properties: { major: isMajor } });
   }
 
   return { type: "FeatureCollection", features };
@@ -1109,7 +1112,7 @@ export default function MapboxZoneMap({
       if (!map.getSource("hero-sonar-grid")) {
         map.addSource("hero-sonar-grid", {
           type: "geojson",
-          data: buildSonarGridFeatureCollection(map.getBounds(), Number(map.getCenter().lat)),
+          data: buildSonarGridFeatureCollection(map.getBounds()),
         });
         map.addLayer({
           id: "hero-sonar-grid",
@@ -1556,7 +1559,7 @@ export default function MapboxZoneMap({
     const updateSonarGrid = () => {
       const gridSource = map.getSource("hero-sonar-grid");
       if (!gridSource) return;
-      gridSource.setData(buildSonarGridFeatureCollection(map.getBounds(), Number(map.getCenter().lat)));
+      gridSource.setData(buildSonarGridFeatureCollection(map.getBounds()));
     };
     map.on("moveend", updateSonarGrid);
     map.on("zoomend", updateSonarGrid);
