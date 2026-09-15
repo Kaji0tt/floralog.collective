@@ -1,4 +1,4 @@
-import { Building2, ChevronDown, Droplet, Home as HomeIcon, Leaf, Loader2, RefreshCw, Sprout } from "lucide-react";
+import { Building2, Droplet, EyeOff, Leaf, Loader2, RefreshCw, Sprout, User, Users } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 import MapboxZoneMap from "@/components/map/MapboxZoneMap";
 import MapPinDetailOverlay from "@/components/map/MapPinDetailOverlay";
@@ -24,6 +24,12 @@ const ZONE_THEME_IMAGES = {
   water: "/bg_water.png",
   meadow: "/bg_flowers.png",
 };
+
+const PIN_VISIBILITY_MODES = [
+  { value: "none", label: "Keine", icon: <EyeOff className="h-3.5 w-3.5" /> },
+  { value: "mine", label: "Meine", icon: <User className="h-3.5 w-3.5" /> },
+  { value: "friends", label: "Freunde", icon: <Users className="h-3.5 w-3.5" /> },
+];
 
 const formatDistanceMeters = (value) => {
   if (!Number.isFinite(value)) return "—";
@@ -108,7 +114,6 @@ export default function HomeMapFeatureRoot({
   allowDiscoveryLike,
   onTokenError,
   onMapReady,
-  onClose = null,
   authId,
   onRegenerateZones,
   canRegenerateZones,
@@ -121,9 +126,10 @@ export default function HomeMapFeatureRoot({
   userRewards = [],
   genera = [],
   logoAssetCatalog = [],
+  friendEmails = [],
 }) {
   const [pinOverlayData, setPinOverlayData] = useState(null);
-  const [mapTimeFilter, setMapTimeFilter] = useState("all-time");
+  const [pinVisibilityMode, setPinVisibilityMode] = useState("friends");
   const [isZoneOverviewExpanded, setIsZoneOverviewExpanded] = useState(false);
   const [selectedZoneForDetail, setSelectedZoneForDetail] = useState(null);
   const [isZoneInfoOpen, setIsZoneInfoOpen] = useState(false);
@@ -389,22 +395,22 @@ export default function HomeMapFeatureRoot({
     [allDiscoveryPoints, claimedTiles, plants]
   );
 
-  const SOMMER_2026_CUTOFF = "2026-06-21";
+  const friendEmailSetLower = useMemo(
+    () => new Set((Array.isArray(friendEmails) ? friendEmails : []).map((email) => String(email || "").toLowerCase())),
+    [friendEmails]
+  );
 
-  const applyTimeFilter = (points) => {
-    if (mapTimeFilter === "all-time") return points;
-    if (mapTimeFilter === "sommer2026") {
-      return points.filter((p) => {
-        const d = p.discoveredAt;
-        return d && d >= SOMMER_2026_CUTOFF;
-      });
-    }
-    // legacy: scans before 21.06.2026
-    return points.filter((p) => {
-      const d = p.discoveredAt;
-      return !d || d < SOMMER_2026_CUTOFF;
-    });
+  const applyPinVisibilityFilter = (points) => {
+    if (pinVisibilityMode === "none") return [];
+    const isOwnPoint = (p) => String(p?.scannerAuthId || "") === String(authId || "");
+    if (pinVisibilityMode === "mine") return points.filter(isOwnPoint);
+    // "friends": mine + friends' pins only — strangers never render as map pins,
+    // they remain visible via the zone/claim list view (which uses unfiltered allDiscoveryPoints).
+    const isFriendPoint = (p) => friendEmailSetLower.has(String(p?.scannerEmail || "").toLowerCase());
+    return points.filter((p) => isOwnPoint(p) || isFriendPoint(p));
   };
+
+  const activePinVisibilityMode = PIN_VISIBILITY_MODES.find((mode) => mode.value === pinVisibilityMode) || PIN_VISIBILITY_MODES[0];
 
   const handlePinSelect = useCallback(({ point, properties, mergedCount, mergedDiscoveryIds }) => {
     // Build logo assets from the point data
@@ -440,7 +446,7 @@ export default function HomeMapFeatureRoot({
     });
   }, [allDiscoveryPoints, plants]);
 
-  const displayedDiscoveryPoints = applyTimeFilter(nearbyDiscoveryPoints);
+  const displayedDiscoveryPoints = applyPinVisibilityFilter(nearbyDiscoveryPoints);
   const rerollsRemainingDisplay = Number.isFinite(Number(zoneRerollsRemaining))
     ? Math.max(0, Number(zoneRerollsRemaining))
     : "...";
@@ -554,24 +560,23 @@ export default function HomeMapFeatureRoot({
           }`} />
 
           <div className="absolute left-4 right-4 top-4 z-[1200] flex items-center justify-end gap-2">
-            <div className="relative">
-              <select
-                value={mapTimeFilter}
-                onChange={(e) => setMapTimeFilter(e.target.value)}
-                className={`appearance-none cursor-pointer rounded-xl border py-1.5 pl-3 pr-7 text-[11px] md:text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-lime-300/50 ${
-                  isLightUi
-                    ? "border-[#c8ac62]/50 bg-white/85 text-stone-800"
-                    : "border-[#f0e5a5]/35 bg-black/65 text-stone-100"
-                }`}
-              >
-                <option value="all-time">All Time</option>
-                <option value="sommer2026">Sommer 2026</option>
-                <option value="legacy">Legacy</option>
-              </select>
-              <ChevronDown className={`pointer-events-none absolute right-2 top-1/2 h-3 w-3 -translate-y-1/2 ${
-                isLightUi ? "text-stone-600" : "text-stone-300"
-              }`} />
-            </div>
+            <button
+              type="button"
+              onClick={() => {
+                const currentIdx = PIN_VISIBILITY_MODES.findIndex((mode) => mode.value === pinVisibilityMode);
+                const nextMode = PIN_VISIBILITY_MODES[(currentIdx + 1) % PIN_VISIBILITY_MODES.length];
+                setPinVisibilityMode(nextMode.value);
+              }}
+              title="Sichtbarkeit fremder Pins umschalten"
+              className={`h-8 px-3 rounded-xl border flex items-center gap-1.5 text-[11px] md:text-xs font-semibold whitespace-nowrap transition-colors ${
+                isLightUi
+                  ? "border-[#c8ac62]/55 bg-white/90 text-stone-800 hover:bg-white"
+                  : "border-[#f0e5a5]/45 bg-black/72 text-stone-100 hover:bg-black/85"
+              }`}
+            >
+              {activePinVisibilityMode.icon}
+              {activePinVisibilityMode.label}
+            </button>
 
             <button
               type="button"
@@ -594,22 +599,6 @@ export default function HomeMapFeatureRoot({
             }`}>
               Re-Rolls: {rerollsRemainingDisplay}
             </div>
-
-            {typeof onClose === "function" && (
-              <button
-                type="button"
-                onClick={onClose}
-                className={`flex h-8 items-center justify-center rounded-xl border px-3 transition-colors ${
-                  isLightUi
-                    ? "border-[#c8ac62]/55 bg-white/90 text-stone-800 hover:bg-white"
-                    : "border-[#f0e5a5]/35 bg-black/72 text-stone-100 hover:bg-black/85"
-                }`}
-                aria-label="Zur Home-Ansicht"
-                title="Zur Home-Ansicht"
-              >
-                <HomeIcon className="h-4 w-4" />
-              </button>
-            )}
           </div>
 
           {(zoneMapError || tileClaimError) && (

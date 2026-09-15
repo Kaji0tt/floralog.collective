@@ -3903,7 +3903,6 @@ function HomeContent() {
                     onMapReady={setHeroMapInstance}
                     heroMapInstance={heroMapInstance}
                     authId={user?.id}
-                    onClose={() => setActivePanel(null)}
                     onRegenerateZones={handleRegenerateZones}
                     canRegenerateZones={hasCalledZoneGenerationToday && !isLoadingZone && (isAdminUser || zoneRerollsRemaining !== 0)}
                     isRegeneratingZones={isRegeneratingZones}
@@ -3915,6 +3914,7 @@ function HomeContent() {
                     userRewards={userRewards}
                     genera={genera}
                     logoAssetCatalog={logoAssets}
+                    friendEmails={[...friendEmailSet]}
                   />
                 ) : (
                   <section data-ui="home-plant-hero-section" className="relative flex-1 min-h-0 rounded-3xl px-[clamp(0.25rem,1vw,0.75rem)] pt-[clamp(0.1rem,0vh,0.5rem)] pb-[clamp(0.12rem,0.35vh,0.28rem)] flex flex-col gap-2 bg-transparent">
