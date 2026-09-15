@@ -88,7 +88,7 @@ export default function Impressum() {
                     <li>Frontend: Cloudflare (CDN zur Inhaltsauslieferung)</li>
                     <li>Pflanzenerkennung: Pl@ntNet </li>
                     <li>Textgenerierung: OpenAI</li>
-                    <li>Kartendarstellung: Mapbox</li>
+                    <li>Kartendarstellung: MapLibre GL JS mit Kartendaten von OpenFreeMap / OpenStreetMap</li>
                   </ul>
                 </div>
               </div>

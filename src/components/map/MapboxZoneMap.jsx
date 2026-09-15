@@ -106,6 +106,10 @@ const SONAR_MAP_STYLE = {
   ],
 };
 
+// Above this many lines per axis the grid is skipped entirely (guards against WebGL/context-loss
+// crashes when the user zooms out far enough that a 50m grid would need tens of thousands of lines).
+const GRID_MAX_LINES_PER_AXIS = 400;
+
 // Builds a 50x50m grid of GeoJSON lines around the given lng/lat bounds using a local equirectangular
 // projection (visual-only; not the authoritative backend tile grid, but aligned to real-world meters).
 const buildSonarGridFeatureCollection = (bounds, refLat) => {
@@ -125,6 +129,13 @@ const buildSonarGridFeatureCollection = (bounds, refLat) => {
   const xMax = east * safeLngMpd + padding;
   const yMin = south * latMetersPerDegree - padding;
   const yMax = north * latMetersPerDegree + padding;
+
+  const lineCountX = (xMax - xMin) / GRID_SPACING_M;
+  const lineCountY = (yMax - yMin) / GRID_SPACING_M;
+  if (!Number.isFinite(lineCountX) || !Number.isFinite(lineCountY) ||
+      lineCountX > GRID_MAX_LINES_PER_AXIS || lineCountY > GRID_MAX_LINES_PER_AXIS) {
+    return { type: "FeatureCollection", features: [] };
+  }
 
   const features = [];
   const startX = Math.floor(xMin / GRID_SPACING_M) * GRID_SPACING_M;
@@ -173,6 +184,9 @@ const DISCOVERY_MARKER_UNIFIED_SCALE_DEFAULT = 0.8;
 const DISCOVERY_MARKER_UNIFIED_SCALE_MIN = 0.5;
 const DISCOVERY_MARKER_UNIFIED_SCALE_MAX = 1.0;
 const PLAYER_RECENTER_DURATION_MS = 750;
+// Delay before auto-recentering on the player after the map settles; a fresh user gesture
+// (zoomstart/dragstart/rotatestart) cancels the pending recenter so it never fights live input.
+const RECENTER_DEBOUNCE_MS = 500;
 
 const toPx = (value) => `${Math.round(value)}px`;
 
@@ -891,6 +905,8 @@ export default function MapboxZoneMap({
   const claimLogoMarkersRef = useRef([]);
   const claimPulseIntervalRef = useRef(null);
   const rerenderDiscoveryMarkersRef = useRef(() => {});
+  const recenterTimeoutRef = useRef(null);
+  const isUserInteractingRef = useRef(false);
 
   useEffect(() => {
     return () => {
@@ -935,6 +951,8 @@ export default function MapboxZoneMap({
       style: SONAR_MAP_STYLE,
       center: [initialLng, initialLat],
       zoom: 15,
+      minZoom: 12,
+      maxZoom: 19,
       pitch: 0,
       bearing: 0,
       antialias: true,
@@ -1017,6 +1035,11 @@ export default function MapboxZoneMap({
     };
 
     const syncMapCenterToPlayer = () => {
+      // Never fight an in-flight user gesture (zoom/drag/rotate) or an already-running camera animation.
+      if (isUserInteractingRef.current || map.isMoving()) {
+        return;
+      }
+
       const { targetLng, targetLat } = resolveRecenterTarget();
 
       if (!Number.isFinite(targetLng) || !Number.isFinite(targetLat)) {
@@ -1041,12 +1064,41 @@ export default function MapboxZoneMap({
       }
     };
 
+    const clearPendingRecenter = () => {
+      if (recenterTimeoutRef.current) {
+        window.clearTimeout(recenterTimeoutRef.current);
+        recenterTimeoutRef.current = null;
+      }
+    };
+
+    // Debounced so a moveend caused by the user's own gesture doesn't immediately trigger a
+    // programmatic easeTo that a follow-up zoom/pan input would then collide with mid-animation.
+    const scheduleRecenter = () => {
+      clearPendingRecenter();
+      recenterTimeoutRef.current = window.setTimeout(() => {
+        recenterTimeoutRef.current = null;
+        syncMapCenterToPlayer();
+      }, RECENTER_DEBOUNCE_MS);
+    };
+
+    const handleInteractionStart = () => {
+      isUserInteractingRef.current = true;
+      clearPendingRecenter();
+    };
+
+    const handleInteractionEnd = () => {
+      isUserInteractingRef.current = false;
+      scheduleRecenter();
+    };
+
     const updateMapData = () => {
       const userLng = Number(userLocation?.lng);
       const userLat = Number(userLocation?.lat);
       const { targetLng, targetLat } = resolveRecenterTarget();
 
-      if (Number.isFinite(targetLng) && Number.isFinite(targetLat)) {
+      // Skip if the user is actively interacting (or a prior ease is still running) so this
+      // data-driven recenter never collides with a live zoom/pan gesture.
+      if (!isUserInteractingRef.current && !map.isMoving() && Number.isFinite(targetLng) && Number.isFinite(targetLat)) {
         map.easeTo({
           center: [targetLng, targetLat],
           duration: PLAYER_RECENTER_DURATION_MS,
@@ -1491,7 +1543,15 @@ export default function MapboxZoneMap({
       renderDiscoveryMarkers();
     };
 
-    map.on("moveend", syncMapCenterToPlayer);
+    map.on("moveend", scheduleRecenter);
+    map.on("zoomstart", handleInteractionStart);
+    map.on("dragstart", handleInteractionStart);
+    map.on("rotatestart", handleInteractionStart);
+    map.on("pitchstart", handleInteractionStart);
+    map.on("zoomend", handleInteractionEnd);
+    map.on("dragend", handleInteractionEnd);
+    map.on("rotateend", handleInteractionEnd);
+    map.on("pitchend", handleInteractionEnd);
 
     const updateSonarGrid = () => {
       const gridSource = map.getSource("hero-sonar-grid");
@@ -1512,7 +1572,16 @@ export default function MapboxZoneMap({
     }
 
     return () => {
-      map.off("moveend", syncMapCenterToPlayer);
+      clearPendingRecenter();
+      map.off("moveend", scheduleRecenter);
+      map.off("zoomstart", handleInteractionStart);
+      map.off("dragstart", handleInteractionStart);
+      map.off("rotatestart", handleInteractionStart);
+      map.off("pitchstart", handleInteractionStart);
+      map.off("zoomend", handleInteractionEnd);
+      map.off("dragend", handleInteractionEnd);
+      map.off("rotateend", handleInteractionEnd);
+      map.off("pitchend", handleInteractionEnd);
       map.off("moveend", updateSonarGrid);
       map.off("zoomend", updateSonarGrid);
     };

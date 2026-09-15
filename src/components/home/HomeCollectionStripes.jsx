@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { CalendarDays, CheckCircle2, HeartPulse, InspectionPanel, Leaf } from "lucide-react";
 import FlorabotLogo from "@/components/florabot/FlorabotLogo";
@@ -698,6 +698,10 @@ export default function HomeCollectionStripes({
 
     setBadgeLogoScale((prevScale) => (Math.abs(prevScale - nextScale) < 0.015 ? prevScale : nextScale));
   }, [isHealthView]);
+
+  useLayoutEffect(() => {
+    updateBadgeLogoScale();
+  }, [updateBadgeLogoScale]);
 
   useEffect(() => {
     /** @type {number | null} */
