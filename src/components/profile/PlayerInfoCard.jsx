@@ -9,6 +9,22 @@ import { getProfileBadgeDefinitionById } from "@/lib/profileBadges";
 import { getUniqueBadgeById } from "@/lib/profileUniqueBadges";
 import { getProfileBadgeIconComponent } from "@/lib/profileBadgeIcons";
 
+const formatNumber = (value, options = {}) => new Intl.NumberFormat("de-DE", options).format(value);
+
+const getBadgeAccomplishment = (badge, badgeMetrics) => {
+  const value = badgeMetrics?.[badge.metricKey];
+  if (!Number.isFinite(Number(value))) return badge.description || "Profil-Abzeichen";
+
+  switch (badge.id) {
+    case "distance_waypoints":
+      return `Hat eine Strecke von ${formatNumber(Number(value), { maximumFractionDigits: 1 })} km erkundet.`;
+    case "scans_camera":
+      return `Hat ${formatNumber(Math.round(Number(value)))} Pflanzen gescannt.`;
+    default:
+      return badge.description || "Profil-Abzeichen";
+  }
+};
+
 export default function PlayerInfoCard({ playerAuthId, fallbackName, logo, onNavigate }) {
   const navigate = useNavigate();
   const { data: profile, isLoading } = useQuery({
@@ -75,7 +91,7 @@ export default function PlayerInfoCard({ playerAuthId, fallbackName, logo, onNav
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-[10px] font-semibold text-stone-100">{badge.label}</p>
                         <p className="truncate text-[9px] text-stone-400">
-                          {badge.description || "Profil-Abzeichen"}
+                          {getBadgeAccomplishment(badge, profile?.badge_metrics)}
                         </p>
                       </div>
                     </div>

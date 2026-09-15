@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
-import mapboxgl from "mapbox-gl";
-import "mapbox-gl/dist/mapbox-gl.css";
+import maplibregl from "maplibre-gl";
+import "maplibre-gl/dist/maplibre-gl.css";
 import { hexToFilter } from "@/lib/hexToFilter";
 import { NEARBY_DISCOVERY_RADIUS_METERS } from "@/lib/discoveryMap";
 
@@ -18,8 +18,152 @@ const THEME_MAP_LABELS = {
   meadow: "Meadow",
 };
 
-const MAPBOX_ACCESS_TOKEN = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN || "";
 const TILE_HALF_SIZE_M = 50;
+// Distance (in meters) between sonar grid lines, matching the game's 50x50m location tiles.
+const GRID_SPACING_M = 50;
+const GRID_LINE_COLOR = "rgba(94, 234, 212, 0.16)";
+const GRID_LINE_COLOR_MAJOR = "rgba(94, 234, 212, 0.32)";
+
+// Free, tokenless vector tiles (OpenFreeMap, community-hosted OpenMapTiles schema) used purely as a
+// faint silhouette (coastline/water/roads) underneath the sonar grid — no buildings, no 3D, no labels.
+const OPENFREEMAP_SOURCE_URL = "https://tiles.openfreemap.org/planet";
+
+// Dark echo-lot/sonar basemap: near-black background, glowing teal water/roads, no labels or 3D buildings.
+const SONAR_MAP_STYLE = {
+  version: 8,
+  sources: {
+    ofm: {
+      type: "vector",
+      url: OPENFREEMAP_SOURCE_URL,
+      attribution: '&copy; <a href="https://openfreemap.org" target="_blank">OpenFreeMap</a> &copy; <a href="https://www.openmaptiles.org/" target="_blank">OpenMapTiles</a> Data from <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a>',
+    },
+  },
+  layers: [
+    { id: "bg", type: "background", paint: { "background-color": "#050b0c" } },
+    {
+      id: "landcover",
+      type: "fill",
+      source: "ofm",
+      "source-layer": "landcover",
+      paint: { "fill-color": "#0a1f16", "fill-opacity": 0.55 },
+    },
+    {
+      id: "landuse",
+      type: "fill",
+      source: "ofm",
+      "source-layer": "landuse",
+      paint: { "fill-color": "#0c1a1a", "fill-opacity": 0.4 },
+    },
+    {
+      id: "water",
+      type: "fill",
+      source: "ofm",
+      "source-layer": "water",
+      paint: { "fill-color": "#082e33", "fill-opacity": 0.9 },
+    },
+    {
+      id: "waterway",
+      type: "line",
+      source: "ofm",
+      "source-layer": "waterway",
+      paint: { "line-color": "#0f4a52", "line-width": 1, "line-opacity": 0.8 },
+    },
+    {
+      id: "boundary",
+      type: "line",
+      source: "ofm",
+      "source-layer": "boundary",
+      filter: ["<=", ["get", "admin_level"], 4],
+      paint: { "line-color": "#123a3a", "line-width": 0.6, "line-dasharray": [2, 2], "line-opacity": 0.5 },
+    },
+    {
+      id: "transportation-glow",
+      type: "line",
+      source: "ofm",
+      "source-layer": "transportation",
+      filter: ["!", ["in", ["get", "class"], ["literal", ["rail", "path", "track"]]]],
+      layout: { "line-cap": "round", "line-join": "round" },
+      paint: {
+        "line-color": "#1f6d63",
+        "line-width": ["interpolate", ["linear"], ["zoom"], 12, 1.6, 18, 5],
+        "line-blur": 1.4,
+        "line-opacity": 0.35,
+      },
+    },
+    {
+      id: "transportation",
+      type: "line",
+      source: "ofm",
+      "source-layer": "transportation",
+      filter: ["!", ["in", ["get", "class"], ["literal", ["rail", "path", "track"]]]],
+      layout: { "line-cap": "round", "line-join": "round" },
+      paint: {
+        "line-color": "#2dd4bf",
+        "line-width": ["interpolate", ["linear"], ["zoom"], 12, 0.4, 18, 1.8],
+        "line-opacity": 0.55,
+      },
+    },
+  ],
+};
+
+// Builds a 50x50m grid of GeoJSON lines around the given lng/lat bounds using a local equirectangular
+// projection (visual-only; not the authoritative backend tile grid, but aligned to real-world meters).
+const buildSonarGridFeatureCollection = (bounds, refLat) => {
+  if (!bounds) return { type: "FeatureCollection", features: [] };
+
+  const latMetersPerDegree = 111320;
+  const lngMetersPerDegree = 111320 * Math.cos((refLat * Math.PI) / 180);
+  const safeLngMpd = Math.abs(lngMetersPerDegree) < 1e-6 ? 1e-6 : lngMetersPerDegree;
+
+  const padding = GRID_SPACING_M * 2;
+  const west = bounds.getWest();
+  const east = bounds.getEast();
+  const south = bounds.getSouth();
+  const north = bounds.getNorth();
+
+  const xMin = west * safeLngMpd - padding;
+  const xMax = east * safeLngMpd + padding;
+  const yMin = south * latMetersPerDegree - padding;
+  const yMax = north * latMetersPerDegree + padding;
+
+  const features = [];
+  const startX = Math.floor(xMin / GRID_SPACING_M) * GRID_SPACING_M;
+  const startY = Math.floor(yMin / GRID_SPACING_M) * GRID_SPACING_M;
+
+  for (let x = startX; x <= xMax; x += GRID_SPACING_M) {
+    const lng = x / safeLngMpd;
+    const isMajor = Math.round(x / GRID_SPACING_M) % 10 === 0;
+    features.push({
+      type: "Feature",
+      geometry: {
+        type: "LineString",
+        coordinates: [
+          [lng, yMin / latMetersPerDegree],
+          [lng, yMax / latMetersPerDegree],
+        ],
+      },
+      properties: { major: isMajor },
+    });
+  }
+
+  for (let y = startY; y <= yMax; y += GRID_SPACING_M) {
+    const lat = y / latMetersPerDegree;
+    const isMajor = Math.round(y / GRID_SPACING_M) % 10 === 0;
+    features.push({
+      type: "Feature",
+      geometry: {
+        type: "LineString",
+        coordinates: [
+          [xMin / safeLngMpd, lat],
+          [xMax / safeLngMpd, lat],
+        ],
+      },
+      properties: { major: isMajor },
+    });
+  }
+
+  return { type: "FeatureCollection", features };
+};
 const CLAIM_PULSE_CYCLE_MS = 2600;
 const OVERLAP_PADDING_FACTOR = 0.86;
 const DISCOVERY_CUSTOM_MARKER_BASE_SIZE_PX = 34;
@@ -183,7 +327,7 @@ const openDiscoveryPopup = ({ map, event, feature, onDiscoveryImageClick, onDisc
   if (!feature) return;
   const properties = feature.properties || {};
   const popupHtml = buildDiscoveryPopupHtml(properties);
-  const popup = new mapboxgl.Popup({ closeButton: true, maxWidth: "210px", className: "hero-discovery-popup" })
+  const popup = new maplibregl.Popup({ closeButton: true, maxWidth: "210px", className: "hero-discovery-popup" })
     .setLngLat(event.lngLat)
     .setHTML(popupHtml)
     .addTo(map);
@@ -363,7 +507,7 @@ const buildMergedDiscoveryPopupHtml = (point) => {
 };
 
 const openMergedDiscoveryPopup = ({ map, lng, lat, point }) => {
-  new mapboxgl.Popup({ closeButton: true, maxWidth: "240px", className: "hero-discovery-popup" })
+  new maplibregl.Popup({ closeButton: true, maxWidth: "240px", className: "hero-discovery-popup" })
     .setLngLat({ lng, lat })
     .setHTML(buildMergedDiscoveryPopupHtml(point))
     .addTo(map);
@@ -776,11 +920,6 @@ export default function MapboxZoneMap({
   useEffect(() => {
     if (mapRef.current || !mapContainerRef.current) return;
 
-    if (!MAPBOX_ACCESS_TOKEN) {
-      onTokenErrorRef.current?.("Mapbox Token fehlt. Setze VITE_MAPBOX_ACCESS_TOKEN in .env.local.");
-      return;
-    }
-
     const userLng = Number(userLocation?.lng);
     const userLat = Number(userLocation?.lat);
     const initialLng = Number.isFinite(userLng) ? userLng : Number(fallbackCenter?.lng);
@@ -791,25 +930,15 @@ export default function MapboxZoneMap({
       return;
     }
 
-    mapboxgl.accessToken = MAPBOX_ACCESS_TOKEN;
-
-    const map = new mapboxgl.Map({
+    const map = new maplibregl.Map({
       container: mapContainerRef.current,
-      style: "mapbox://styles/mapbox/standard",
-      config: {
-        basemap: {
-          theme: "default",
-          show3dObjects: true,
-          showPlaceLabels: false,
-          showPointOfInterestLabels: false,
-          showTransitLabels: false,
-        },
-      },
+      style: SONAR_MAP_STYLE,
       center: [initialLng, initialLat],
-      zoom: 13,
-      pitch: 58,
-      bearing: -18,
+      zoom: 15,
+      pitch: 0,
+      bearing: 0,
       antialias: true,
+      attributionControl: { compact: true },
     });
 
     mapRef.current = map;
@@ -819,8 +948,8 @@ export default function MapboxZoneMap({
 
     map.on("error", (event) => {
       const status = event?.error?.status;
-      if (status === 401 || status === 403) {
-        onTokenErrorRef.current?.("Mapbox Zugriff verweigert. Bitte Token und Allowed URLs pruefen.");
+      if (status && status >= 400) {
+        onTokenErrorRef.current?.("Kartenkacheln konnten nicht geladen werden. Bitte spaeter erneut versuchen.");
       }
     });
 
@@ -922,6 +1051,22 @@ export default function MapboxZoneMap({
           center: [targetLng, targetLat],
           duration: PLAYER_RECENTER_DURATION_MS,
           essential: true,
+        });
+      }
+
+      if (!map.getSource("hero-sonar-grid")) {
+        map.addSource("hero-sonar-grid", {
+          type: "geojson",
+          data: buildSonarGridFeatureCollection(map.getBounds(), Number(map.getCenter().lat)),
+        });
+        map.addLayer({
+          id: "hero-sonar-grid",
+          type: "line",
+          source: "hero-sonar-grid",
+          paint: {
+            "line-color": ["case", ["get", "major"], GRID_LINE_COLOR_MAJOR, GRID_LINE_COLOR],
+            "line-width": ["case", ["get", "major"], 1, 0.6],
+          },
         });
       }
 
@@ -1056,7 +1201,7 @@ export default function MapboxZoneMap({
           }
 
           const popupHtml = buildZonePopupHtml(props, isLightUi);
-          new mapboxgl.Popup({ closeButton: true, maxWidth: "240px", className: "hero-zone-popup" })
+          new maplibregl.Popup({ closeButton: true, maxWidth: "240px", className: "hero-zone-popup" })
             .setLngLat(event.lngLat)
             .setHTML(popupHtml)
             .addTo(map);
@@ -1194,7 +1339,7 @@ export default function MapboxZoneMap({
           }
 
           const popupHtml = buildClaimPopupHtml(props, isLightUi);
-          new mapboxgl.Popup({ closeButton: true, maxWidth: "260px", className: "hero-claim-popup" })
+          new maplibregl.Popup({ closeButton: true, maxWidth: "260px", className: "hero-claim-popup" })
             .setLngLat(event.lngLat)
             .setHTML(popupHtml)
             .addTo(map);
@@ -1265,7 +1410,7 @@ export default function MapboxZoneMap({
           .filter((claim) => Number.isFinite(claim?.centerLat) && Number.isFinite(claim?.centerLng))
           .forEach((claim) => {
             const claimMarkerElement = createClaimLogoMarkerElement(claim, discoveryMarkerScale);
-            const claimMarker = new mapboxgl.Marker({ element: claimMarkerElement, anchor: "center" })
+            const claimMarker = new maplibregl.Marker({ element: claimMarkerElement, anchor: "center" })
               .setLngLat([Number(claim.centerLng), Number(claim.centerLat)])
               .addTo(map);
 
@@ -1335,7 +1480,7 @@ export default function MapboxZoneMap({
             });
           });
 
-          const marker = new mapboxgl.Marker({ element: markerElement, anchor: "center" })
+          const marker = new maplibregl.Marker({ element: markerElement, anchor: "center" })
             .setLngLat([lng, lat])
             .addTo(map);
           discoveryMarkersRef.current.push(marker);
@@ -1347,6 +1492,14 @@ export default function MapboxZoneMap({
     };
 
     map.on("moveend", syncMapCenterToPlayer);
+
+    const updateSonarGrid = () => {
+      const gridSource = map.getSource("hero-sonar-grid");
+      if (!gridSource) return;
+      gridSource.setData(buildSonarGridFeatureCollection(map.getBounds(), Number(map.getCenter().lat)));
+    };
+    map.on("moveend", updateSonarGrid);
+    map.on("zoomend", updateSonarGrid);
 
     if (map.isStyleLoaded()) {
       updateMapData();
@@ -1360,6 +1513,8 @@ export default function MapboxZoneMap({
 
     return () => {
       map.off("moveend", syncMapCenterToPlayer);
+      map.off("moveend", updateSonarGrid);
+      map.off("zoomend", updateSonarGrid);
     };
   }, [
     allowDiscoveryLike,
