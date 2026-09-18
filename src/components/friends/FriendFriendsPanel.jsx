@@ -52,10 +52,12 @@ export default function FriendFriendsPanel({ friendUser, friendEmail, currentUse
   });
 
   const getFriendData = (profile) => {
-    if (!profile?.auth_id) return null;
+    const email = profile?.user_email || profile?.email || null;
+    if (!profile?.auth_id && !email) return null;
     return {
-      id: profile.auth_id,
-      authId: profile.auth_id,
+      id: profile.auth_id || email,
+      authId: profile.auth_id || null,
+      email,
       name: profile.display_name || profile.full_name || "Spieler",
       logoAssets: resolveEquippedLogoAssetsWithCatalog(profile, logoAssets),
       title: profile.selected_title || profile.title || "Pflanzen-Anfänger",
