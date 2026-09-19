@@ -3,11 +3,11 @@ import { createPageUrl } from "@/utils";
 
 export default function FriendFriendsList() {
   const urlParams = new URLSearchParams(window.location.search);
+  const friendAuthId = urlParams.get("auth_id") || "";
   const friendEmail = urlParams.get("email") || "";
-  return (
-    <Navigate
-      replace
-      to={createPageUrl(`FriendProfile?email=${encodeURIComponent(friendEmail)}&tab=friends`)}
-    />
-  );
+  const target = friendAuthId
+    ? `FriendProfile?auth_id=${encodeURIComponent(friendAuthId)}&tab=friends`
+    : `FriendProfile?email=${encodeURIComponent(friendEmail)}&tab=friends`;
+
+  return <Navigate replace to={createPageUrl(target)} />;
 }

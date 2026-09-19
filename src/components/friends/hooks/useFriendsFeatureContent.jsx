@@ -1350,6 +1350,7 @@ Viel Spaß beim Entdecken! 🌿`;
       id: friendEntry.id,
       email: friendEmail,
       auth_id: friendAuthId,
+      authId: friendAuthId,
       name: friendProfile?.display_name || friendProfile?.full_name || friendUser?.display_name || friendUser?.full_name || "Unbekannt",
       logoAssets: resolveEquippedLogoAssetsWithCatalog(friendProfile || friendUser || {}, logoAssets),
       level: friendProfile?.level || friendUser?.level || 1,
@@ -2375,7 +2376,15 @@ Viel Spaß beim Entdecken! 🌿`;
                         className={`${friendTileClass} ${interactiveHoverClass} w-full max-w-full overflow-hidden p-2.5 md:p-3 transition-all flex items-center justify-between gap-2.5`}
                       >
                         <button
-                          onClick={() => friendData.authId && navigate(createPageUrl(`FriendProfile?auth_id=${encodeURIComponent(friendData.authId)}`))}
+                          onClick={() => {
+                            if (friendData.authId) {
+                              navigate(createPageUrl(`FriendProfile?auth_id=${encodeURIComponent(friendData.authId)}`));
+                              return;
+                            }
+                            if (friendData.email) {
+                              navigate(createPageUrl(`FriendProfile?email=${encodeURIComponent(friendData.email)}`));
+                            }
+                          }}
                           className="flex items-center gap-2.5 flex-1 min-w-0 max-w-full text-left"
                         >
                           <div className="w-9 h-9 rounded-full overflow-hidden flex items-center justify-center text-white font-bold text-sm shadow-md flex-shrink-0">
