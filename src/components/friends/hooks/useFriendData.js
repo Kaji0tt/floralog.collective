@@ -61,12 +61,14 @@ export function useFriendData(friendEmail, friendAuthId = null) {
 
   // ── Friendship record (to gate access to sub-pages) ────────────────────────
   const { data: myFriendship, isLoading: friendshipLoading } = useQuery({
-    queryKey: ["myFriendship", currentUser?.email, friendUser?.auth_id || friendEmail],
+    queryKey: ["myFriendship", currentUser?.email, friendUser?.auth_id || friendAuthId || friendEmail],
     queryFn: async () => {
-      if (friendUser?.auth_id) {
-        const status = await getFriendshipStatus(friendUser.auth_id);
-        return status ? { status } : null;
+      const resolvedFriendAuthId = friendUser?.auth_id || friendAuthId;
+      if (resolvedFriendAuthId) {
+        const status = await getFriendshipStatus(resolvedFriendAuthId);
+        if (status) return { status };
       }
+
       const resolvedFriendEmail = friendUser?.user_email || friendEmail;
       if (!currentUser?.email || !resolvedFriendEmail) return null;
       const allFriends = await Query.Friend.list();
@@ -82,7 +84,7 @@ export function useFriendData(friendEmail, friendAuthId = null) {
         ) ?? null
       );
     },
-    enabled: !!currentUser?.email && !!(friendUser?.user_email || friendEmail),
+    enabled: !!currentUser?.email && !!(friendUser?.auth_id || friendAuthId || friendUser?.user_email || friendEmail),
     staleTime: 10_000,
   });
 
