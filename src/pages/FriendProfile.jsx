@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Navigate, useSearchParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useSearchParams } from "react-router-dom";
 import { Query } from "@/api/entities";
 import { supabase } from "@/api/supabaseClient";
 import { createUserNotification } from "@/api/notificationService";
@@ -162,7 +162,7 @@ function FriendProfileHomePanel({
   petsMadeToday,
   petFriendMutation,
   sendFriendRequestMutation,
-  showNoFriendAccessHint,
+  _showNoFriendAccessHint,
   scanHighlights,
 }) {
   const [petAnimAttribute, setPetAnimAttribute] = useState(null);
@@ -440,6 +440,8 @@ export default function FriendProfile() {
     averageColor,
     isLoading,
   } = useFriendData(friendEmail, friendAuthId);
+
+  const hasLegacyEmailAccess = !friendAuthId && !!friendEmail;
 
   const isProfileOwner = Boolean(currentUser?.id && friendUser?.auth_id === currentUser.id);
   const canViewFriends = isProfileOwner || isFriend;
@@ -888,6 +890,10 @@ export default function FriendProfile() {
 
   const showNoFriendAccessHint = !isFriend && !hasPendingRequest && !isLoading;
   const contentAccessDenied = activeTab === "friends" && !canViewFriends && !isLoading;
+
+  if (hasLegacyEmailAccess) {
+    return <Navigate replace to={createPageUrl("Friends")} />;
+  }
 
   const handleTabChange = (nextTab) => {
     if (!VALID_FRIEND_TABS.includes(nextTab)) return;

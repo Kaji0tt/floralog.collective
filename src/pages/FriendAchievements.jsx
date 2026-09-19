@@ -1,4 +1,7 @@
-import { Navigate } from "react-router-dom";
+import { Navigate, useNavigate } from "react-router-dom";
+import { useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { Query } from "@/api/entities";
 import { createPageUrl } from "@/utils";
 
 export default function FriendAchievements() {

@@ -1,4 +1,3 @@
-import React from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
@@ -128,10 +127,10 @@ export default function QuestNotificationDisplay({ notification, onClose, onMark
 
     const handleActorClick = (e) => {
       e.stopPropagation();
-      const actorEmail = String(notification.created_by || "").trim();
-      if (!actorEmail || actorEmail === "system") return;
+      const actorAuthId = String(notification.created_by_auth_id || notification.actor_auth_id || "").trim();
+      if (!actorAuthId || actorAuthId === "system") return;
       onClose();
-      navigate(createPageUrl(`FriendProfile?email=${encodeURIComponent(actorEmail)}`));
+      navigate(createPageUrl(`FriendProfile?auth_id=${encodeURIComponent(actorAuthId)}`));
     };
 
     const handleScanClick = (e) => {

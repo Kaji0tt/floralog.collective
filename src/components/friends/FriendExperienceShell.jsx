@@ -9,7 +9,7 @@ import HomeRarityBorderGlow from "@/components/effects/HomeRarityBorderGlow";
 import { getRgbaFromRgb } from "@/lib/friendColorUtils";
 import { getNavButtonStyle, NAV_COLOR_ORDER } from "@/components/navigation/navButtonStyles";
 import { hexToFilter } from "@/lib/hexToFilter";
-import { Leaf, Users, Lock, Scroll, Home as HomeIcon, UserPlus } from "lucide-react";
+import { Leaf, Users, Scroll, Home as HomeIcon, UserPlus } from "lucide-react";
 import { motion } from "framer-motion";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 
@@ -47,7 +47,7 @@ export default function FriendExperienceShell({
   showFriendsTab = false,
   averageColor,
   isLoading,
-  accessDenied,
+  _accessDenied,
   onTabChange,
   children,
 }) {
@@ -88,11 +88,10 @@ export default function FriendExperienceShell({
           onTabChange(tab.id);
           return;
         }
+        if (!friendAuthId) return;
         navigate(
           createPageUrl(
-            friendAuthId
-              ? `FriendProfile?auth_id=${encodeURIComponent(friendAuthId)}&tab=${encodeURIComponent(tab.id)}`
-              : `FriendProfile?email=${encodeURIComponent(friendEmail ?? "")}&tab=${encodeURIComponent(tab.id)}`
+            `FriendProfile?auth_id=${encodeURIComponent(friendAuthId)}&tab=${encodeURIComponent(tab.id)}`
           )
         );
       },
