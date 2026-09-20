@@ -11,6 +11,8 @@ import GuestLogoCustomizerStep from "@/components/home/GuestLogoCustomizerStep";
 import { readLastSignedInUserSnapshot, persistLastSignedInUserSnapshot } from "@/lib/lastSignedInUserStorage";
 import { LOGO_ACCESSORY_DEFAULTS, resolveEquippedLogoAssets } from "@/lib/logoAccessoryAssets";
 import { readGuestLogoCustomizationDraft, persistGuestLogoCustomizationDraft } from "@/lib/guestLogoCustomizationStorage";
+import { fetchRemoteConfig } from "@/lib/remoteConfigService";
+import MaintenanceModal from "@/components/MaintenanceModal";
 
 const GUEST_BG_IMAGE_URL = new URL("../../../guestfunnel-bg.png", import.meta.url).href;
 const GUEST_MG_IMAGE_URL = new URL("../../../guestfunnel-mg.png", import.meta.url).href;
@@ -308,6 +310,9 @@ export default function GuestHomeFlow() {
   const [recoverySuccess, setRecoverySuccess] = useState(/** @type {string | null} */ (null));
   const [loginLoading, setLoginLoading] = useState(false);
   const [loginError, setLoginError] = useState(/** @type {string | null} */ (null));
+  const [loginDisabled, setLoginDisabled] = useState(false);
+  const [loginDisabledMessage, setLoginDisabledMessage] = useState(/** @type {string | null} */ (null));
+  const [maintenanceModalOpen, setMaintenanceModalOpen] = useState(false);
   const [registerLoading, setRegisterLoading] = useState(false);
   const [registerError, setRegisterError] = useState(/** @type {string | null} */ (null));
   const [googleLoginLoading, setGoogleLoginLoading] = useState(false);
@@ -370,6 +375,17 @@ export default function GuestHomeFlow() {
       }
     });
   }, [isNativeRuntime]);
+
+  // Remote maintenance flag (toggled via scripts/set-login-maintenance.mjs, no release needed).
+  useEffect(() => {
+    let cancelled = false;
+    fetchRemoteConfig().then(({ loginDisabled: disabled, loginDisabledMessage: message }) => {
+      if (cancelled) return;
+      setLoginDisabled(disabled);
+      setLoginDisabledMessage(message);
+    });
+    return () => { cancelled = true; };
+  }, []);
 
   useEffect(() => {
     if (typeof window === "undefined" || !window.visualViewport) {
@@ -748,6 +764,12 @@ export default function GuestHomeFlow() {
   /** @param {React.FormEvent<HTMLFormElement>} event */
   const handleInlineLoginSubmit = async (event) => {
     event.preventDefault();
+
+    if (loginDisabled) {
+      setMaintenanceModalOpen(true);
+      return;
+    }
+
     setLoginError(null);
     setLoginLoading(true);
 
@@ -839,6 +861,15 @@ export default function GuestHomeFlow() {
       setLoginError(message);
       setGoogleLoginLoading(false);
     }
+  };
+
+  // Only guards the sign-in entry point in the login panel; registration stays untouched.
+  const handleGoogleLoginForSignIn = () => {
+    if (loginDisabled) {
+      setMaintenanceModalOpen(true);
+      return;
+    }
+    handleGoogleLogin();
   };
 
   /** @param {React.FormEvent<HTMLFormElement>} event */
@@ -1110,6 +1141,17 @@ export default function GuestHomeFlow() {
                   </div>
                 )}
 
+                {loginDisabled && (
+                  <button
+                    type="button"
+                    onClick={() => setMaintenanceModalOpen(true)}
+                    className="w-full rounded-xl border border-amber-300/35 bg-amber-900/30 px-3 py-1.5 text-xs text-amber-100 flex items-start gap-2 mb-1 text-left"
+                  >
+                    <AlertCircle className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
+                    <span>Login ist wegen Wartungsarbeiten vorübergehend deaktiviert. Antippen für Details.</span>
+                  </button>
+                )}
+
                 <AnimatePresence mode="wait" initial={false}>
                   {emailLoginOpen ? (
                     <motion.div
@@ -1125,7 +1167,7 @@ export default function GuestHomeFlow() {
                         type="email"
                         value={authForm.email}
                         onChange={handleAuthChange}
-                        disabled={loginLoading}
+                        disabled={loginLoading || loginDisabled}
                         required
                         className="w-full rounded-xl border border-white/10 bg-black/40 px-3 text-sm text-stone-100 placeholder:text-stone-500 focus:outline-none focus:ring-1 focus:ring-emerald-400/50"
                         style={{
@@ -1140,7 +1182,7 @@ export default function GuestHomeFlow() {
                         type="password"
                         value={authForm.password}
                         onChange={handleAuthChange}
-                        disabled={loginLoading}
+                        disabled={loginLoading || loginDisabled}
                         required
                         className="w-full rounded-xl border border-white/10 bg-black/40 px-3 text-sm text-stone-100 placeholder:text-stone-500 focus:outline-none focus:ring-1 focus:ring-emerald-400/50"
                         style={{
@@ -1164,7 +1206,7 @@ export default function GuestHomeFlow() {
 
                         <motion.button
                           type="submit"
-                          disabled={loginLoading}
+                          disabled={loginLoading || loginDisabled}
                           className="flex-1 rounded-xl border border-lime-200/30 bg-gradient-to-r from-emerald-700/80 via-emerald-500/70 to-emerald-700/80 text-white font-semibold tracking-wide flex items-center justify-center gap-2 shadow-[0_6px_20px_rgba(34,197,94,0.30)] hover:brightness-110 disabled:opacity-60 transition-all"
                           style={{ height: "2.4rem", fontSize: "0.95rem" }}
                           whileTap={{ scale: 0.97 }}
@@ -1187,8 +1229,8 @@ export default function GuestHomeFlow() {
                     <motion.button
                       key="google-login-button"
                       type="button"
-                      onClick={handleGoogleLogin}
-                      disabled={googleLoginLoading}
+                      onClick={handleGoogleLoginForSignIn}
+                      disabled={googleLoginLoading || loginDisabled}
                       initial={{ opacity: 0, y: -12 }}
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, y: -12 }}
@@ -1939,6 +1981,12 @@ export default function GuestHomeFlow() {
           </div>
         </div>
       )}
+
+      <MaintenanceModal
+        open={maintenanceModalOpen}
+        onClose={() => setMaintenanceModalOpen(false)}
+        message={loginDisabledMessage}
+      />
     </div>
   );
 }

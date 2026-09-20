@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { signIn } from '@/api/authService';
 import { Mail, Lock, Loader2, AlertCircle } from 'lucide-react';
+import MaintenanceModal from '@/components/MaintenanceModal';
 
 const SAVED_LOGIN_KEY = 'savedLoginCredentials';
 
@@ -29,6 +30,7 @@ export default function Login() {
   const [rememberLogin, setRememberLogin] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [maintenanceModalOpen, setMaintenanceModalOpen] = useState(false);
 
   useEffect(() => {
     const saved = readSavedCredentials();
@@ -67,6 +69,7 @@ export default function Login() {
     } catch (err) {
       console.error('Login error:', err);
       setError(err.message || 'Login fehlgeschlagen. Bitte versuchen Sie es später erneut.');
+      setMaintenanceModalOpen(true);
     } finally {
       setIsLoading(false);
     }
@@ -178,6 +181,11 @@ export default function Login() {
           </div>
         </div>
       </div>
+      <MaintenanceModal
+        open={maintenanceModalOpen}
+        onClose={() => setMaintenanceModalOpen(false)}
+        detail={error}
+      />
     </div>
   );
 }

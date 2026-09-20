@@ -9,7 +9,9 @@
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "typecheck": "tsc -p ./jsconfig.json",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "maintenance:login-off": "node scripts/set-login-maintenance.mjs off",
+    "maintenance:login-on": "node scripts/set-login-maintenance.mjs on"
   },
   "dependencies": {
     "@base44/sdk": "^0.8.24",
