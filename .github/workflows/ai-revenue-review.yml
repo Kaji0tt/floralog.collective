@@ -7,7 +7,7 @@ on:
         description: Use the committed KPI fixture and skip OpenAI
         required: true
         type: boolean
-        default: true
+        default: false
   schedule:
     - cron: "17 8 * * 1"
 

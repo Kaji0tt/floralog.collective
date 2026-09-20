@@ -69,9 +69,13 @@ oder SQL ausfuehren.
 
 ## 4. Erster GitHub-Test
 
-In `Actions > AI Revenue Review > Run workflow` den Standard `dry_run=true` beibehalten. Erwartet
+In `Actions > AI Revenue Review > Run workflow` den Standard `dry_run=false` verwenden. Erwartet
 wird genau ein offenes Issue mit Label `ai-revenue-review`. Wiederholte Laeufe aktualisieren dieses
 Issue, statt neue Issues anzulegen.
+
+Der manuelle Workflow ist standardmaessig auf `dry_run=false` gestellt und verwendet damit echte
+aggregierte KPIs. Fuer einen technischen Test ohne Produktionsdaten muss `dry_run=true` explizit
+ausgewaehlt werden.
 
 ## 5. Produktionsdaten anschliessen
 
