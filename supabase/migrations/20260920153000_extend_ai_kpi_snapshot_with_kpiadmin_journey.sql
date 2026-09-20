@@ -19,13 +19,16 @@ as $$
           or event.event_name like 'social_tab_%'
       ), 0)::integer as navigation_events_30d,
       coalesce(
-        jsonb_object_agg(event.event_name, event.event_count) filter (
+        jsonb_agg(jsonb_build_object(
+          'event_name', event.event_name,
+          'count', event.event_count
+        ) order by event.event_count desc, event.event_name) filter (
           where event.event_name like 'home_%'
             or event.event_name like 'bottomnav_%'
             or event.event_name like 'achievements_view_%'
             or event.event_name like 'social_tab_%'
         ),
-        '{}'::jsonb
+        '[]'::jsonb
       ) as navigation_event_counts
     from (
       select

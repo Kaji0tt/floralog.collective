@@ -21,6 +21,11 @@ class Evidence(StrictModel):
     confidence: float = Field(ge=0, le=1)
 
 
+class NavigationEventCount(StrictModel):
+    event_name: str = Field(min_length=1)
+    count: int = Field(ge=0)
+
+
 class KpiSnapshot(StrictModel):
     generated_at: datetime
     revenue_mtd_eur: float = Field(ge=0)
@@ -38,7 +43,7 @@ class KpiSnapshot(StrictModel):
     stickiness_percent: float = Field(ge=0)
     action_events_30d: int = Field(ge=0)
     navigation_events_30d: int = Field(ge=0)
-    navigation_event_counts: dict[str, int] = Field(default_factory=dict)
+    navigation_event_counts: list[NavigationEventCount]
     referrals_completed_30d: int = Field(ge=0)
     community_actions_30d: int = Field(ge=0)
     suppressed_small_cohorts: bool = True

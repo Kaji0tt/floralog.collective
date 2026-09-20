@@ -15,12 +15,12 @@
   "stickiness_percent": 12.16,
   "action_events_30d": 420,
   "navigation_events_30d": 315,
-  "navigation_event_counts": {
-    "bottomnav_social": 52,
-    "bottomnav_collection": 48,
-    "home_scan_click": 96,
-    "social_tab_explorer": 31
-  },
+  "navigation_event_counts": [
+    { "event_name": "bottomnav_social", "count": 52 },
+    { "event_name": "bottomnav_collection", "count": 48 },
+    { "event_name": "home_scan_click", "count": 96 },
+    { "event_name": "social_tab_explorer", "count": 31 }
+  ],
   "referrals_completed_30d": 4,
   "community_actions_30d": 96,
   "suppressed_small_cohorts": true

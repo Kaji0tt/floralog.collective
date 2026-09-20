@@ -23,6 +23,7 @@ def test_snapshot_rejects_personal_data() -> None:
         "stickiness_percent": 0,
         "action_events_30d": 0,
         "navigation_events_30d": 0,
+        "navigation_event_counts": [],
         "referrals_completed_30d": 0,
         "community_actions_30d": 0,
         "email": "must-not-pass@example.com",
@@ -54,6 +55,7 @@ def test_live_snapshot_rejects_all_zero_kpis() -> None:
         "stickiness_percent": 0,
         "action_events_30d": 0,
         "navigation_events_30d": 0,
+        "navigation_event_counts": [],
         "referrals_completed_30d": 0,
         "community_actions_30d": 0,
     })
