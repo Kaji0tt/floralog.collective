@@ -8,6 +8,31 @@ from urllib.request import Request, urlopen
 from floralog_ai.schemas import KpiSnapshot
 
 
+def ensure_snapshot_has_signal(snapshot: KpiSnapshot) -> KpiSnapshot:
+    signal_values = (
+        snapshot.revenue_mtd_eur,
+        snapshot.revenue_30d_eur,
+        snapshot.transaction_count_30d,
+        snapshot.donation_page_views_30d,
+        snapshot.donation_orders_30d,
+        snapshot.donation_captures_30d,
+        snapshot.dau,
+        snapshot.wau,
+        snapshot.mau,
+        snapshot.action_events_30d,
+        snapshot.navigation_events_30d,
+        snapshot.referrals_completed_30d,
+        snapshot.community_actions_30d,
+    )
+    if not any(float(value) > 0 for value in signal_values):
+        raise RuntimeError(
+            "Live KPI snapshot contains no signal. The AI review was stopped because "
+            "the KPIAdmin aggregate source returned only zeros. Check the SQL migration, "
+            "ai_get_kpi_snapshot(), and the Supabase data source before retrying."
+        )
+    return snapshot
+
+
 def fetch_snapshot(endpoint: str, secret: str, timeout_seconds: int = 30) -> KpiSnapshot:
     parsed = urlparse(endpoint)
     if parsed.scheme != "https" or not parsed.netloc:
@@ -28,7 +53,7 @@ def fetch_snapshot(endpoint: str, secret: str, timeout_seconds: int = 30) -> Kpi
         if response.status != 200:
             raise RuntimeError(f"KPI endpoint returned HTTP {response.status}.")
         payload = json.loads(response.read().decode("utf-8"))
-    return KpiSnapshot.model_validate(payload)
+    return ensure_snapshot_has_signal(KpiSnapshot.model_validate(payload))
 
 
 def main() -> None:

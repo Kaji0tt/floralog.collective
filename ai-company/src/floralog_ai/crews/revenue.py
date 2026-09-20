@@ -95,15 +95,17 @@ def build_revenue_crew() -> Crew:
 
     analyze = Task(
         description=(
-            "Analyze the supplied KPI snapshot. Separate observations, uncertainties, and missing "
-            "instrumentation. Do not infer personal behavior from small cohorts. Snapshot: {snapshot}"
+            "Analyze the supplied KPIAdmin aggregate snapshot, which is the authoritative data contract "
+            "for this review. Separate observations, uncertainties, and missing instrumentation. Do not "
+            "infer personal behavior from small cohorts. Never replace supplied values with assumptions. "
+            "Snapshot: {snapshot}"
         ),
         expected_output="A concise KPI diagnosis grounded only in the supplied aggregate values.",
         agent=kpi_analyst,
     )
     research = Task(
         description=(
-            "Using the KPI diagnosis as context, assess ethical revenue paths: donations, voluntary "
+            "Using the KPIAdmin-backed KPI diagnosis as context, assess ethical revenue paths: donations, voluntary "
             "membership, fair cosmetics, B2B education partnerships, and relevant sponsorship. "
             "Any external market claim must include a URL."
         ),
@@ -113,7 +115,8 @@ def build_revenue_crew() -> Crew:
     )
     ux_design = Task(
         description=(
-            "Using the market diagnosis, define UX/UI principles and one or more interface experiments "
+            "Using the market diagnosis and the KPIAdmin navigation_event_counts map, define UX/UI principles "
+            "and one or more interface experiments "
             "for the relevant target groups. Cover onboarding, discovery, voluntary support conversion, "
             "accessibility, and dark-pattern risks. Do not write code or publish designs."
         ),
@@ -123,7 +126,8 @@ def build_revenue_crew() -> Crew:
     )
     game_design = Task(
         description=(
-            "Using the KPI and market diagnosis, propose ethical game-mechanic improvements for cozy "
+            "Using the KPIAdmin engagement and navigation data plus the market diagnosis, propose ethical "
+            "game-mechanic improvements for cozy "
             "exploration, map geo-zones, social/community play, and ecological learning. Explain the "
             "player loop, likely player types, retention effect, and anti-exploitation safeguards."
         ),
@@ -133,7 +137,8 @@ def build_revenue_crew() -> Crew:
     )
     growth = Task(
         description=(
-            "Build a measurable growth strategy from the KPI diagnosis, market research, UX direction, "
+            "Build a measurable growth strategy from the KPIAdmin-backed KPI diagnosis, including DAU/WAU/MAU, "
+            "stickiness, action_events_30d, and navigation_event_counts, plus market research and UX direction, "
             "and game-design opportunities. Cover acquisition, activation, retention, referrals, and "
             "community loops. Identify one small growth experiment and its stop criteria."
         ),

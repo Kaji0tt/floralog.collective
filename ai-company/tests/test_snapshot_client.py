@@ -2,7 +2,7 @@ import pytest
 from pydantic import ValidationError
 
 from floralog_ai.schemas import KpiSnapshot
-from floralog_ai.snapshot_client import fetch_snapshot
+from floralog_ai.snapshot_client import ensure_snapshot_has_signal, fetch_snapshot
 
 
 def test_snapshot_rejects_personal_data() -> None:
@@ -20,6 +20,9 @@ def test_snapshot_rejects_personal_data() -> None:
         "dau": 0,
         "wau": 0,
         "mau": 0,
+        "stickiness_percent": 0,
+        "action_events_30d": 0,
+        "navigation_events_30d": 0,
         "referrals_completed_30d": 0,
         "community_actions_30d": 0,
         "email": "must-not-pass@example.com",
@@ -31,3 +34,28 @@ def test_snapshot_rejects_personal_data() -> None:
 def test_snapshot_client_requires_https() -> None:
     with pytest.raises(ValueError, match="HTTPS"):
         fetch_snapshot("http://localhost/kpis", "secret")
+
+
+def test_live_snapshot_rejects_all_zero_kpis() -> None:
+    snapshot = KpiSnapshot.model_validate({
+        "generated_at": "2026-09-20T00:00:00Z",
+        "revenue_mtd_eur": 0,
+        "revenue_30d_eur": 0,
+        "donation_revenue_30d_eur": 0,
+        "amber_revenue_30d_eur": 0,
+        "average_donation_eur": 0,
+        "transaction_count_30d": 0,
+        "donation_page_views_30d": 0,
+        "donation_orders_30d": 0,
+        "donation_captures_30d": 0,
+        "dau": 0,
+        "wau": 0,
+        "mau": 0,
+        "stickiness_percent": 0,
+        "action_events_30d": 0,
+        "navigation_events_30d": 0,
+        "referrals_completed_30d": 0,
+        "community_actions_30d": 0,
+    })
+    with pytest.raises(RuntimeError, match="contains no signal"):
+        ensure_snapshot_has_signal(snapshot)

@@ -12,6 +12,15 @@
   "dau": 9,
   "wau": 31,
   "mau": 74,
+  "stickiness_percent": 12.16,
+  "action_events_30d": 420,
+  "navigation_events_30d": 315,
+  "navigation_event_counts": {
+    "bottomnav_social": 52,
+    "bottomnav_collection": 48,
+    "home_scan_click": 96,
+    "social_tab_explorer": 31
+  },
   "referrals_completed_30d": 4,
   "community_actions_30d": 96,
   "suppressed_small_cohorts": true

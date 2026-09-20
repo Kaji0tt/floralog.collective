@@ -67,7 +67,7 @@ Deno.serve(async (req) => {
     return jsonResponse({ error: "KPI snapshot unavailable" }, 503);
   }
 
-  const { data, error } = await adminClient.rpc("ai_get_kpi_snapshot");
+  const { data, error } = await adminClient.rpc("ai_get_kpi_snapshot_v2");
   if (error || !data) {
     console.error("[aiKpiSnapshot] Aggregate query failed", {
       code: error?.code,

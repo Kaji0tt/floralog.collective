@@ -13,6 +13,7 @@ Der Markenkern bleibt verbindlich: "Spielerisch Lernen und Entdecken, als Commun
 - [x] Supabase API Keys auf Publishable-/Secret-Key-Modell migriert
 - [x] Aggregierte KPI-Edge-Function und Umsatzledger im Code erstellt
 - [ ] Migration `20260920110612_create_payment_transaction_ledger.sql` manuell anwenden
+- [ ] Migration `20260920153000_extend_ai_kpi_snapshot_with_kpiadmin_journey.sql` manuell anwenden
 - [ ] `AI_KPI_SECRET` in Supabase und GitHub mit demselben Wert konfigurieren
 - [ ] GitHub-Secrets konfigurieren
 - [ ] Ersten manuellen Dry-run in GitHub Actions freigeben
@@ -86,15 +87,19 @@ ausgewaehlt werden.
 
 1. Im Supabase SQL Editor den Inhalt von
 	`supabase/migrations/20260920110612_create_payment_transaction_ledger.sql` ausfuehren.
-2. Einen langen zufaelligen Wert erzeugen und denselben Wert an beiden Stellen als
+2. Im selben SQL Editor danach den Inhalt von
+	`supabase/migrations/20260920153000_extend_ai_kpi_snapshot_with_kpiadmin_journey.sql` ausfuehren.
+   Diese Erweiterung bringt die KPIAdmin-Navigationsdaten (`home_*`, `bottomnav_*`, Aufgaben- und
+   Social-Tab-Events), die 30-Tage-Eventsumme und Stickiness in den AI-Snapshot.
+3. Einen langen zufaelligen Wert erzeugen und denselben Wert an beiden Stellen als
 	`AI_KPI_SECRET` speichern:
 	- Supabase Dashboard: `Edge Functions > Secrets`
 	- GitHub Repository: `Settings > Secrets and variables > Actions`
-3. In GitHub zusaetzlich setzen:
+4. In GitHub zusaetzlich setzen:
 	- `AI_KPI_ENDPOINT=https://mppxozsltkgjozcastgv.supabase.co/functions/v1/aiKpiSnapshot`
 	- `OPENAI_API_KEY=<eigener OpenAI-Projektschluessel>`
-4. Danach die Functions `createPayPalOrder`, `capturePayPalPayment`,
-	`capturePayPalAmberPayment` und `aiKpiSnapshot` deployen und testen.
+5. Danach `aiKpiSnapshot` erneut deployen und testen. Der Endpoint verwendet nach dieser
+	Erweiterung `ai_get_kpi_snapshot_v2()`.
 
 Die Capture-Functions werden absichtlich erst nach Anwendung der Migration deployed, weil ein
 erfolgreicher PayPal-Capture sonst nicht in das noch fehlende Ledger geschrieben werden koennte.

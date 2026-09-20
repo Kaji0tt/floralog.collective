@@ -35,6 +35,10 @@ class KpiSnapshot(StrictModel):
     dau: int = Field(ge=0)
     wau: int = Field(ge=0)
     mau: int = Field(ge=0)
+    stickiness_percent: float = Field(ge=0)
+    action_events_30d: int = Field(ge=0)
+    navigation_events_30d: int = Field(ge=0)
+    navigation_event_counts: dict[str, int] = Field(default_factory=dict)
     referrals_completed_30d: int = Field(ge=0)
     community_actions_30d: int = Field(ge=0)
     suppressed_small_cohorts: bool = True
