@@ -20,18 +20,29 @@ def build_revenue_crew() -> Crew:
     )
     market_researcher = Agent(
         role="Ethical Market Researcher",
-        goal="Identify evidence-backed demand among nature learners, communities, and partners.",
-        backstory="You cite sources and reject manipulative monetization, especially toward minors.",
+        goal=(
+            "Identify evidence-backed demand among nature-interested outdoor gamers, location-based game "
+            "players, cozy-adventure fans, communities, and partners."
+        ),
+        backstory=(
+            "You treat Floralog first as a game and only secondarily as a learning experience: learning "
+            "emerges through play, discovery, collection, exploration, and community. You cite sources and "
+            "reject manipulative monetization, especially toward minors."
+        ),
         llm=model,
         allow_delegation=False,
         verbose=False,
     )
     ux_designer = Agent(
         role="Floralog UX and UI Designer",
-        goal="Translate target-group insight into accessible, cozy, conversion-aware product experiences.",
+        goal=(
+            "Translate target-group insight into accessible, game-first, cozy experiences for "
+            "nature-interested outdoor gamers. Provide feedback and continuously update the UX and UI based on new insights."
+        ),
         backstory=(
-            "You design calm, discoverable interfaces for nature learners. You improve voluntary support "
-            "conversion without dark patterns, coercion, or paywalling core play."
+            "You design game-first interfaces for players who enjoy exploration, collection, maps, progression, "
+            "and social discovery. Learning is a joyful consequence of play, not the primary sales pitch. "
+            "You improve voluntary support conversion without dark patterns, coercion, or paywalling core play."
         ),
         llm=model,
         allow_delegation=False,
@@ -39,10 +50,11 @@ def build_revenue_crew() -> Crew:
     )
     game_designer = Agent(
         role="Floralog Game Designer",
-        goal="Strengthen engagement, community, ecological learning, and discovery through ethical game mechanics.",
+        goal="Strengthen engagement, community, ecological learning, and discovery especially through the map zones",
         backstory=(
             "You know proven game-design patterns and adapt them to Floralog's map zones, exploration, "
-            "cozy adventure, social play, curiosity, and real-world ecological learning."
+            "cozy adventure, social play, curiosity, and ecological discovery. The reference audience is "
+            "close to location-based outdoor games."
         ),
         llm=model,
         allow_delegation=False,
@@ -53,7 +65,8 @@ def build_revenue_crew() -> Crew:
         goal="Turn product and game opportunities into measurable growth strategies and acquisition experiments.",
         backstory=(
             "You connect KPIs, target groups, product loops, referrals, retention, and ethical distribution. "
-            "You distinguish growth hypotheses from proven results."
+            "You distinguish growth hypotheses from proven results and prioritize reaching more "
+            "nature-interested outdoor gamers."
         ),
         llm=model,
         allow_delegation=False,
@@ -105,7 +118,8 @@ def build_revenue_crew() -> Crew:
     )
     research = Task(
         description=(
-            "Using the KPIAdmin-backed KPI diagnosis as context, assess ethical revenue paths: donations, voluntary "
+            "Using the KPIAdmin-backed KPI diagnosis as context, assess ethical revenue paths for a game-first "
+            "audience of nature-interested outdoor gamers: donations, voluntary "
             "membership, fair cosmetics, B2B education partnerships, and relevant sponsorship. "
             "Any external market claim must include a URL."
         ),
@@ -115,9 +129,10 @@ def build_revenue_crew() -> Crew:
     )
     ux_design = Task(
         description=(
-            "Using the market diagnosis and the KPIAdmin navigation_event_counts map, define UX/UI principles "
+            "Using the market diagnosis and the KPIAdmin navigation_event_counts map, define game-first UX/UI principles "
             "and one or more interface experiments "
-            "for the relevant target groups. Cover onboarding, discovery, voluntary support conversion, "
+            "for nature-interested outdoor gamers and adjacent location-based game players. Cover onboarding, "
+            "discovery, collection, progression, social navigation, voluntary support conversion, "
             "accessibility, and dark-pattern risks. Do not write code or publish designs."
         ),
         expected_output="A target-group-specific UX/UI strategy with measurable hypotheses and code surfaces.",
@@ -159,8 +174,9 @@ def build_revenue_crew() -> Crew:
     product_plan = Task(
         description=(
             "Act as Product Manager. Reconcile UX, game design, growth, and marketing into at most three "
-            "small product experiments. Connect revenue and cost coverage with cozy adventure, discovery, "
-            "curiosity, community, and ecological learning. Include revenue impact, effort, risk, success "
+            "small product experiments. Connect revenue and cost coverage with the game loop: cozy adventure, "
+            "discovery, collection, progression, curiosity, community, and ecological learning as a consequence "
+            "of play. Include revenue impact, effort, risk, success "
             "metrics, stop metrics, and likely code surfaces."
         ),
         expected_output="A prioritized product plan containing at most three measurable experiments.",

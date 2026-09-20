@@ -10,7 +10,7 @@ The project targets EUR 100 monthly gross revenue while preserving Floralog's co
 The company structure is defined in code and does not require manual setup:
 
 - KPI Analyst: diagnoses revenue and engagement from aggregate data only.
-- Ethical Market Researcher: researches target groups and requires sources.
+- Ethical Market Researcher: researches nature-interested outdoor gamers, location-based players, and adjacent audiences.
 - UX and UI Designer: translates target-group insight into accessible, cozy interfaces and conversion experiments.
 - Game Designer: develops ethical engagement, map-zone, social, and ecological-learning mechanics.
 - Growth Analyst: connects product loops to acquisition, activation, retention, and referral strategies.
