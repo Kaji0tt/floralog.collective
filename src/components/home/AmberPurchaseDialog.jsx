@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Gem, Loader2 } from "lucide-react";
+import { trackAction } from "@/api/analyticsService";
 import { supabase } from "@/api/supabaseClient";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
@@ -51,6 +52,11 @@ export default function AmberPurchaseDialog({ open, onOpenChange, currentBalance
     onPurchasedRef.current = onPurchased;
   }, [onPurchased]);
 
+  useEffect(() => {
+    if (!open) return;
+    void trackAction("amber_purchase_dialog_view", { sourcePage: "Home" });
+  }, [open]);
+
   const reset = () => {
     setSelectedPackage(null);
     setIsLoading(false);
@@ -84,6 +90,10 @@ export default function AmberPurchaseDialog({ open, onOpenChange, currentBalance
             if (error || !data?.orderID) {
               throw new Error(getFunctionErrorMessage(error, "Die PayPal-Bestellung konnte nicht erstellt werden."));
             }
+            void trackAction("amber_purchase_order_created", {
+              sourcePage: "Home",
+              metadata: { packageId: packageToBuy.id, amber: packageToBuy.amber, price: packageToBuy.price },
+            });
             return data.orderID;
           },
           onApprove: async ({ orderID }) => {
@@ -95,20 +105,36 @@ export default function AmberPurchaseDialog({ open, onOpenChange, currentBalance
               if (error || !data?.success) {
                 throw new Error(getFunctionErrorMessage(error, "Die Zahlung konnte nicht abgeschlossen werden."));
               }
+              void trackAction("amber_purchase_completed", {
+                sourcePage: "Home",
+                metadata: { packageId: packageToBuy.id, amber: packageToBuy.amber, price: packageToBuy.price },
+              });
               await onPurchasedRef.current?.();
               setMessage(`${data.amber} Bernstein wurden deinem Konto gutgeschrieben.`);
               setSelectedPackage(null);
             } catch (error) {
+              void trackAction("amber_purchase_failed", {
+                sourcePage: "Home",
+                metadata: { packageId: packageToBuy.id, stage: "capture" },
+              });
               setMessage(error.message || "Die Zahlung konnte nicht abgeschlossen werden.");
             } finally {
               setIsLoading(false);
             }
           },
           onCancel: () => {
+            void trackAction("amber_purchase_cancelled", {
+              sourcePage: "Home",
+              metadata: { packageId: packageToBuy.id },
+            });
             setMessage("Kauf abgebrochen.");
             setSelectedPackage(null);
           },
           onError: (error) => {
+            void trackAction("amber_purchase_failed", {
+              sourcePage: "Home",
+              metadata: { packageId: packageToBuy.id, stage: "paypal" },
+            });
             setMessage(error?.message || "PayPal konnte den Kauf nicht verarbeiten.");
             setIsLoading(false);
           },
@@ -172,7 +198,7 @@ export default function AmberPurchaseDialog({ open, onOpenChange, currentBalance
           ) : (
             <div className="space-y-2">
               {AMBER_PACKAGES.map((pkg) => (
-                <button key={pkg.id} type="button" disabled={!paypalClientId} onClick={() => { setMessage(null); setSelectedPackage(pkg); }} className={`flex w-full items-center justify-between rounded-lg border px-4 py-3 text-left disabled:cursor-not-allowed disabled:opacity-50 ${isLightUi ? "border-[#c8ac62]/35 bg-white/80 hover:border-[#c8ac62]/70 hover:bg-white" : "border-[#f0e5a5]/25 bg-black/25 hover:border-[#f0e5a5]/50 hover:bg-black/40"}`}>
+                <button key={pkg.id} type="button" disabled={!paypalClientId} onClick={() => { setMessage(null); setSelectedPackage(pkg); void trackAction("amber_purchase_package_selected", { sourcePage: "Home", metadata: { packageId: pkg.id, amber: pkg.amber, price: pkg.price } }); }} className={`flex w-full items-center justify-between rounded-lg border px-4 py-3 text-left disabled:cursor-not-allowed disabled:opacity-50 ${isLightUi ? "border-[#c8ac62]/35 bg-white/80 hover:border-[#c8ac62]/70 hover:bg-white" : "border-[#f0e5a5]/25 bg-black/25 hover:border-[#f0e5a5]/50 hover:bg-black/40"}`}>
                   <span className={`text-sm font-semibold ${isLightUi ? "text-stone-800" : "text-stone-100"}`}>{pkg.label}</span>
                   <span className={`text-sm font-bold ${isLightUi ? "text-[#8f6b22]" : "text-[#f0e5a5]"}`}>{pkg.price.toFixed(2).replace(".", ",")} €</span>
                 </button>

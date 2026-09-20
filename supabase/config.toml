@@ -123,3 +123,8 @@ entrypoint = "./functions/createPayPalAmberOrder/index.ts"
 enabled = true
 verify_jwt = false
 entrypoint = "./functions/capturePayPalAmberPayment/index.ts"
+
+[functions.aiKpiSnapshot]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/aiKpiSnapshot/index.ts"

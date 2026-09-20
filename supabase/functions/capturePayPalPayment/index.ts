@@ -1,5 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { buildOriginDeniedResponse } from "../_shared/origin.ts";
+import { captureOrFetchPayPalOrder, extractVerifiedPayPalCapture } from "../_shared/paypalCapture.ts";
 import { getSupabasePublishableKey } from "../_shared/supabaseKeys.ts";
 
 const corsHeaders = {
@@ -107,27 +108,68 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: "PayPal authentication failed", details: tokenResult.error.payload }, 500);
     }
 
-    const captureResponse = await fetch(`${paypalBaseUrl}/v2/checkout/orders/${orderID}/capture`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${tokenResult.accessToken}`,
-        "Content-Type": "application/json",
-      },
+    const capture = await captureOrFetchPayPalOrder({
+      paypalBaseUrl,
+      accessToken: tokenResult.accessToken,
+      orderId: orderID,
     });
-
-    const capture = await captureResponse.json().catch(() => ({}));
-    if (!captureResponse.ok) {
-      console.error("[capturePayPalPayment] Capture failed", { status: captureResponse.status, capture });
-      return jsonResponse({ error: "PayPal capture failed", details: capture }, 500);
-    }
-
-    if (capture?.status !== "COMPLETED") {
-      return jsonResponse({ error: "Payment not completed", status: capture?.status || "UNKNOWN" }, 400);
+    const verifiedCapture = extractVerifiedPayPalCapture(capture, orderID);
+    if (
+      !verifiedCapture ||
+      verifiedCapture.currencyCode !== "EUR" ||
+      verifiedCapture.customId !== `donation:${user.id}`
+    ) {
+      console.error("[capturePayPalPayment] Invalid payment reference", {
+        orderID,
+        authId: user.id,
+      });
+      return jsonResponse({ error: "Payment does not belong to this account" }, 400);
     }
 
     const adminClient = createClient(supabaseUrl, serviceRoleKey, {
       auth: { persistSession: false },
     });
+
+    const { error: ledgerError } = await adminClient
+      .from("PaymentTransaction")
+      .insert({
+        provider: "paypal",
+        provider_order_id: verifiedCapture.orderId,
+        provider_capture_id: verifiedCapture.captureId,
+        payment_kind: "donation",
+        auth_id: user.id,
+        gross_amount: verifiedCapture.grossAmount,
+        fee_amount: verifiedCapture.feeAmount,
+        net_amount: verifiedCapture.netAmount,
+        currency_code: verifiedCapture.currencyCode,
+        metadata: { source: "paypal_checkout" },
+        captured_at: verifiedCapture.capturedAt,
+      });
+
+    if (ledgerError && ledgerError.code !== "23505") {
+      console.error("[capturePayPalPayment] Failed to record payment", ledgerError);
+      return jsonResponse(
+        { error: "Payment captured but revenue recording failed. Contact support.", details: { orderID } },
+        500,
+      );
+    }
+
+    if (ledgerError?.code === "23505") {
+      const { data: existingPayment, error: existingPaymentError } = await adminClient
+        .from("PaymentTransaction")
+        .select("auth_id, payment_kind, provider_capture_id")
+        .eq("provider", "paypal")
+        .eq("provider_order_id", orderID)
+        .maybeSingle();
+      if (
+        existingPaymentError ||
+        existingPayment?.auth_id !== user.id ||
+        existingPayment?.payment_kind !== "donation" ||
+        existingPayment?.provider_capture_id !== verifiedCapture.captureId
+      ) {
+        return jsonResponse({ error: "Payment ledger conflict. Contact support.", details: { orderID } }, 409);
+      }
+    }
 
     const nextUserMetadata = {
       ...(user.user_metadata || {}),
@@ -158,6 +200,8 @@ Deno.serve(async (req) => {
     return jsonResponse(
       {
         success: true,
+        amount: verifiedCapture.grossAmount,
+        currency: verifiedCapture.currencyCode,
         message: "Vielen Dank fuer deine Spende. Donor-Status wurde freigeschaltet.",
       },
       200,

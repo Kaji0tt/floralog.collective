@@ -25,6 +25,9 @@ class KpiSnapshot(StrictModel):
     generated_at: datetime
     revenue_mtd_eur: float = Field(ge=0)
     revenue_30d_eur: float = Field(ge=0)
+    donation_revenue_30d_eur: float = Field(ge=0)
+    amber_revenue_30d_eur: float = Field(ge=0)
+    average_donation_eur: float = Field(ge=0)
     transaction_count_30d: int = Field(ge=0)
     donation_page_views_30d: int = Field(ge=0)
     donation_orders_30d: int = Field(ge=0)

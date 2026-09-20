@@ -20,6 +20,11 @@ def render_issue(review: RevenueReview) -> str:
         "",
         f"- Umsatz MTD: {baseline.revenue_mtd_eur:.2f} EUR",
         f"- Umsatz letzte 30 Tage: {baseline.revenue_30d_eur:.2f} EUR",
+        (
+            f"- Davon Spenden / Bernstein: {baseline.donation_revenue_30d_eur:.2f} / "
+            f"{baseline.amber_revenue_30d_eur:.2f} EUR"
+        ),
+        f"- Durchschnittsspende: {baseline.average_donation_eur:.2f} EUR",
         f"- Zahlungen letzte 30 Tage: {baseline.transaction_count_30d}",
         (
             f"- Spendenfunnel: {baseline.donation_page_views_30d} Aufrufe -> "

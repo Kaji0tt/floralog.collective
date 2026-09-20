@@ -1,5 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { buildOriginDeniedResponse } from "../_shared/origin.ts";
+import { captureOrFetchPayPalOrder, extractVerifiedPayPalCapture } from "../_shared/paypalCapture.ts";
 import { getSupabasePublishableKey } from "../_shared/supabaseKeys.ts";
 
 const corsHeaders = {
@@ -126,36 +127,78 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: "PayPal authentication failed", details: tokenResult.error.payload }, 500);
     }
 
-    const captureResponse = await fetch(`${paypalBaseUrl}/v2/checkout/orders/${orderID}/capture`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${tokenResult.accessToken}`,
-        "Content-Type": "application/json",
-      },
+    const capture = await captureOrFetchPayPalOrder({
+      paypalBaseUrl,
+      accessToken: tokenResult.accessToken,
+      orderId: orderID,
     });
-
-    const capture = await captureResponse.json().catch(() => ({}));
-    if (!captureResponse.ok) {
-      console.error("[capturePayPalAmberPayment] Capture failed", { status: captureResponse.status, capture });
-      return jsonResponse({ error: "PayPal capture failed", details: capture }, 500);
-    }
-
-    if (capture?.status !== "COMPLETED") {
-      return jsonResponse({ error: "Payment not completed", status: capture?.status || "UNKNOWN" }, 400);
-    }
-
-    const purchaseUnit = capture?.purchase_units?.[0];
-    const customId = purchaseUnit?.payments?.captures?.[0]?.custom_id || purchaseUnit?.custom_id || "";
-    const purchase = extractPurchaseFromCustomId(customId);
+    const verifiedCapture = extractVerifiedPayPalCapture(capture, orderID);
+    const purchase = extractPurchaseFromCustomId(verifiedCapture?.customId || "");
+    const expectedPackage = purchase
+      ? AMBER_PACKAGES.find((pkg) => pkg.amber === purchase.amber) || null
+      : null;
     if (!purchase || purchase.authId !== user.id) {
-      console.error("[capturePayPalAmberPayment] Invalid purchase reference", { customId, orderID, authId: user.id });
+      console.error("[capturePayPalAmberPayment] Invalid purchase reference", { orderID, authId: user.id });
       return jsonResponse({ error: "Payment does not belong to this account" }, 400);
+    }
+
+    if (
+      !verifiedCapture ||
+      !expectedPackage ||
+      verifiedCapture.currencyCode !== "EUR" ||
+      Math.abs(verifiedCapture.grossAmount - expectedPackage.price) >= 0.001
+    ) {
+      return jsonResponse({ error: "Payment amount does not match the amber package" }, 400);
     }
 
     // Credit amber to user wallet
     const adminClient = createClient(supabaseUrl, serviceRoleKey, {
       auth: { persistSession: false },
     });
+
+    const { error: ledgerError } = await adminClient
+      .from("PaymentTransaction")
+      .insert({
+        provider: "paypal",
+        provider_order_id: verifiedCapture.orderId,
+        provider_capture_id: verifiedCapture.captureId,
+        payment_kind: "amber_purchase",
+        auth_id: user.id,
+        gross_amount: verifiedCapture.grossAmount,
+        fee_amount: verifiedCapture.feeAmount,
+        net_amount: verifiedCapture.netAmount,
+        currency_code: verifiedCapture.currencyCode,
+        product_code: `amber-${purchase.amber}`,
+        quantity: purchase.amber,
+        metadata: { source: "paypal_checkout" },
+        captured_at: verifiedCapture.capturedAt,
+      });
+
+    if (ledgerError && ledgerError.code !== "23505") {
+      console.error("[capturePayPalAmberPayment] Failed to record payment", ledgerError);
+      return jsonResponse(
+        { error: "Payment captured but revenue recording failed. Contact support.", details: { orderID } },
+        500,
+      );
+    }
+
+    if (ledgerError?.code === "23505") {
+      const { data: existingPayment, error: existingPaymentError } = await adminClient
+        .from("PaymentTransaction")
+        .select("auth_id, payment_kind, provider_capture_id, quantity")
+        .eq("provider", "paypal")
+        .eq("provider_order_id", orderID)
+        .maybeSingle();
+      if (
+        existingPaymentError ||
+        existingPayment?.auth_id !== user.id ||
+        existingPayment?.payment_kind !== "amber_purchase" ||
+        existingPayment?.provider_capture_id !== verifiedCapture.captureId ||
+        Number(existingPayment?.quantity) !== purchase.amber
+      ) {
+        return jsonResponse({ error: "Payment ledger conflict. Contact support.", details: { orderID } }, 409);
+      }
+    }
 
     const eventReference = `amber-purchase:${orderID}:${purchase.amber}`;
 

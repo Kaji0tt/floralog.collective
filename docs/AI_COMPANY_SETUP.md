@@ -10,8 +10,10 @@ Der Markenkern bleibt verbindlich: "Spielerisch Lernen und Entdecken, als Commun
 - [x] Strukturierter Revenue-Growth-Flow mit vier Rollen
 - [x] Offline-Dry-run und deterministische Sicherheitsregeln
 - [x] Manuell testbarer GitHub-Review-Workflow
-- [ ] Offengelegte Supabase-Service-Role- und PlantNet-Schluessel rotieren
-- [ ] Aggregierte KPI-Edge-Function und Umsatzledger erstellen
+- [x] Supabase API Keys auf Publishable-/Secret-Key-Modell migriert
+- [x] Aggregierte KPI-Edge-Function und Umsatzledger im Code erstellt
+- [ ] Migration `20260920110612_create_payment_transaction_ledger.sql` manuell anwenden
+- [ ] `AI_KPI_SECRET` in Supabase und GitHub mit demselben Wert konfigurieren
 - [ ] GitHub-Secrets konfigurieren
 - [ ] Ersten manuellen Dry-run in GitHub Actions freigeben
 
@@ -59,7 +61,7 @@ Unter `Settings > Secrets and variables > Actions` spaeter folgende Repository-S
 
 Repository-Variablen:
 
-- `FLORALOG_AI_MODEL=openai/gpt-5-nano`
+- `FLORALOG_AI_MODEL=openai/gpt-5-mini` (optional; der Workflow nutzt diesen Wert standardmäßig)
 - `AI_MONTHLY_COST_EUR=0` (vorerst manuell aktualisieren)
 
 Der Workflow bekommt nur `contents: read` und `issues: write`. Er kann nicht mergen, deployen
@@ -73,9 +75,22 @@ Issue, statt neue Issues anzulegen.
 
 ## 5. Produktionsdaten anschliessen
 
-Als naechster Implementierungsschritt folgen ein manuell anzuwendendes Umsatzledger und die
-`aiKpiSnapshot` Edge Function. Nur diese Function darf aggregierte Daten an CrewAI liefern. SQL wird
-als Migration vorbereitet, aber ausschliesslich manuell im Supabase Human Interface ausgefuehrt.
+1. Im Supabase SQL Editor den Inhalt von
+	`supabase/migrations/20260920110612_create_payment_transaction_ledger.sql` ausfuehren.
+2. Einen langen zufaelligen Wert erzeugen und denselben Wert an beiden Stellen als
+	`AI_KPI_SECRET` speichern:
+	- Supabase Dashboard: `Edge Functions > Secrets`
+	- GitHub Repository: `Settings > Secrets and variables > Actions`
+3. In GitHub zusaetzlich setzen:
+	- `AI_KPI_ENDPOINT=https://mppxozsltkgjozcastgv.supabase.co/functions/v1/aiKpiSnapshot`
+	- `OPENAI_API_KEY=<eigener OpenAI-Projektschluessel>`
+4. Danach die Functions `createPayPalOrder`, `capturePayPalPayment`,
+	`capturePayPalAmberPayment` und `aiKpiSnapshot` deployen und testen.
+
+Die Capture-Functions werden absichtlich erst nach Anwendung der Migration deployed, weil ein
+erfolgreicher PayPal-Capture sonst nicht in das noch fehlende Ledger geschrieben werden koennte.
+Nur `aiKpiSnapshot` liefert aggregierte Daten an CrewAI; SQL wird weiterhin ausschliesslich manuell
+im Supabase Human Interface ausgefuehrt.
 
 ## Freigaberegeln
 

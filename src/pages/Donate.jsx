@@ -1,5 +1,6 @@
-import React, { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useLocation } from "react-router-dom";
+import { trackAction } from "@/api/analyticsService";
 import { supabase } from "@/api/supabaseClient";
 import { getCurrentUser } from "@/api/userApi";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -23,6 +24,7 @@ export default function Donate() {
   const paypalClientId = (import.meta.env.VITE_PAYPAL_CLIENT_ID || "").trim();
   const query = new URLSearchParams(location.search);
   const isFromGuestFunnel = query.get("from") === "guest-funnel";
+  const donationSource = isFromGuestFunnel ? "guest_funnel" : "direct";
 
   useEffect(() => {
     if (!isFromGuestFunnel) return;
@@ -37,12 +39,20 @@ export default function Donate() {
       try {
         const currentUser = await getCurrentUser();
         setUser(currentUser);
-      } catch (error) {
+      } catch {
         console.log("User not authenticated");
       }
     };
     loadUser();
   }, []);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    void trackAction("donation_page_view", {
+      sourcePage: "Donate",
+      metadata: { source: donationSource },
+    });
+  }, [donationSource, user?.id]);
 
   useEffect(() => {
     // PayPal SDK laden
@@ -86,6 +96,10 @@ export default function Donate() {
 
   const handleDonation = (amount) => {
     console.log('🔵 handleDonation called with amount:', amount);
+    void trackAction("donation_amount_selected", {
+      sourcePage: "Donate",
+      metadata: { amount, currency: "EUR", source: donationSource },
+    });
     setSelectedAmount(amount);
     
     // PayPal Buttons rendern
@@ -122,7 +136,7 @@ export default function Donate() {
                   if (parts.length > 0) {
                     detailedMessage = parts.join(': ');
                   }
-                } catch (_parseError) {
+                } catch {
                   // Ignore response parse errors and keep fallback message.
                 }
                 throw new Error(detailedMessage);
@@ -138,10 +152,19 @@ export default function Donate() {
                 setLoading(false);
                 throw new Error('No orderID received');
               }
+
+              void trackAction("donation_order_created", {
+                sourcePage: "Donate",
+                metadata: { amount: amount || 5, currency: "EUR", source: donationSource },
+              });
               
               console.log('🟢 OrderID:', response.data.orderID);
               return response.data.orderID;
             } catch (error) {
+              void trackAction("donation_payment_failed", {
+                sourcePage: "Donate",
+                metadata: { stage: "create_order", source: donationSource },
+              });
               console.error('❌ createOrder error:', error);
               console.error('❌ Error message:', error.message);
               console.error('❌ Error response:', error.response);
@@ -174,13 +197,17 @@ export default function Donate() {
                   if (parts.length > 0) {
                     detailedMessage = parts.join(': ');
                   }
-                } catch (_parseError) {
+                } catch {
                   // Ignore response parse errors and keep fallback message.
                 }
                 throw new Error(detailedMessage);
               }
               
               if (response.data.success) {
+                void trackAction("donation_payment_completed", {
+                  sourcePage: "Donate",
+                  metadata: { amount: amount || 5, currency: "EUR", source: donationSource },
+                });
                 console.log('✅ Payment successful!');
                 toast({
                   title: "Spende erfolgreich! 🎉",
@@ -201,6 +228,10 @@ export default function Donate() {
                 paypalButtonsRendered.current = false;
               }
             } catch (error) {
+              void trackAction("donation_payment_failed", {
+                sourcePage: "Donate",
+                metadata: { stage: "capture", source: donationSource },
+              });
               console.error('❌ onApprove error:', error);
               console.error('❌ Error details:', JSON.stringify(error, null, 2));
               toast({
@@ -213,6 +244,10 @@ export default function Donate() {
             }
           },
           onCancel: () => {
+            void trackAction("donation_payment_cancelled", {
+              sourcePage: "Donate",
+              metadata: { source: donationSource },
+            });
             console.log('⚠️ Payment cancelled');
             setLoading(false);
             setSelectedAmount(null);
@@ -223,6 +258,10 @@ export default function Donate() {
             });
           },
           onError: (err) => {
+            void trackAction("donation_payment_failed", {
+              sourcePage: "Donate",
+              metadata: { stage: "paypal", source: donationSource },
+            });
             console.error('❌ PayPal SDK Error:', err);
             console.error('❌ Error type:', typeof err);
             console.error('❌ Error string:', String(err));

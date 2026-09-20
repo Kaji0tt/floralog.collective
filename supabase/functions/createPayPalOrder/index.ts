@@ -130,6 +130,7 @@ Deno.serve(async (req) => {
               value: amount.toFixed(2),
             },
             description: "Floralog Spende",
+            custom_id: `donation:${user.id}`,
           },
         ],
         application_context: {
