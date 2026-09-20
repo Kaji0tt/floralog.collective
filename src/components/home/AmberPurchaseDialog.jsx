@@ -129,8 +129,12 @@ export default function AmberPurchaseDialog({ open, onOpenChange, currentBalance
   }, [open, paypalClientId, selectedPackage]);
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className={`max-w-[min(92vw,28rem)] rounded-2xl border p-5 ${isLightUi ? "border-[#c8ac62]/45 bg-[#fffdf7]" : "border-[#f0e5a5]/35 bg-[#141714]"}`}>
+    <Dialog open={open} onOpenChange={handleOpenChange} modal={false}>
+      <DialogContent
+        onOpenAutoFocus={(event) => event.preventDefault()}
+        className={`max-h-[calc(100dvh-2rem)] max-w-[min(92vw,28rem)] touch-pan-y overflow-x-hidden overflow-y-auto overscroll-contain rounded-2xl border p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] ${isLightUi ? "border-[#c8ac62]/45 bg-[#fffdf7]" : "border-[#f0e5a5]/35 bg-[#141714]"}`}
+        style={{ WebkitOverflowScrolling: "touch" }}
+      >
         <DialogHeader>
           <DialogTitle className={`flex items-center gap-2 ${isLightUi ? "text-stone-900" : "text-stone-100"}`}>
             <span className={`flex h-8 w-8 items-center justify-center rounded-lg ${isLightUi ? "bg-[#f4e7bf] text-[#8f6b22]" : "bg-[#4f4826] text-[#f0e5a5]"}`}>
@@ -159,7 +163,10 @@ export default function AmberPurchaseDialog({ open, onOpenChange, currentBalance
                 <div className={`mt-1 text-lg font-bold ${isLightUi ? "text-[#8f6b22]" : "text-[#f0e5a5]"}`}>{selectedPackage.price.toFixed(2).replace(".", ",")} €</div>
               </div>
               {isLoading && <div className="flex justify-center"><Loader2 className={`h-5 w-5 animate-spin ${isLightUi ? "text-stone-600" : "text-stone-300"}`} /></div>}
-              <div ref={paypalContainerRef} className={isLoading ? "pointer-events-none opacity-50" : ""} />
+              <div
+                ref={paypalContainerRef}
+                className={`relative z-10 min-h-12 w-full overflow-visible ${isLoading ? "pointer-events-none opacity-50" : "pointer-events-auto"}`}
+              />
               <button type="button" onClick={reset} disabled={isLoading} className={`h-9 w-full rounded-lg border text-xs font-semibold disabled:opacity-50 ${isLightUi ? "border-[#c8ac62]/45 bg-white text-stone-700 hover:bg-[#fff9e8]" : "border-[#f0e5a5]/30 bg-black/25 text-stone-100 hover:bg-black/40"}`}>Zurück</button>
             </div>
           ) : (
