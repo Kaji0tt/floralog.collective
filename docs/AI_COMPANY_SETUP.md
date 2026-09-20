@@ -67,6 +67,11 @@ Repository-Variablen:
 Der Workflow bekommt nur `contents: read` und `issues: write`. Er kann nicht mergen, deployen
 oder SQL ausfuehren.
 
+Die Crew besteht inzwischen aus acht Rollen: KPI, Markt, UX/UI, Game Design, Growth, Marketing,
+Product Management und Master-Orchestrierung. UX/Game/Growth/Marketing liefern zunaechst
+strategische Entwuerfe; der Product Manager verdichtet sie und der Master erstellt das finale
+Review. Marketing darf noch keine Social Posts senden, Mails verschicken oder Werbebudget ausgeben.
+
 ## 4. Erster GitHub-Test
 
 In `Actions > AI Revenue Review > Run workflow` den Standard `dry_run=false` verwenden. Erwartet

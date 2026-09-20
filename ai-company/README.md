@@ -11,11 +11,22 @@ The company structure is defined in code and does not require manual setup:
 
 - KPI Analyst: diagnoses revenue and engagement from aggregate data only.
 - Ethical Market Researcher: researches target groups and requires sources.
-- Product Strategist: proposes small experiments toward EUR 100 monthly revenue.
-- Community and Brand Reviewer: rejects pay-to-win and protects Floralog's core.
+- UX and UI Designer: translates target-group insight into accessible, cozy interfaces and conversion experiments.
+- Game Designer: develops ethical engagement, map-zone, social, and ecological-learning mechanics.
+- Growth Analyst: connects product loops to acquisition, activation, retention, and referral strategies.
+- Marketing Manager: prepares campaign, content, partnership, and outreach drafts without publishing or contacting anyone.
+- Product Manager: reconciles the specialist proposals into a small, measurable product plan.
+- Master Orchestrator: challenges the reasoning, applies the final brand gate, and produces the human-approval package.
 
-The deterministic `RevenueGrowthFlow` coordinates these roles. Every implementation still
-requires explicit human approval; the crew cannot merge, deploy, or execute SQL.
+The deterministic `RevenueGrowthFlow` runs these roles sequentially:
+
+```text
+KPI -> Market -> UX/UI + Game Design -> Growth -> Marketing -> Product Manager -> Master Orchestrator
+```
+
+Every implementation still requires explicit human approval. The crew has no social-media,
+email, ad-spend, merge, deploy, or SQL tools. The Marketing Manager creates drafts only; those
+external capabilities can be added later as separately approved tools with their own permissions.
 
 ## Phase 2 status
 
