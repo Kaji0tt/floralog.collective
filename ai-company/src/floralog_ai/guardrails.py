@@ -57,8 +57,7 @@ def validate_review(review: RevenueReview) -> RevenueReview:
         raise GuardrailViolation("The review exceeds its declared monthly agent budget.")
     if not review.requires_human_approval:
         raise GuardrailViolation("Every Floralog product experiment requires human approval.")
-    for proposal in review.experiments:
-        validate_experiment(proposal)
+    review.experiments = reject_unsafe_experiments(review.experiments)
     return review
 
 
