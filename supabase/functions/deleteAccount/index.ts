@@ -1,5 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { buildOriginDeniedResponse } from "../_shared/origin.ts";
+import { getSupabasePublishableKey } from "../_shared/supabaseKeys.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -33,7 +34,7 @@ Deno.serve(async (req) => {
 
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
-    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY");
+    const supabasePublishableKey = getSupabasePublishableKey();
     const serviceRoleKey = Deno.env.get("SERVICE_ROLE_KEY") || Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
     if (!supabaseUrl || !serviceRoleKey) {
@@ -43,8 +44,8 @@ Deno.serve(async (req) => {
       });
     }
 
-    if (!supabaseAnonKey) {
-      return new Response(JSON.stringify({ error: "Supabase anon key not configured" }), {
+    if (!supabasePublishableKey) {
+      return new Response(JSON.stringify({ error: "Supabase publishable key not configured" }), {
         status: 500,
         headers: { "Content-Type": "application/json", ...corsHeaders },
       });
@@ -90,7 +91,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    const verificationClient = createClient(supabaseUrl, supabaseAnonKey, {
+    const verificationClient = createClient(supabaseUrl, supabasePublishableKey, {
       auth: { persistSession: false, autoRefreshToken: false },
     });
 
