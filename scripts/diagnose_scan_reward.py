@@ -1,4 +1,4 @@
-"""
+r"""
 Diagnose: Scan-Reward für einen bestimmten User prüfen.
 Liest die letzten N Wallet-Ledger-Einträge mit Reward-Breakdown aus der DB.
 
@@ -30,21 +30,24 @@ _env = load_env(PROJECT_ROOT / ".env.local")
 
 SUPABASE_URL = _env.get("VITE_SUPABASE_URL") or os.environ.get("SUPABASE_URL", "")
 SUPABASE_KEY = (
-    _env.get("SUPABASE_SERVICE_ROLE_KEY")
+    _env.get("SUPABASE_SECRET_KEY")
+    or os.environ.get("SUPABASE_SECRET_KEY")
     or _env.get("SERVICE_ROLE_KEY")
+    or _env.get("SUPABASE_SERVICE_ROLE_KEY")
     or os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
 )
 
 if not SUPABASE_URL or not SUPABASE_KEY:
-    print("❌  SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY nicht gefunden. Bitte .env.local prüfen.")
+    print("❌  SUPABASE_URL / SUPABASE_SECRET_KEY nicht gefunden. Bitte .env.local prüfen.")
     sys.exit(1)
 
 HEADERS = {
     "apikey": SUPABASE_KEY,
-    "Authorization": f"Bearer {SUPABASE_KEY}",
     "Content-Type": "application/json",
     "Prefer": "return=representation",
 }
+if not SUPABASE_KEY.startswith("sb_secret_"):
+    HEADERS["Authorization"] = f"Bearer {SUPABASE_KEY}"
 
 def supabase_get(path: str, params: dict = None, raw_query: str = None):
     url = f"{SUPABASE_URL}/rest/v1/{path}"

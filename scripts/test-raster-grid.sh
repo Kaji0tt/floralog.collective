@@ -20,16 +20,20 @@ NC='\033[0m' # No Color
 
 # Configuration
 SUPABASE_URL="${SUPABASE_URL:-https://YOUR_PROJECT.supabase.co}"
-SUPABASE_KEY="${SUPABASE_KEY:-}"
+SUPABASE_KEY="${SUPABASE_SECRET_KEY:-${SUPABASE_KEY:-}}"
 AUTH_ID="${TEST_AUTH_ID:-00000000-0000-0000-0000-000000000000}"
+
+SUPABASE_HEADERS=(-H "APIKey: $SUPABASE_KEY")
+if [[ "$SUPABASE_KEY" != sb_secret_* ]]; then
+  SUPABASE_HEADERS+=(-H "Authorization: Bearer $SUPABASE_KEY")
+fi
 
 echo "📦 Checking Database Tables..."
 echo "─────────────────────────────"
 
 # Check if GeoRasterCell table exists
 TABLE_CHECK=$(curl -s "$SUPABASE_URL/rest/v1/GeoRasterCell?limit=1" \
-  -H "APIKey: $SUPABASE_KEY" \
-  -H "Authorization: Bearer $SUPABASE_KEY" \
+  "${SUPABASE_HEADERS[@]}" \
   -w "\n%{http_code}")
 
 HTTP_CODE=$(echo "$TABLE_CHECK" | tail -n1)
@@ -38,7 +42,7 @@ if [ "$HTTP_CODE" = "200" ]; then
   echo -e "${GREEN}✓${NC} GeoRasterCell table exists"
   
   CELL_COUNT=$(curl -s "$SUPABASE_URL/rest/v1/GeoRasterCell?select=count()&count=exact" \
-    -H "APIKey: $SUPABASE_KEY" \
+    "${SUPABASE_HEADERS[@]}" \
     2>/dev/null | grep -o '"count":[0-9]*' | cut -d: -f2)
   
   if [ ! -z "$CELL_COUNT" ] && [ "$CELL_COUNT" -gt 0 ]; then
@@ -122,7 +126,7 @@ echo "📊 Checking Query Logs..."
 echo "─────────────────────────"
 
 LOG_COUNT=$(curl -s "$SUPABASE_URL/rest/v1/RasterCellQueryLog?select=count()&count=exact" \
-  -H "APIKey: $SUPABASE_KEY" \
+  "${SUPABASE_HEADERS[@]}" \
   2>/dev/null | grep -o '"count":[0-9]*' | cut -d: -f2)
 
 if [ ! -z "$LOG_COUNT" ]; then

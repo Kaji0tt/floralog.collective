@@ -49,12 +49,14 @@ _env = load_env(PROJECT_ROOT / ".env.local")
 
 SUPABASE_URL = _env.get("VITE_SUPABASE_URL") or os.environ.get("SUPABASE_URL", "")
 
-# Service Role Key umgeht RLS (nötig um UserPlantDiscovery zu lesen).
+# Secret Key umgeht RLS (nötig um UserPlantDiscovery zu lesen).
 # Einmalig in .env.local hinzufügen (ist gitignored):
-#   SUPABASE_SERVICE_ROLE_KEY=eyJ...
+#   SUPABASE_SECRET_KEY=sb_secret_...
 SUPABASE_KEY = (
-    _env.get("SUPABASE_SERVICE_ROLE_KEY")
+    _env.get("SUPABASE_SECRET_KEY")
+    or os.environ.get("SUPABASE_SECRET_KEY")
     or _env.get("SERVICE_ROLE_KEY")
+    or _env.get("SUPABASE_SERVICE_ROLE_KEY")
     or os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
 )
 
@@ -62,10 +64,10 @@ if not SUPABASE_URL or not SUPABASE_KEY:
     print("[FEHLER] Supabase-URL oder Service Role Key fehlen.")
     print()
     print("  Füge folgende Zeile in .env.local ein (gitignored, sicher):")
-    print("  SUPABASE_SERVICE_ROLE_KEY=eyJ...")
+    print("  SUPABASE_SECRET_KEY=sb_secret_...")
     print()
     print("  Den Key findest du in:")
-    print("  Supabase Dashboard -> Project Settings -> API -> service_role (secret)")
+    print("  Supabase Dashboard -> Settings -> API Keys -> Secret keys")
     sys.exit(1)
 
 # ── Video-Konfiguration ────────────────────────────────────────────────────────
@@ -99,11 +101,12 @@ def supabase_get(table: str, params: dict) -> list:
     """Einfacher REST-GET ohne supabase-py Dependency."""
     headers = {
         "apikey": SUPABASE_KEY,
-        "Authorization": f"Bearer {SUPABASE_KEY}",
         "Accept": "application/json",
         "Prefer": "count=none",
         "Range": "0-999",        # max 1000 Zeilen
     }
+    if not SUPABASE_KEY.startswith("sb_secret_"):
+        headers["Authorization"] = f"Bearer {SUPABASE_KEY}"
     url = f"{SUPABASE_URL}/rest/v1/{table}"
     r = requests.get(url, headers=headers, params=params, timeout=20)
     r.raise_for_status()
@@ -157,11 +160,12 @@ def fetch_scans_v2(week_start: str, week_end: str) -> list[dict]:
     """
     headers = {
         "apikey": SUPABASE_KEY,
-        "Authorization": f"Bearer {SUPABASE_KEY}",
         "Accept": "application/json",
         "Prefer": "count=none",
         "Range": "0-999",
     }
+    if not SUPABASE_KEY.startswith("sb_secret_"):
+        headers["Authorization"] = f"Bearer {SUPABASE_KEY}"
     params = [
         ("select", "id,image_url,auth_id,plant_id"),
         ("discovered_date", f"gte.{week_start}"),

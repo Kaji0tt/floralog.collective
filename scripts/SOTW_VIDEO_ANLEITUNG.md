@@ -7,10 +7,10 @@ Slot-Machine-MP4 mit allen Scan-Bildern einer Woche.
 Folgenden Key in `.env.local` eintragen (gitignored, sicher):
 
 ```
-SUPABASE_SERVICE_ROLE_KEY=eyJ...
+SUPABASE_SECRET_KEY=sb_secret_...
 ```
 
-→ Supabase Dashboard → Project Settings → API → `service_role` (secret)
+→ Supabase Dashboard → Settings → API Keys → Secret keys
 
 ---
 

@@ -55,9 +55,12 @@ function isTruthy(value: string | null | undefined): boolean {
   return normalized === "1" || normalized === "true" || normalized === "yes" || normalized === "on";
 }
 
-function isServiceRoleInvocation(accessToken: string | null, serviceRoleKey: string): boolean {
-  if (!accessToken) return false;
-  return accessToken === serviceRoleKey;
+function isServiceRoleInvocation(
+  accessToken: string | null,
+  apiKey: string | null,
+  serviceRoleKey: string,
+): boolean {
+  return apiKey === serviceRoleKey || accessToken === serviceRoleKey;
 }
 
 function buildPushPayload(params: {
@@ -315,7 +318,8 @@ Deno.serve(async (req) => {
 
     const allowUnauthenticated = isTruthy(Deno.env.get("ALLOW_UNAUTHENTICATED_NOTIFICATIONS"));
     const accessToken = getAccessTokenFromAuthHeader(req.headers.get("Authorization"));
-    const isInternalInvocation = isServiceRoleInvocation(accessToken, serviceRoleKey);
+    const apiKey = req.headers.get("apikey")?.trim() || null;
+    const isInternalInvocation = isServiceRoleInvocation(accessToken, apiKey, serviceRoleKey);
 
     const adminClient = createClient(supabaseUrl, serviceRoleKey, {
       auth: { persistSession: false },

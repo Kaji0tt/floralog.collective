@@ -108,9 +108,8 @@ async function sendNotification(
       actionUrl: actionUrl ?? "",
     },
     headers: {
-      // Service-role key as Bearer – createNotification recognises this via
-      // isServiceRoleInvocation() and skips the regular caller auth check.
-      Authorization: `Bearer ${serviceRoleKey}`,
+      // Modern secret keys are opaque API keys, not JWTs.
+      apikey: serviceRoleKey,
     },
   });
   if (error) {
