@@ -1,7 +1,7 @@
 from datetime import datetime
 from enum import StrEnum
 
-from pydantic import BaseModel, ConfigDict, Field, HttpUrl
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class StrictModel(BaseModel):
@@ -16,7 +16,7 @@ class Decision(StrEnum):
 
 class Evidence(StrictModel):
     claim: str = Field(min_length=10)
-    source_url: HttpUrl | None = None
+    source_url: str | None = None
     source_type: str = Field(pattern="^(product_data|market_source|assumption)$")
     confidence: float = Field(ge=0, le=1)
 

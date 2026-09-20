@@ -1,4 +1,5 @@
 from collections.abc import Iterable
+from urllib.parse import urlparse
 
 from floralog_ai.schemas import ExperimentProposal, RevenueReview
 
@@ -9,6 +10,13 @@ MONTHLY_AGENT_BUDGET_EUR = 25.0
 
 class GuardrailViolation(ValueError):
     """Raised when an AI proposal violates a deterministic Floralog rule."""
+
+
+def is_http_url(value: str | None) -> bool:
+    if not value:
+        return False
+    parsed = urlparse(value.strip())
+    return parsed.scheme in {"http", "https"} and bool(parsed.netloc)
 
 
 def ensure_budget(current_monthly_cost_eur: float) -> None:
@@ -31,7 +39,10 @@ def validate_experiment(proposal: ExperimentProposal) -> ExperimentProposal:
         violations.append(f"spirit score must be at least {MIN_SPIRIT_SCORE}")
     if not proposal.success_metrics or not proposal.stop_metrics:
         violations.append("success and stop metrics are required")
-    if any(item.source_type == "market_source" and item.source_url is None for item in proposal.evidence):
+    if any(
+        item.source_type == "market_source" and not is_http_url(item.source_url)
+        for item in proposal.evidence
+    ):
         violations.append("market evidence requires a source URL")
 
     if violations:

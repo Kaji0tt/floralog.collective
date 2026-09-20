@@ -50,6 +50,19 @@ def test_rejects_unsourced_market_claim() -> None:
         validate_experiment(build_proposal(evidence=evidence))
 
 
+def test_rejects_non_http_market_source() -> None:
+    evidence = [
+        Evidence(
+            claim="A market report claims strong demand for this product.",
+            source_type="market_source",
+            source_url="not-a-url",
+            confidence=0.6,
+        )
+    ]
+    with pytest.raises(GuardrailViolation, match="source URL"):
+        validate_experiment(build_proposal(evidence=evidence))
+
+
 def test_stops_at_monthly_budget() -> None:
     ensure_budget(24.99)
     with pytest.raises(GuardrailViolation, match="budget exhausted"):
