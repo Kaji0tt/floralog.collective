@@ -5,24 +5,15 @@ import { createPageUrl } from "@/utils";
 import { getPublicPlayerProfile } from "@/api/publicPlayerProfile";
 import GoldGradientCard from "@/components/home/GoldGradientCard";
 import BadgeCircleIcon from "@/components/home/BadgeCircleIcon";
-import { getProfileBadgeDefinitionById } from "@/lib/profileBadges";
+import { formatProfileBadgeMetricValue, getProfileBadgeDefinitionById } from "@/lib/profileBadges";
 import { getUniqueBadgeById } from "@/lib/profileUniqueBadges";
 import { getProfileBadgeIconComponent } from "@/lib/profileBadgeIcons";
 
-const formatNumber = (value, options = {}) => new Intl.NumberFormat("de-DE", options).format(value);
-
 const getBadgeAccomplishment = (badge, badgeMetrics) => {
   const value = badgeMetrics?.[badge.metricKey];
-  if (!Number.isFinite(Number(value))) return badge.description || "Profil-Abzeichen";
-
-  switch (badge.id) {
-    case "distance_waypoints":
-      return `Hat eine Strecke von ${formatNumber(Number(value), { maximumFractionDigits: 1 })} km erkundet.`;
-    case "scans_camera":
-      return `Hat ${formatNumber(Math.round(Number(value)))} Pflanzen gescannt.`;
-    default:
-      return badge.description || "Profil-Abzeichen";
-  }
+  if (!badge.metricKey) return badge.description || "Profil-Abzeichen";
+  if (!Number.isFinite(Number(value))) return "Wert nicht verfügbar";
+  return formatProfileBadgeMetricValue(badge, value);
 };
 
 export default function PlayerInfoCard({ playerAuthId, fallbackName, logo, onNavigate }) {

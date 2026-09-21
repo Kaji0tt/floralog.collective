@@ -828,10 +828,10 @@ $$;
 
 
 --
--- Name: set_updated_at_tile_claim(); Type: FUNCTION; Schema: public; Owner: -
+-- Name: set_updated_at_area_claim(); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.set_updated_at_tile_claim() RETURNS trigger
+CREATE FUNCTION public.set_updated_at_area_claim() RETURNS trigger
     LANGUAGE plpgsql
     AS $$
 BEGIN
@@ -1298,44 +1298,44 @@ COMMENT ON TABLE public."News" IS 'News-Channel, displaying information thats me
 
 
 --
--- Name: OSMTileChunkLite; Type: TABLE; Schema: public; Owner: -
+-- Name: OSMAreaChunkLite; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE TABLE public."OSMTileChunkLite" (
+CREATE TABLE public."OSMAreaChunkLite" (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     dataset_version text NOT NULL,
     chunk_x integer NOT NULL,
     chunk_y integer NOT NULL,
-    tile_count smallint DEFAULT 0 NOT NULL,
+    area_count smallint DEFAULT 0 NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL
 );
 
 
 --
--- Name: TABLE "OSMTileChunkLite"; Type: COMMENT; Schema: public; Owner: -
+-- Name: TABLE "OSMAreaChunkLite"; Type: COMMENT; Schema: public; Owner: -
 --
 
-COMMENT ON TABLE public."OSMTileChunkLite" IS 'Chunk metadata: dataset_version, grid coordinates, minimal overhead';
+COMMENT ON TABLE public."OSMAreaChunkLite" IS 'Chunk metadata: dataset_version, grid coordinates, minimal overhead';
 
 
 --
--- Name: OSMTileValue; Type: TABLE; Schema: public; Owner: -
+-- Name: OSMAreaValue; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE TABLE public."OSMTileValue" (
+CREATE TABLE public."OSMAreaValue" (
     chunk_id uuid NOT NULL,
-    tile_local_x smallint NOT NULL,
-    tile_local_y smallint NOT NULL,
+    area_local_x smallint NOT NULL,
+    area_local_y smallint NOT NULL,
     zone_type smallint NOT NULL,
     zone_value smallint NOT NULL
 );
 
 
 --
--- Name: TABLE "OSMTileValue"; Type: COMMENT; Schema: public; Owner: -
+-- Name: TABLE "OSMAreaValue"; Type: COMMENT; Schema: public; Owner: -
 --
 
-COMMENT ON TABLE public."OSMTileValue" IS 'Tile zone data: local coordinates, quantized zone type (0-5), quantized zone area (0-255 scale). Multiple zones per tile supported.';
+COMMENT ON TABLE public."OSMAreaValue" IS 'Area zone data: local coordinates, quantized zone type (0-5), quantized zone area (0-255 scale). Multiple zones per area supported.';
 
 
 --
@@ -1640,7 +1640,7 @@ CREATE TABLE public."RobotPlant" (
     last_valid_geo_lat numeric(8,3),
     last_valid_geo_lng numeric(8,3),
     last_valid_geo_at timestamp with time zone,
-    claimed_tiles_count integer DEFAULT 0 NOT NULL,
+    claimed_areas_count integer DEFAULT 0 NOT NULL,
     CONSTRAINT "RobotPlant_care_check" CHECK (((care >= 0) AND (care <= 100))),
     CONSTRAINT "RobotPlant_data_quality_check" CHECK (((data_quality >= 0) AND (data_quality <= 100))),
     CONSTRAINT "RobotPlant_energy_check" CHECK (((energy >= 0) AND (energy <= 100))),
@@ -1909,19 +1909,19 @@ COMMENT ON TABLE public."SharedScan" IS 'Scans might be shared with other users 
 
 
 --
--- Name: TileClaim; Type: TABLE; Schema: public; Owner: -
+-- Name: AreaClaim; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE TABLE public."TileClaim" (
-    tile_x integer NOT NULL,
-    tile_y integer NOT NULL,
+CREATE TABLE public."AreaClaim" (
+    area_x integer NOT NULL,
+    area_y integer NOT NULL,
     owner_auth_id uuid NOT NULL,
     owner_scan_count integer DEFAULT 0 NOT NULL,
     claimed_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     claim_group_name text,
-    CONSTRAINT "TileClaim_owner_scan_count_check" CHECK ((owner_scan_count >= 0)),
-    CONSTRAINT tileclaim_claim_group_name_length CHECK (((claim_group_name IS NULL) OR ((char_length(claim_group_name) >= 3) AND (char_length(claim_group_name) <= 48))))
+    CONSTRAINT "AreaClaim_owner_scan_count_check" CHECK ((owner_scan_count >= 0)),
+    CONSTRAINT areaclaim_claim_group_name_length CHECK (((claim_group_name IS NULL) OR ((char_length(claim_group_name) >= 3) AND (char_length(claim_group_name) <= 48))))
 );
 
 
@@ -2548,19 +2548,19 @@ ALTER TABLE ONLY public."News"
 
 
 --
--- Name: OSMTileChunkLite OSMTileChunkLite_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: OSMAreaChunkLite OSMAreaChunkLite_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public."OSMTileChunkLite"
-    ADD CONSTRAINT "OSMTileChunkLite_pkey" PRIMARY KEY (id);
+ALTER TABLE ONLY public."OSMAreaChunkLite"
+    ADD CONSTRAINT "OSMAreaChunkLite_pkey" PRIMARY KEY (id);
 
 
 --
--- Name: OSMTileValue OSMTileValue_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: OSMAreaValue OSMAreaValue_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public."OSMTileValue"
-    ADD CONSTRAINT "OSMTileValue_pkey" PRIMARY KEY (chunk_id, tile_local_x, tile_local_y, zone_type);
+ALTER TABLE ONLY public."OSMAreaValue"
+    ADD CONSTRAINT "OSMAreaValue_pkey" PRIMARY KEY (chunk_id, area_local_x, area_local_y, zone_type);
 
 
 --
@@ -2860,11 +2860,11 @@ ALTER TABLE ONLY public."SharedScan"
 
 
 --
--- Name: TileClaim TileClaim_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: AreaClaim AreaClaim_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public."TileClaim"
-    ADD CONSTRAINT "TileClaim_pkey" PRIMARY KEY (tile_x, tile_y);
+ALTER TABLE ONLY public."AreaClaim"
+    ADD CONSTRAINT "AreaClaim_pkey" PRIMARY KEY (area_x, area_y);
 
 
 --
@@ -3171,42 +3171,42 @@ CREATE INDEX idx_osm_cache_theme_area ON public."RobotPlantOSMCache" USING btree
 -- Name: idx_osm_chunk_lite_coords; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_osm_chunk_lite_coords ON public."OSMTileChunkLite" USING btree (dataset_version, chunk_x, chunk_y);
+CREATE INDEX idx_osm_chunk_lite_coords ON public."OSMAreaChunkLite" USING btree (dataset_version, chunk_x, chunk_y);
 
 
 --
 -- Name: idx_osm_chunk_lite_unique; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE UNIQUE INDEX idx_osm_chunk_lite_unique ON public."OSMTileChunkLite" USING btree (dataset_version, chunk_x, chunk_y);
+CREATE UNIQUE INDEX idx_osm_chunk_lite_unique ON public."OSMAreaChunkLite" USING btree (dataset_version, chunk_x, chunk_y);
 
 
 --
 -- Name: idx_osm_chunk_lite_version; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_osm_chunk_lite_version ON public."OSMTileChunkLite" USING btree (dataset_version);
+CREATE INDEX idx_osm_chunk_lite_version ON public."OSMAreaChunkLite" USING btree (dataset_version);
 
 
 --
--- Name: idx_osm_tile_value_chunk_id; Type: INDEX; Schema: public; Owner: -
+-- Name: idx_osm_area_value_chunk_id; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_osm_tile_value_chunk_id ON public."OSMTileValue" USING btree (chunk_id);
-
-
---
--- Name: idx_osm_tile_value_chunk_zone; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX idx_osm_tile_value_chunk_zone ON public."OSMTileValue" USING btree (chunk_id, zone_type);
+CREATE INDEX idx_osm_area_value_chunk_id ON public."OSMAreaValue" USING btree (chunk_id);
 
 
 --
--- Name: idx_osm_tile_value_zone_type; Type: INDEX; Schema: public; Owner: -
+-- Name: idx_osm_area_value_chunk_zone; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_osm_tile_value_zone_type ON public."OSMTileValue" USING btree (zone_type);
+CREATE INDEX idx_osm_area_value_chunk_zone ON public."OSMAreaValue" USING btree (chunk_id, zone_type);
+
+
+--
+-- Name: idx_osm_area_value_zone_type; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_osm_area_value_zone_type ON public."OSMAreaValue" USING btree (zone_type);
 
 
 --
@@ -3364,17 +3364,17 @@ CREATE INDEX idx_robotplant_zone_day_theme ON public."RobotPlantZone" USING btre
 
 
 --
--- Name: idx_tileclaim_owner_auth_id; Type: INDEX; Schema: public; Owner: -
+-- Name: idx_areaclaim_owner_auth_id; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_tileclaim_owner_auth_id ON public."TileClaim" USING btree (owner_auth_id);
+CREATE INDEX idx_areaclaim_owner_auth_id ON public."AreaClaim" USING btree (owner_auth_id);
 
 
 --
--- Name: idx_tileclaim_updated_at; Type: INDEX; Schema: public; Owner: -
+-- Name: idx_areaclaim_updated_at; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_tileclaim_updated_at ON public."TileClaim" USING btree (updated_at DESC);
+CREATE INDEX idx_areaclaim_updated_at ON public."AreaClaim" USING btree (updated_at DESC);
 
 
 --
@@ -3497,10 +3497,10 @@ CREATE TRIGGER trg_robotplant_updated_at BEFORE UPDATE ON public."RobotPlant" FO
 
 
 --
--- Name: TileClaim trg_set_updated_at_tile_claim; Type: TRIGGER; Schema: public; Owner: -
+-- Name: AreaClaim trg_set_updated_at_area_claim; Type: TRIGGER; Schema: public; Owner: -
 --
 
-CREATE TRIGGER trg_set_updated_at_tile_claim BEFORE UPDATE ON public."TileClaim" FOR EACH ROW EXECUTE FUNCTION public.set_updated_at_tile_claim();
+CREATE TRIGGER trg_set_updated_at_area_claim BEFORE UPDATE ON public."AreaClaim" FOR EACH ROW EXECUTE FUNCTION public.set_updated_at_area_claim();
 
 
 --
@@ -3604,11 +3604,11 @@ ALTER TABLE ONLY public."Friend"
 
 
 --
--- Name: OSMTileValue OSMTileValue_chunk_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: OSMAreaValue OSMAreaValue_chunk_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public."OSMTileValue"
-    ADD CONSTRAINT "OSMTileValue_chunk_id_fkey" FOREIGN KEY (chunk_id) REFERENCES public."OSMTileChunkLite"(id) ON DELETE CASCADE;
+ALTER TABLE ONLY public."OSMAreaValue"
+    ADD CONSTRAINT "OSMAreaValue_chunk_id_fkey" FOREIGN KEY (chunk_id) REFERENCES public."OSMAreaChunkLite"(id) ON DELETE CASCADE;
 
 
 --
@@ -3820,11 +3820,11 @@ ALTER TABLE ONLY public."SharedScan"
 
 
 --
--- Name: TileClaim TileClaim_owner_auth_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: AreaClaim AreaClaim_owner_auth_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public."TileClaim"
-    ADD CONSTRAINT "TileClaim_owner_auth_id_fkey" FOREIGN KEY (owner_auth_id) REFERENCES auth.users(id) ON DELETE CASCADE;
+ALTER TABLE ONLY public."AreaClaim"
+    ADD CONSTRAINT "AreaClaim_owner_auth_id_fkey" FOREIGN KEY (owner_auth_id) REFERENCES auth.users(id) ON DELETE CASCADE;
 
 
 --
@@ -4041,16 +4041,16 @@ ALTER TABLE public."MonthlyQuest" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public."News" ENABLE ROW LEVEL SECURITY;
 
 --
--- Name: OSMTileChunkLite; Type: ROW SECURITY; Schema: public; Owner: -
+-- Name: OSMAreaChunkLite; Type: ROW SECURITY; Schema: public; Owner: -
 --
 
-ALTER TABLE public."OSMTileChunkLite" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public."OSMAreaChunkLite" ENABLE ROW LEVEL SECURITY;
 
 --
--- Name: OSMTileValue; Type: ROW SECURITY; Schema: public; Owner: -
+-- Name: OSMAreaValue; Type: ROW SECURITY; Schema: public; Owner: -
 --
 
-ALTER TABLE public."OSMTileValue" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public."OSMAreaValue" ENABLE ROW LEVEL SECURITY;
 
 --
 -- Name: CollectionItem Owners manage collection items; Type: POLICY; Schema: public; Owner: -
@@ -4287,10 +4287,10 @@ CREATE POLICY "SharedScan update own" ON public."SharedScan" FOR UPDATE USING ((
 
 
 --
--- Name: TileClaim; Type: ROW SECURITY; Schema: public; Owner: -
+-- Name: AreaClaim; Type: ROW SECURITY; Schema: public; Owner: -
 --
 
-ALTER TABLE public."TileClaim" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public."AreaClaim" ENABLE ROW LEVEL SECURITY;
 
 --
 -- Name: UserAchievement; Type: ROW SECURITY; Schema: public; Owner: -
@@ -4881,10 +4881,10 @@ CREATE POLICY select_own_user_rewards ON public."UserRewards" FOR SELECT TO auth
 
 
 --
--- Name: TileClaim tileclaim_admin_manage; Type: POLICY; Schema: public; Owner: -
+-- Name: AreaClaim areaclaim_admin_manage; Type: POLICY; Schema: public; Owner: -
 --
 
-CREATE POLICY tileclaim_admin_manage ON public."TileClaim" TO authenticated USING ((EXISTS ( SELECT 1
+CREATE POLICY areaclaim_admin_manage ON public."AreaClaim" TO authenticated USING ((EXISTS ( SELECT 1
    FROM public."PublicProfile" pp
   WHERE ((pp.auth_id = auth.uid()) AND (pp.role = 'admin'::text))))) WITH CHECK ((EXISTS ( SELECT 1
    FROM public."PublicProfile" pp
@@ -4892,10 +4892,10 @@ CREATE POLICY tileclaim_admin_manage ON public."TileClaim" TO authenticated USIN
 
 
 --
--- Name: TileClaim tileclaim_select_authenticated; Type: POLICY; Schema: public; Owner: -
+-- Name: AreaClaim areaclaim_select_authenticated; Type: POLICY; Schema: public; Owner: -
 --
 
-CREATE POLICY tileclaim_select_authenticated ON public."TileClaim" FOR SELECT TO authenticated USING (true);
+CREATE POLICY areaclaim_select_authenticated ON public."AreaClaim" FOR SELECT TO authenticated USING (true);
 
 
 --

@@ -20,6 +20,7 @@ const getCurrentAuthContext = async () => {
 
 const DEFAULT_WALLET = {
   seeds_progress: 0,
+  lifetime_seeds_earned: 0,
   sparks_balance: 0,
   amber_balance: 0,
 };
@@ -29,7 +30,7 @@ export const getUserWallet = async (authId) => {
 
   const { data, error } = await supabase
     .from("UserWallet")
-    .select("auth_id, seeds_progress, sparks_balance, amber_balance")
+    .select("auth_id, seeds_progress, lifetime_seeds_earned, sparks_balance, amber_balance")
     .eq("auth_id", authId)
     .maybeSingle();
 
@@ -48,6 +49,30 @@ export const getUserWallet = async (authId) => {
     ...DEFAULT_WALLET,
     ...data,
   };
+};
+
+export const getUserAlltimeSeedTotal = async (authId = null) => {
+  const { data, error } = await supabase.rpc("get_user_alltime_seed_total", {
+    p_auth_id: authId,
+  });
+
+  if (error) {
+    throw error;
+  }
+
+  return Math.max(0, Number(data ?? 0));
+};
+
+export const getAlltimeSeedLeaderboard = async (limit = 500) => {
+  const { data, error } = await supabase.rpc("get_alltime_seed_leaderboard", {
+    p_limit: Math.max(1, Math.min(Math.round(Number(limit || 500)), 1000)),
+  });
+
+  if (error) {
+    throw error;
+  }
+
+  return Array.isArray(data) ? data : [];
 };
 
 // @deprecated Replaced by the Scan-Streak retention system (no more reward on app open);

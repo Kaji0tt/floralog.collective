@@ -1,5 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import proj4 from "https://esm.sh/proj4@2.15.0";
+import { pickZoneBonusMultiplier } from "./zoneBonusMultiplier.js";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -7,13 +8,13 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-// Phase 5: Slim OSM tile-based zone generation
-// Reads directly from OSMTileChunkLite + OSMTileValue instead of GeoRasterCell.
+// Phase 5: Slim OSM area-based zone generation
+// Reads directly from OSMAreaChunkLite + OSMAreaValue instead of GeoRasterCell.
 
 type ZoneTheme = "forest" | "urban" | "water" | "meadow";
 const PLAYER_RADIUS_M = 3500;
-const TILE_SIZE_M = 100;
-const CHUNK_SIZE_TILES = 10;
+const AREA_SIZE_M = 100;
+const CHUNK_SIZE_AREAS = 10;
 const DATASET_VERSION = "osm_de_2026_04_10";
 const EPSG_3035 = "+proj=laea +lat_0=52 +lon_0=10 +x_0=4321000 +y_0=3210000 +datum=ETRS89 +units=m +no_defs +type=crs";
 
@@ -47,13 +48,13 @@ interface SlimChunkRow {
   id: string;
   chunk_x: number;
   chunk_y: number;
-  tile_count: number;
+  area_count: number;
 }
 
-interface SlimTileValueRow {
+interface SlimAreaValueRow {
   chunk_id: string;
-  tile_local_x: number;
-  tile_local_y: number;
+  area_local_x: number;
+  area_local_y: number;
   zone_type: number;
   zone_value: number;
 }
@@ -150,44 +151,44 @@ function metricToLngLat(x: number, y: number): { lat: number; lng: number } {
   return { lat, lng };
 }
 
-function getTileCoordinates(lat: number, lng: number): { tileX: number; tileY: number } {
+function getAreaCoordinates(lat: number, lng: number): { areaX: number; areaY: number } {
   const { x, y } = lngLatToMetric(lng, lat);
   return {
-    tileX: Math.floor(x / TILE_SIZE_M),
-    tileY: Math.floor(y / TILE_SIZE_M),
+    areaX: Math.floor(x / AREA_SIZE_M),
+    areaY: Math.floor(y / AREA_SIZE_M),
   };
 }
 
-function getTileCenter(tileX: number, tileY: number): { lat: number; lng: number } {
-  const centerX = (tileX + 0.5) * TILE_SIZE_M;
-  const centerY = (tileY + 0.5) * TILE_SIZE_M;
+function getAreaCenter(areaX: number, areaY: number): { lat: number; lng: number } {
+  const centerX = (areaX + 0.5) * AREA_SIZE_M;
+  const centerY = (areaY + 0.5) * AREA_SIZE_M;
   return metricToLngLat(centerX, centerY);
 }
 
-function getTilesInRadius(centerLat: number, centerLng: number, radiusM: number): Array<{ tileX: number; tileY: number }> {
+function getAreasInRadius(centerLat: number, centerLng: number, radiusM: number): Array<{ areaX: number; areaY: number }> {
   const { x: centerX, y: centerY } = lngLatToMetric(centerLng, centerLat);
-  const minTileX = Math.floor((centerX - radiusM) / TILE_SIZE_M);
-  const maxTileX = Math.floor((centerX + radiusM) / TILE_SIZE_M);
-  const minTileY = Math.floor((centerY - radiusM) / TILE_SIZE_M);
-  const maxTileY = Math.floor((centerY + radiusM) / TILE_SIZE_M);
+  const minAreaX = Math.floor((centerX - radiusM) / AREA_SIZE_M);
+  const maxAreaX = Math.floor((centerX + radiusM) / AREA_SIZE_M);
+  const minAreaY = Math.floor((centerY - radiusM) / AREA_SIZE_M);
+  const maxAreaY = Math.floor((centerY + radiusM) / AREA_SIZE_M);
 
-  const tiles: Array<{ tileX: number; tileY: number }> = [];
+  const areas: Array<{ areaX: number; areaY: number }> = [];
   const radiusSq = radiusM * radiusM; // Avoid repeated Math.sqrt on iOS
   
-  for (let tileX = minTileX; tileX <= maxTileX; tileX += 1) {
-    for (let tileY = minTileY; tileY <= maxTileY; tileY += 1) {
-      const tileCenterX = (tileX + 0.5) * TILE_SIZE_M;
-      const tileCenterY = (tileY + 0.5) * TILE_SIZE_M;
-      const dx = tileCenterX - centerX;
-      const dy = tileCenterY - centerY;
+  for (let areaX = minAreaX; areaX <= maxAreaX; areaX += 1) {
+    for (let areaY = minAreaY; areaY <= maxAreaY; areaY += 1) {
+      const areaCenterX = (areaX + 0.5) * AREA_SIZE_M;
+      const areaCenterY = (areaY + 0.5) * AREA_SIZE_M;
+      const dx = areaCenterX - centerX;
+      const dy = areaCenterY - centerY;
       const distSq = dx * dx + dy * dy;
       if (distSq <= radiusSq) {
-        tiles.push({ tileX, tileY });
+        areas.push({ areaX, areaY });
       }
     }
   }
 
-  return tiles;
+  return areas;
 }
 
 function getThemeForZoneType(zoneType: number): ZoneTheme | null {
@@ -211,8 +212,8 @@ function getThemeForZoneType(zoneType: number): ZoneTheme | null {
 
 function buildSlimRasterCells(
   chunks: SlimChunkRow[],
-  tileValues: SlimTileValueRow[],
-  validTileKeys: Set<string>,
+  areaValues: SlimAreaValueRow[],
+  validAreaKeys: Set<string>,
 ): RasterCell[] {
   const chunkById = new Map<string, SlimChunkRow>();
   for (const chunk of chunks) {
@@ -220,9 +221,9 @@ function buildSlimRasterCells(
   }
   
   // Pre-allocate and reuse theme totals to reduce GC pressure on iOS
-  const tileMap = new Map<string, {
-    tileX: number;
-    tileY: number;
+  const areaMap = new Map<string, {
+    areaX: number;
+    areaY: number;
     forest: number;
     water: number;
     meadow: number;
@@ -230,14 +231,14 @@ function buildSlimRasterCells(
     zoneRowCount: number;
   }>();
 
-  for (const row of tileValues) {
+  for (const row of areaValues) {
     const chunk = chunkById.get(row.chunk_id);
     if (!chunk) continue;
 
-    const tileX = chunk.chunk_x * CHUNK_SIZE_TILES + Number(row.tile_local_x);
-    const tileY = chunk.chunk_y * CHUNK_SIZE_TILES + Number(row.tile_local_y);
-    const tileKey = `${tileX}:${tileY}`;
-    if (!validTileKeys.has(tileKey)) continue;
+    const areaX = chunk.chunk_x * CHUNK_SIZE_AREAS + Number(row.area_local_x);
+    const areaY = chunk.chunk_y * CHUNK_SIZE_AREAS + Number(row.area_local_y);
+    const areaKey = `${areaX}:${areaY}`;
+    if (!validAreaKeys.has(areaKey)) continue;
 
     const theme = getThemeForZoneType(Number(row.zone_type));
     if (!theme) continue;
@@ -245,33 +246,33 @@ function buildSlimRasterCells(
     const zoneValue = Math.max(0, Number(row.zone_value) || 0);
     if (zoneValue <= 0) continue;
 
-    let tileData = tileMap.get(tileKey);
-    if (!tileData) {
-      tileData = {
-        tileX,
-        tileY,
+    let areaData = areaMap.get(areaKey);
+    if (!areaData) {
+      areaData = {
+        areaX,
+        areaY,
         forest: 0,
         water: 0,
         meadow: 0,
         urban: 0,
         zoneRowCount: 0,
       };
-      tileMap.set(tileKey, tileData);
+      areaMap.set(areaKey, areaData);
     }
 
-    tileData[theme] += zoneValue;
-    tileData.zoneRowCount += 1;
+    areaData[theme] += zoneValue;
+    areaData.zoneRowCount += 1;
   }
 
   const cells: RasterCell[] = [];
-  cells.length = tileMap.size; // Pre-allocate array
+  cells.length = areaMap.size; // Pre-allocate array
   let cellIndex = 0;
 
-  for (const [tileKey, tileData] of tileMap.entries()) {
-    const total = tileData.forest + tileData.water + tileData.meadow + tileData.urban;
+  for (const [areaKey, areaData] of areaMap.entries()) {
+    const total = areaData.forest + areaData.water + areaData.meadow + areaData.urban;
     if (total <= 0) continue;
 
-    const center = getTileCenter(tileData.tileX, tileData.tileY);
+    const center = getAreaCenter(areaData.areaX, areaData.areaY);
     
     // Build theme scores only if needed
     const themeScores: Partial<Record<ZoneTheme, number>> = {};
@@ -280,7 +281,7 @@ function buildSlimRasterCells(
 
     const themes: ZoneTheme[] = ["forest", "water", "urban", "meadow"];
     for (const theme of themes) {
-      const rawValue = tileData[theme];
+      const rawValue = areaData[theme];
       if (rawValue <= 0) continue;
       const normalized = rawValue / total;
       themeScores[theme] = normalized;
@@ -291,8 +292,8 @@ function buildSlimRasterCells(
     }
 
     cells[cellIndex++] = {
-      id: tileKey,
-      grid_id: tileKey,
+      id: areaKey,
+      grid_id: areaKey,
       is_valid: true,
       theme: dominantTheme,
       center_lat: center.lat,
@@ -301,7 +302,7 @@ function buildSlimRasterCells(
       dominant_osm_tags: {},
       theme_scores: themeScores,
       theme_anchor_points: { [dominantTheme]: { lat: center.lat, lng: center.lng } },
-      osm_element_count: tileData.zoneRowCount,
+      osm_element_count: areaData.zoneRowCount,
     };
   }
 
@@ -321,8 +322,8 @@ async function fetchChunksInBounds(
 
   while (true) {
     const { data, error } = await adminClient
-      .from("OSMTileChunkLite")
-      .select("id, chunk_x, chunk_y, tile_count")
+      .from("OSMAreaChunkLite")
+      .select("id, chunk_x, chunk_y, area_count")
       .eq("dataset_version", DATASET_VERSION)
       .gte("chunk_x", minChunkX)
       .lte("chunk_x", maxChunkX)
@@ -349,11 +350,11 @@ async function fetchChunksInBounds(
   return { rows: allRows, error: null };
 }
 
-async function fetchTileValuesForChunkIds(
+async function fetchAreaValuesForChunkIds(
   adminClient: ReturnType<typeof createClient>,
   chunkIds: string[],
-): Promise<{ rows: SlimTileValueRow[]; error: unknown | null }> {
-  const allRows: SlimTileValueRow[] = [];
+): Promise<{ rows: SlimAreaValueRow[]; error: unknown | null }> {
+  const allRows: SlimAreaValueRow[] = [];
 
   for (let i = 0; i < chunkIds.length; i += CHUNK_ID_BATCH_SIZE) {
     const batchIds = chunkIds.slice(i, i + CHUNK_ID_BATCH_SIZE);
@@ -361,12 +362,12 @@ async function fetchTileValuesForChunkIds(
 
     while (true) {
       const { data, error } = await adminClient
-        .from("OSMTileValue")
-        .select("chunk_id, tile_local_x, tile_local_y, zone_type, zone_value")
+        .from("OSMAreaValue")
+        .select("chunk_id, area_local_x, area_local_y, zone_type, zone_value")
         .in("chunk_id", batchIds)
         .order("chunk_id", { ascending: true })
-        .order("tile_local_x", { ascending: true })
-        .order("tile_local_y", { ascending: true })
+        .order("area_local_x", { ascending: true })
+        .order("area_local_y", { ascending: true })
         .order("zone_type", { ascending: true })
         .range(offset, offset + DB_PAGE_SIZE - 1);
 
@@ -374,7 +375,7 @@ async function fetchTileValuesForChunkIds(
         return { rows: [], error };
       }
 
-      const pageRows = (data || []) as SlimTileValueRow[];
+      const pageRows = (data || []) as SlimAreaValueRow[];
       allRows.push(...pageRows);
 
       if (pageRows.length < DB_PAGE_SIZE) {
@@ -595,7 +596,7 @@ function selectBestZones(
       radiusM,
       zoneKey: `${dayKey}-${candidate.theme}-${candidate.cellId.substring(0, 8)}-${suffix}`,
       confidence: candidate.probability,
-      bonusMultiplier: 1.5,
+      bonusMultiplier: pickZoneBonusMultiplier(rng),
     });
     themeCount[candidate.theme] += 1;
     return true;
@@ -648,7 +649,7 @@ function selectBestZones(
         radiusM,
         zoneKey: `${dayKey}-fallback-${entry.cell.id.substring(0, 8)}-${selectedZones.length}`,
         confidence: 0.12,
-        bonusMultiplier: 1.5,
+        bonusMultiplier: pickZoneBonusMultiplier(rng),
       });
     }
   }
@@ -1098,18 +1099,18 @@ Deno.serve(async (req) => {
       }
     }
 
-    // === SLIM OSM TILE-BASED ZONE GENERATION ===
-    console.log(`[robotPlantDailyZones] Generating zones from slim OSM tiles for (${baseLat}, ${baseLng})`);
+    // === SLIM OSM AREA-BASED ZONE GENERATION ===
+    console.log(`[robotPlantDailyZones] Generating zones from slim OSM areas for (${baseLat}, ${baseLng})`);
 
     const searchRadiusM = PLAYER_RADIUS_M;
-    const searchTiles = getTilesInRadius(baseLat, baseLng, searchRadiusM);
-    console.log(`[robotPlantDailyZones] Searching ${searchTiles.length} OSM tiles within ${searchRadiusM}m radius`);
+    const searchAreas = getAreasInRadius(baseLat, baseLng, searchRadiusM);
+    console.log(`[robotPlantDailyZones] Searching ${searchAreas.length} OSM areas within ${searchRadiusM}m radius`);
 
-    const validTileKeys = new Set(searchTiles.map((tile) => `${tile.tileX}:${tile.tileY}`));
-    const minChunkX = Math.min(...searchTiles.map((tile) => Math.floor(tile.tileX / CHUNK_SIZE_TILES)));
-    const maxChunkX = Math.max(...searchTiles.map((tile) => Math.floor(tile.tileX / CHUNK_SIZE_TILES)));
-    const minChunkY = Math.min(...searchTiles.map((tile) => Math.floor(tile.tileY / CHUNK_SIZE_TILES)));
-    const maxChunkY = Math.max(...searchTiles.map((tile) => Math.floor(tile.tileY / CHUNK_SIZE_TILES)));
+    const validAreaKeys = new Set(searchAreas.map((area) => `${area.areaX}:${area.areaY}`));
+    const minChunkX = Math.min(...searchAreas.map((area) => Math.floor(area.areaX / CHUNK_SIZE_AREAS)));
+    const maxChunkX = Math.max(...searchAreas.map((area) => Math.floor(area.areaX / CHUNK_SIZE_AREAS)));
+    const minChunkY = Math.min(...searchAreas.map((area) => Math.floor(area.areaY / CHUNK_SIZE_AREAS)));
+    const maxChunkY = Math.max(...searchAreas.map((area) => Math.floor(area.areaY / CHUNK_SIZE_AREAS)));
 
     const { rows: chunkRows, error: chunkError } = await fetchChunksInBounds(
       adminClient,
@@ -1134,21 +1135,21 @@ Deno.serve(async (req) => {
     }
 
     const chunkIds = chunks.map((chunk) => chunk.id);
-    const { rows: tileValueRows, error: tileValueError } = await fetchTileValuesForChunkIds(
+    const { rows: areaValueRows, error: areaValueError } = await fetchAreaValuesForChunkIds(
       adminClient,
       chunkIds,
     );
 
-    if (tileValueError) {
-      console.error("[robotPlantDailyZones] Tile value query error:", tileValueError);
-      return jsonResponse({ error: "Failed to query OSM tile values" }, 500);
+    if (areaValueError) {
+      console.error("[robotPlantDailyZones] Area value query error:", areaValueError);
+      return jsonResponse({ error: "Failed to query OSM area values" }, 500);
     }
 
     console.log(
-      `[robotPlantDailyZones] Fetched ${chunks.length} chunks and ${tileValueRows.length} tile-value rows (paginated)`
+      `[robotPlantDailyZones] Fetched ${chunks.length} chunks and ${areaValueRows.length} area-value rows (paginated)`
     );
 
-    const rasterRows = buildSlimRasterCells(chunks, tileValueRows, validTileKeys);
+    const rasterRows = buildSlimRasterCells(chunks, areaValueRows, validAreaKeys);
     const cells = rasterRows.filter((row) => row.is_valid === true) as RasterCell[];
     const fallbackCells: RasterCell[] = [];
     const nearestValidDistance = cells.length > 0
@@ -1156,14 +1157,14 @@ Deno.serve(async (req) => {
       : null;
 
     console.log(
-      `[robotPlantDailyZones] Found ${cells.length} usable slim OSM tiles from ${chunks.length} chunks and ${tileValueRows.length} tile-value rows` +
+      `[robotPlantDailyZones] Found ${cells.length} usable slim OSM areas from ${chunks.length} chunks and ${areaValueRows.length} area-value rows` +
       (nearestValidDistance !== null ? ` (nearest valid=${Math.round(nearestValidDistance)}m)` : ""),
     );
 
     if (cells.length === 0) {
       return jsonResponse({
         success: false,
-        error: "No usable precomputed OSM tile data available for this location.",
+        error: "No usable precomputed OSM area data available for this location.",
         zones: [],
       }, 503);
     }

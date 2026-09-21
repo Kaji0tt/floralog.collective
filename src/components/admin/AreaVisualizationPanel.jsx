@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { getTileVisualization } from "@/api/tileVisualizationService";
+import { getAreaVisualization } from "@/api/areaVisualizationService";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Eye, EyeOff, Loader2, Grid3x3, AlertCircle } from "lucide-react";
@@ -21,23 +21,23 @@ const formatPercent = (value) =>
   });
 
 /**
- * Admin-only tile visualization overlay for Mapbox
- * Shows OSM tiles with their dominant themes highlighted
+ * Admin-only area visualization overlay for Mapbox
+ * Shows OSM areas with their dominant themes highlighted
  *
  * When `open` and `onOpenChange` are provided the component is controlled
  * externally and the built-in toggle button is hidden.
  */
-export function TileVisualizationPanel({ map, userLocation, authId, isAdmin, open, onOpenChange }) {
+export function AreaVisualizationPanel({ map, userLocation, authId, isAdmin, open, onOpenChange }) {
   const isControlled = open !== undefined && onOpenChange !== undefined;
   const [internalVisible, setInternalVisible] = useState(false);
   const isVisible = isControlled ? open : internalVisible;
   const setIsVisible = isControlled ? onOpenChange : setInternalVisible;
   const [isLoading, setIsLoading] = useState(false);
-  const [tiles, setTiles] = useState([]);
+  const [areas, setAreas] = useState([]);
   const [error, setError] = useState(null);
   const [radiusM, setRadiusM] = useState(2000);
 
-  const handleLoadTiles = async () => {
+  const handleLoadAreas = async () => {
     if (!map || !userLocation || !authId) {
       setError("Map or location not available");
       return;
@@ -47,7 +47,7 @@ export function TileVisualizationPanel({ map, userLocation, authId, isAdmin, ope
     setError(null);
 
     try {
-      const result = await getTileVisualization(
+      const result = await getAreaVisualization(
         authId,
         Number(userLocation.lat),
         Number(userLocation.lng),
@@ -55,22 +55,22 @@ export function TileVisualizationPanel({ map, userLocation, authId, isAdmin, ope
       );
 
       if (result.success) {
-        setTiles(result.tiles || []);
-        renderTilesOnMap(map, result.tiles || [], result.tileSize);
+        setAreas(result.areas || []);
+        renderAreasOnMap(map, result.areas || [], result.areaSize);
       } else {
-        setError(result.error || "Failed to load tiles");
+        setError(result.error || "Failed to load areas");
       }
     } catch (err) {
-      setError(err.message || "Error loading tiles");
-      console.error("[TileVisualization]", err);
+      setError(err.message || "Error loading areas");
+      console.error("[AreaVisualization]", err);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleClearTiles = () => {
-    setTiles([]);
-    clearTilesFromMap(map);
+  const handleClearAreas = () => {
+    setAreas([]);
+    clearAreasFromMap(map);
   };
 
   if (!isAdmin) {
@@ -85,7 +85,7 @@ export function TileVisualizationPanel({ map, userLocation, authId, isAdmin, ope
           variant="outline"
           size="sm"
           className="absolute bottom-4 right-4 z-10 gap-2"
-          title="Admin: Toggle tile visualization"
+          title="Admin: Arealansicht umschalten"
         >
           {isVisible ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
           <Grid3x3 className="w-4 h-4" />
@@ -95,14 +95,14 @@ export function TileVisualizationPanel({ map, userLocation, authId, isAdmin, ope
       <Dialog open={isVisible} onOpenChange={setIsVisible}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>🔧 Admin: Tile Visualization</DialogTitle>
+            <DialogTitle>🔧 Admin: Arealansicht</DialogTitle>
           </DialogHeader>
 
           <div className="space-y-4">
             {/* Radius control */}
             <div>
               <label className="block text-sm font-medium mb-2">
-                Search Radius: {radiusM}m
+                Suchradius: {radiusM}m
               </label>
               <input
                 type="range"
@@ -118,7 +118,7 @@ export function TileVisualizationPanel({ map, userLocation, authId, isAdmin, ope
             {/* Buttons */}
             <div className="flex gap-2">
               <Button
-                onClick={handleLoadTiles}
+                onClick={handleLoadAreas}
                 disabled={isLoading}
                 className="flex-1"
               >
@@ -128,15 +128,15 @@ export function TileVisualizationPanel({ map, userLocation, authId, isAdmin, ope
                     Loading...
                   </>
                 ) : (
-                  "Load Tiles"
+                  "Areale laden"
                 )}
               </Button>
               <Button
-                onClick={handleClearTiles}
+                onClick={handleClearAreas}
                 variant="outline"
                 className="flex-1"
               >
-                Clear
+                Leeren
               </Button>
             </div>
 
@@ -148,23 +148,23 @@ export function TileVisualizationPanel({ map, userLocation, authId, isAdmin, ope
               </div>
             )}
 
-            {/* Tiles list */}
-            {tiles.length > 0 && (
+            {/* Areas list */}
+            {areas.length > 0 && (
               <div className="max-h-64 overflow-y-auto border rounded-lg bg-slate-50 p-3">
                 <p className="text-sm font-medium mb-2 text-slate-600">
-                  {tiles.length} Tiles Loaded:
+                  {areas.length} Areale geladen:
                 </p>
                 <div className="space-y-2">
-                  {tiles.map((tile, idx) => (
+                  {areas.map((area, idx) => (
                     <div
                       key={idx}
                       className="p-2 bg-white rounded border text-xs"
                     >
                       <div className="font-mono text-slate-700">
-                        [{tile.tileX}, {tile.tileY}] {tile.dominantTheme}
+                        [{area.areaX}, {area.areaY}] {area.dominantTheme}
                       </div>
                       <div className="flex gap-1 mt-1 flex-wrap">
-                        {Object.entries(tile.themes).map(([theme, pct]) => (
+                        {Object.entries(area.themes).map(([theme, pct]) => (
                           pct > 0 && (
                             <span
                               key={theme}
@@ -208,46 +208,46 @@ export function TileVisualizationPanel({ map, userLocation, authId, isAdmin, ope
 }
 
 /**
- * Render tiles on Mapbox with borders and fill for each theme
+ * Render areas on Mapbox with borders and fill for each theme
  */
-function renderTilesOnMap(map, tiles, tileSize = 100) {
+function renderAreasOnMap(map, areas, areaSize = 100) {
   // Remove existing layer if present
-  if (map.getLayer("tiles-fill")) {
-    map.removeLayer("tiles-fill");
+  if (map.getLayer("areas-fill")) {
+    map.removeLayer("areas-fill");
   }
-  if (map.getLayer("tiles-border")) {
-    map.removeLayer("tiles-border");
+  if (map.getLayer("areas-border")) {
+    map.removeLayer("areas-border");
   }
-  if (map.getSource("tiles")) {
-    map.removeSource("tiles");
+  if (map.getSource("areas")) {
+    map.removeSource("areas");
   }
 
-  // Convert tiles to GeoJSON features
-  const features = tiles.map((tile) => {
-    // Convert tile coordinates to lat/lng bounds
-    // This is approximate - uses tile center
-    const tileWidthDegrees = tileSize / 111000; // 111km per degree
-    const tileLat = Number(tile.centerLat);
-    const tileLng = Number(tile.centerLng);
+  // Convert areas to GeoJSON features
+  const features = areas.map((area) => {
+    // Convert area coordinates to lat/lng bounds
+    // This is approximate - uses area center
+    const areaWidthDegrees = areaSize / 111000; // 111km per degree
+    const areaLat = Number(area.centerLat);
+    const areaLng = Number(area.centerLng);
 
     // Adjust for latitude
-    const adj = Math.cos((tileLat * Math.PI) / 180);
-    const west = tileLng - tileWidthDegrees / 2 / adj;
-    const east = tileLng + tileWidthDegrees / 2 / adj;
-    const south = tileLat - tileWidthDegrees / 2;
-    const north = tileLat + tileWidthDegrees / 2;
+    const adj = Math.cos((areaLat * Math.PI) / 180);
+    const west = areaLng - areaWidthDegrees / 2 / adj;
+    const east = areaLng + areaWidthDegrees / 2 / adj;
+    const south = areaLat - areaWidthDegrees / 2;
+    const north = areaLat + areaWidthDegrees / 2;
 
-    const dominantTheme = tile.dominantTheme || "meadow";
+    const dominantTheme = area.dominantTheme || "meadow";
     const themeColor = THEME_COLORS[dominantTheme] || "#84cc16";
 
     return {
       type: "Feature",
       properties: {
-        tileX: tile.tileX,
-        tileY: tile.tileY,
+        areaX: area.areaX,
+        areaY: area.areaY,
         dominantTheme,
         themeColor,
-        themes: tile.themes,
+        themes: area.themes,
       },
       geometry: {
         type: "Polygon",
@@ -265,7 +265,7 @@ function renderTilesOnMap(map, tiles, tileSize = 100) {
   });
 
   // Add source
-  map.addSource("tiles", {
+  map.addSource("areas", {
     type: "geojson",
     data: {
       type: "FeatureCollection",
@@ -276,9 +276,9 @@ function renderTilesOnMap(map, tiles, tileSize = 100) {
   // Add fill layer
   map.addLayer(
     {
-      id: "tiles-fill",
+      id: "areas-fill",
       type: "fill",
-      source: "tiles",
+      source: "areas",
       paint: {
         "fill-color": ["get", "themeColor"],
         "fill-opacity": 0.2,
@@ -289,9 +289,9 @@ function renderTilesOnMap(map, tiles, tileSize = 100) {
 
   // Add border layer
   map.addLayer({
-    id: "tiles-border",
+    id: "areas-border",
     type: "line",
-    source: "tiles",
+    source: "areas",
     paint: {
       "line-color": ["get", "themeColor"],
       "line-width": 2,
@@ -299,8 +299,8 @@ function renderTilesOnMap(map, tiles, tileSize = 100) {
     },
   });
 
-  // Add click listener for tile info
-  map.on("click", "tiles-border", (e) => {
+  // Add click listener for area info
+  map.on("click", "areas-border", (e) => {
     const feature = e.features[0];
     if (feature) {
       const props = feature.properties;
@@ -319,7 +319,7 @@ function renderTilesOnMap(map, tiles, tileSize = 100) {
         .setLngLat(e.lngLat)
         .setHTML(
           `<div class="p-2">
-            <strong>Tile [${props.tileX}, ${props.tileY}]</strong><br>
+            <strong>Area [${props.areaX}, ${props.areaY}]</strong><br>
             Dominant: <strong>${props.dominantTheme}</strong><br>
             <small>${themesText}</small>
           </div>`
@@ -328,23 +328,23 @@ function renderTilesOnMap(map, tiles, tileSize = 100) {
     }
   });
 
-  map.on("mouseenter", "tiles-border", () => {
+  map.on("mouseenter", "areas-border", () => {
     map.getCanvas().style.cursor = "pointer";
   });
 
-  map.on("mouseleave", "tiles-border", () => {
+  map.on("mouseleave", "areas-border", () => {
     map.getCanvas().style.cursor = "";
   });
 }
 
-function clearTilesFromMap(map) {
-  if (map.getLayer("tiles-border")) {
-    map.removeLayer("tiles-border");
+function clearAreasFromMap(map) {
+  if (map.getLayer("areas-border")) {
+    map.removeLayer("areas-border");
   }
-  if (map.getLayer("tiles-fill")) {
-    map.removeLayer("tiles-fill");
+  if (map.getLayer("areas-fill")) {
+    map.removeLayer("areas-fill");
   }
-  if (map.getSource("tiles")) {
-    map.removeSource("tiles");
+  if (map.getSource("areas")) {
+    map.removeSource("areas");
   }
 }

@@ -1,4 +1,4 @@
-import { Building2, Droplet, EyeOff, Leaf, Loader2, RefreshCw, Sprout, User, Users } from "lucide-react";
+import { Building2, CircleHelp, Droplet, EyeOff, Leaf, Loader2, RefreshCw, Sprout, User, Users, X } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 import MapboxZoneMap from "@/components/map/MapboxZoneMap";
 import MapPinDetailOverlay from "@/components/map/MapPinDetailOverlay";
@@ -7,8 +7,10 @@ import ZoneInfoDialog from "@/components/home/ZoneInfoDialog";
 import GoldGradientCard from "@/components/home/GoldGradientCard";
 import { calculateDistanceMetersRaw } from "@/lib/discoveryMap";
 import { computeZoneMultiplierFromScanCount } from "@/lib/robotPlantEconomy";
+import { createZoneSharedInvite } from "@/api/zoneSharedInviteService";
+import { createUserNotification } from "@/api/notificationService";
 
-const TILE_HALF_SIZE_M = 50;
+const AREA_HALF_SIZE_M = 50;
 const ZONE_SCAN_TARGET = 5;
 
 const ZONE_THEME_META = {
@@ -102,11 +104,11 @@ export default function HomeMapFeatureRoot({
   isLoadingClaims,
   hasLiveCachedLocation,
   zoneMapError,
-  tileClaimError,
+  areaClaimError,
   onRequestLocation,
   heroZones,
   nearbyDiscoveryPoints,
-  claimedTiles,
+  claimedAreas,
   cachedLocation,
   heroMapCenter,
   onDiscoveryImageClick,
@@ -127,12 +129,17 @@ export default function HomeMapFeatureRoot({
   genera = [],
   logoAssetCatalog = [],
   friendEmails = [],
+  friendOptions = [],
+  preselectedFriendAuthId = null,
+  senderDisplayName = "",
 }) {
   const [pinOverlayData, setPinOverlayData] = useState(null);
   const [pinVisibilityMode, setPinVisibilityMode] = useState("friends");
   const [isZoneOverviewExpanded, setIsZoneOverviewExpanded] = useState(false);
   const [selectedZoneForDetail, setSelectedZoneForDetail] = useState(null);
   const [isZoneInfoOpen, setIsZoneInfoOpen] = useState(false);
+  const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
+  const [isSendingShare, setIsSendingShare] = useState(false);
 
   const zoneRewardProgressByTheme = useMemo(() => {
     const unlockedRewardIds = new Set(
@@ -343,11 +350,46 @@ export default function HomeMapFeatureRoot({
     });
   }, [selectedZoneForDetail, openZoneSelection]);
 
-  // ── Claim tile click handler ──────────────────────────────────────────────
+  const handleOpenMoreInfoForSelectedZone = useCallback(() => {
+    if (!selectedZoneForDetail) return;
+    setIsZoneInfoOpen(true);
+  }, [selectedZoneForDetail]);
+
+  const handleShareSelectedZone = useCallback(async (friend) => {
+    if (!selectedZoneForDetail?.sourceZone?.id || !friend?.authId) return;
+    setIsSendingShare(true);
+    try {
+      const invite = await createZoneSharedInvite({
+        recipientAuthId: friend.authId,
+        sourceZoneId: selectedZoneForDetail.sourceZone.id,
+      });
+      const senderName = String(senderDisplayName || "Ein Freund").trim() || "Ein Freund";
+      await createUserNotification({
+        authId: friend.authId,
+        userEmail: friend.email,
+        notificationType: "zone_shared_invite",
+        title: "🌱 Zoneneinladung",
+        message: `${senderName} möchte eine ${selectedZoneForDetail.themeLabel}zone, ${selectedZoneForDetail.distanceLabel} entfernt, mit dir teilen. Möchtest du die Einladung annehmen? Wenn ihr es schafft, in den nächsten 30 Minuten jeweils 5 Entdeckungen in dieser Zone zu machen, könnt ihr beide je 3 Areas aus der Zone erobern und ihr bekommt extra Samen!`,
+        description: JSON.stringify({ inviteId: invite?.id }),
+        actionUrl: "Friends?tab=news",
+        priority: "high",
+        displayLocation: "banner",
+        createdBy: authId || "system",
+      });
+      setIsShareDialogOpen(false);
+      alert(`Einladung an ${friend.name} gesendet.`);
+    } catch (error) {
+      alert(error.message || "Die Zoneneinladung konnte nicht gesendet werden.");
+    } finally {
+      setIsSendingShare(false);
+    }
+  }, [selectedZoneForDetail, authId, senderDisplayName]);
+
+  // ── Claim area click handler ──────────────────────────────────────────────
   const handleClaimSelect = useCallback(
-    ({ tileX, tileY, ownerAuthId }) => {
-      const claim = claimedTiles.find(
-        (c) => Number(c.tileX) === tileX && Number(c.tileY) === tileY
+    ({ areaX, areaY, ownerAuthId }) => {
+      const claim = claimedAreas.find(
+        (c) => Number(c.areaX) === areaX && Number(c.areaY) === areaY
       );
       if (!claim) return;
 
@@ -358,14 +400,14 @@ export default function HomeMapFeatureRoot({
       const latMpd = 111320;
       const lngMpd = Math.abs(111320 * Math.cos((centerLat * Math.PI) / 180)) || 1e-6;
 
-      const pointsInTile = allDiscoveryPoints.filter((p) => {
+      const pointsInArea = allDiscoveryPoints.filter((p) => {
         if (!Number.isFinite(p.lat) || !Number.isFinite(p.lng)) return false;
         const dx = Math.abs((p.lng - centerLng) * lngMpd);
         const dy = Math.abs((p.lat - centerLat) * latMpd);
-        return dx <= TILE_HALF_SIZE_M && dy <= TILE_HALF_SIZE_M;
+        return dx <= AREA_HALF_SIZE_M && dy <= AREA_HALF_SIZE_M;
       });
 
-      let players = groupPointsByPlayer(pointsInTile, ownerAuthId, plants);
+      let players = groupPointsByPlayer(pointsInArea, ownerAuthId, plants);
 
       // Ensure the claim owner is always represented (even if their scans are outside current view)
       if (players.length === 0 || players[0].scannerAuthId !== ownerAuthId) {
@@ -392,7 +434,7 @@ export default function HomeMapFeatureRoot({
 
       setPinOverlayData({ players });
     },
-    [allDiscoveryPoints, claimedTiles, plants]
+    [allDiscoveryPoints, claimedAreas, plants]
   );
 
   const friendEmailSetLower = useMemo(
@@ -451,7 +493,7 @@ export default function HomeMapFeatureRoot({
     ? Math.max(0, Number(zoneRerollsRemaining))
     : "...";
 
-  // Centers the map on the selected zone's origin tile instead of the player's live position.
+  // Centers the map on the selected zone's origin area instead of the player's live position.
   const selectedZoneFocusCenter = useMemo(() => {
     const sourceZone = selectedZoneForDetail?.sourceZone;
     const lat = Number(sourceZone?.centerLat ?? sourceZone?.center_lat);
@@ -538,7 +580,7 @@ export default function HomeMapFeatureRoot({
               fallbackCenter={{ lat: heroMapCenter[0], lng: heroMapCenter[1] }}
               focusCenter={selectedZoneFocusCenter}
               discoveryPoints={displayedDiscoveryPoints}
-              claimedTiles={claimedTiles}
+              claimedAreas={claimedAreas}
               currentAuthId={authId}
               isLightUi={isLightUi}
               onDiscoveryImageClick={onDiscoveryImageClick}
@@ -589,25 +631,36 @@ export default function HomeMapFeatureRoot({
               }`}
             >
               {isRegeneratingZones ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
-              Neu
+              Neu ({rerollsRemainingDisplay})
             </button>
 
-            <div className={`h-8 px-3 rounded-xl border flex items-center text-[11px] md:text-xs font-semibold whitespace-nowrap ${
-              isLightUi
-                ? "border-[#c8ac62]/50 bg-white/85 text-stone-800"
-                : "border-[#f0e5a5]/35 bg-black/72 text-stone-100"
-            }`}>
-              Re-Rolls: {rerollsRemainingDisplay}
-            </div>
+            <button
+              type="button"
+              onClick={handleOpenMoreInfoForSelectedZone}
+              disabled={!selectedZoneForDetail}
+              aria-label="Mehr Infos zur ausgewählten Zone"
+              title="Mehr Infos zur ausgewählten Zone"
+              className={`flex h-8 w-8 items-center justify-center rounded-xl border text-[11px] md:text-xs font-semibold transition-colors ${
+                selectedZoneForDetail
+                  ? isLightUi
+                    ? "border-[#c8ac62]/55 bg-white/90 text-stone-800 hover:bg-white"
+                    : "border-[#f0e5a5]/45 bg-black/72 text-stone-100 hover:bg-black/85"
+                  : isLightUi
+                    ? "border-[#c8ac62]/35 bg-white/70 text-stone-400"
+                    : "border-[#f0e5a5]/25 bg-black/55 text-stone-500"
+              } ${selectedZoneForDetail ? "" : "cursor-not-allowed opacity-60"}`}
+            >
+              <CircleHelp className="h-3.5 w-3.5" />
+            </button>
           </div>
 
-          {(zoneMapError || tileClaimError) && (
+          {(zoneMapError || areaClaimError) && (
             <div className={`absolute left-4 right-4 top-16 z-[1200] rounded-xl border px-3 py-2 text-[11px] md:text-xs font-medium ${
               isLightUi
                 ? "border-red-400/40 bg-red-100/90 text-red-800"
                 : "border-red-300/50 bg-red-950/80 text-red-100"
             }`}>
-              {zoneMapError || `Tile-Claims konnten nicht geladen werden: ${tileClaimError}`}
+              {zoneMapError || `Area-Claims konnten nicht geladen werden: ${areaClaimError}`}
             </div>
           )}
 
@@ -619,7 +672,7 @@ export default function HomeMapFeatureRoot({
                 isLightUi={isLightUi}
                 onClose={() => setSelectedZoneForDetail(null)}
                 onOpenScans={handleOpenScansForSelectedZone}
-                onOpenMoreInfo={() => setIsZoneInfoOpen(true)}
+                onShare={() => setIsShareDialogOpen(true)}
               />
             )}
 
@@ -762,6 +815,41 @@ export default function HomeMapFeatureRoot({
         targetPlants={selectedZoneForDetail?.targetPlants || []}
         onClose={() => setIsZoneInfoOpen(false)}
       />
+
+      {isShareDialogOpen && selectedZoneForDetail && (
+        <div className="fixed inset-0 z-[1500] flex items-center justify-center bg-black/60 px-4" onClick={() => setIsShareDialogOpen(false)}>
+          <div
+            className={`w-full max-w-sm rounded-2xl border p-4 shadow-2xl ${isLightUi ? "border-stone-200 bg-white text-stone-900" : "border-[#f0e5a5]/30 bg-[#1b1914] text-stone-100"}`}
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <h3 className="font-semibold">Zone teilen</h3>
+              <button type="button" onClick={() => setIsShareDialogOpen(false)} aria-label="Schließen">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <p className={`mb-4 text-sm ${isLightUi ? "text-stone-600" : "text-stone-300"}`}>
+              Wähle einen befreundeten Spieler für {selectedZoneForDetail.title}.
+            </p>
+            <div className="grid gap-2">
+              {(friendOptions.filter((friend) => !preselectedFriendAuthId || friend.authId === preselectedFriendAuthId).length === 0) ? (
+                <p className="text-sm text-stone-400">Du hast noch keine geeigneten Freunde.</p>
+              ) : friendOptions.filter((friend) => !preselectedFriendAuthId || friend.authId === preselectedFriendAuthId).map((friend) => (
+                <button
+                  key={friend.authId}
+                  type="button"
+                  disabled={isSendingShare}
+                  onClick={() => handleShareSelectedZone(friend)}
+                  className={`flex items-center justify-between rounded-xl border px-3 py-2 text-left text-sm ${isLightUi ? "border-stone-200 hover:bg-stone-50" : "border-[#f0e5a5]/20 hover:bg-white/10"}`}
+                >
+                  <span>{friend.name}</span>
+                  <span className="text-xs text-emerald-400">Teilen</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </GoldGradientCard>
   );
 }

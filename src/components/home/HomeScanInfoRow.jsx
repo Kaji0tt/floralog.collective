@@ -30,8 +30,8 @@ export default function HomeScanInfoRow({
     {
       Icon: MapPin,
       value: String(conqueredZonesDisplay),
-      label: "Eroberte Tiles",
-      description: "Anzahl der von dir eroberten Tiles.",
+      label: "Eroberte Areas",
+      description: "Anzahl der von dir eroberten Areas.",
     },
 
     {

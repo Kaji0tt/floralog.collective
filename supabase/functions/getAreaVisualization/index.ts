@@ -1,11 +1,11 @@
 /**
- * Admin-only function: Get OSM tile visualization for debugging/admin purposes
- * Shows all tiles in a radius with their assigned themes and highlights them on the map
+ * Admin-only function: Get OSM area visualization for debugging/admin purposes
+ * Shows all areas in a radius with their assigned themes and highlights them on the map
  *
- * Usage: POST /functions/v1/getTileVisualization
+ * Usage: POST /functions/v1/getAreaVisualization
  * Body: { authId, latitude, longitude, radiusM?, showZoneTypes? }
  *
- * Returns: { success, tiles: Array<{ tileX, tileY, centerLat, centerLng, themes: { forest, water, meadow, urban } }> }
+ * Returns: { success, areas: Array<{ areaX, areaY, centerLat, centerLng, themes: { forest, water, meadow, urban } }> }
  */
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -18,14 +18,14 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-const TILE_SIZE_M = 100;
-const CHUNK_SIZE_TILES = 10;
+const AREA_SIZE_M = 100;
+const CHUNK_SIZE_AREAS = 10;
 const DATASET_VERSION = "osm_de_2026_04_10";
 const EPSG_3035 = "+proj=laea +lat_0=52 +lon_0=10 +x_0=4321000 +y_0=3210000 +datum=ETRS89 +units=m +no_defs +type=crs";
 
 proj4.defs("EPSG:3035", EPSG_3035);
 
-interface TileVisualizationRequest {
+interface AreaVisualizationRequest {
   authId?: string;
   latitude?: number;
   longitude?: number;
@@ -33,9 +33,9 @@ interface TileVisualizationRequest {
   showZoneTypes?: boolean;
 }
 
-interface TileData {
-  tileX: number;
-  tileY: number;
+interface AreaData {
+  areaX: number;
+  areaY: number;
   centerLat: number;
   centerLng: number;
   themes: Record<string, number>;
@@ -48,10 +48,10 @@ interface SlimChunkRow {
   chunk_y: number;
 }
 
-interface SlimTileValueRow {
+interface SlimAreaValueRow {
   chunk_id: string;
-  tile_local_x: number;
-  tile_local_y: number;
+  area_local_x: number;
+  area_local_y: number;
   zone_type: number;
   zone_value: number;
 }
@@ -80,11 +80,11 @@ function metricToLngLat(x: number, y: number): { lat: number; lng: number } {
   return { lat, lng };
 }
 
-function getTileCoordinates(lat: number, lng: number): { tileX: number; tileY: number } {
+function getAreaCoordinates(lat: number, lng: number): { areaX: number; areaY: number } {
   const { x, y } = lngLatToMetric(lng, lat);
   return {
-    tileX: Math.floor(x / TILE_SIZE_M),
-    tileY: Math.floor(y / TILE_SIZE_M),
+    areaX: Math.floor(x / AREA_SIZE_M),
+    areaY: Math.floor(y / AREA_SIZE_M),
   };
 }
 
@@ -107,36 +107,36 @@ function getThemeName(zoneType: number): "forest" | "water" | "meadow" | "urban"
   }
 }
 
-function getTileCenter(tileX: number, tileY: number): { lat: number; lng: number } {
-  const centerX = (tileX + 0.5) * TILE_SIZE_M;
-  const centerY = (tileY + 0.5) * TILE_SIZE_M;
+function getAreaCenter(areaX: number, areaY: number): { lat: number; lng: number } {
+  const centerX = (areaX + 0.5) * AREA_SIZE_M;
+  const centerY = (areaY + 0.5) * AREA_SIZE_M;
   return metricToLngLat(centerX, centerY);
 }
 
-function getTilesInRadius(centerLat: number, centerLng: number, radiusM: number): Array<{ tileX: number; tileY: number }> {
+function getAreasInRadius(centerLat: number, centerLng: number, radiusM: number): Array<{ areaX: number; areaY: number }> {
   const { x: centerX, y: centerY } = lngLatToMetric(centerLng, centerLat);
-  const minTileX = Math.floor((centerX - radiusM) / TILE_SIZE_M);
-  const maxTileX = Math.floor((centerX + radiusM) / TILE_SIZE_M);
-  const minTileY = Math.floor((centerY - radiusM) / TILE_SIZE_M);
-  const maxTileY = Math.floor((centerY + radiusM) / TILE_SIZE_M);
+  const minAreaX = Math.floor((centerX - radiusM) / AREA_SIZE_M);
+  const maxAreaX = Math.floor((centerX + radiusM) / AREA_SIZE_M);
+  const minAreaY = Math.floor((centerY - radiusM) / AREA_SIZE_M);
+  const maxAreaY = Math.floor((centerY + radiusM) / AREA_SIZE_M);
 
-  const tiles: Array<{ tileX: number; tileY: number }> = [];
+  const areas: Array<{ areaX: number; areaY: number }> = [];
   const radiusSq = radiusM * radiusM;
 
-  for (let tileX = minTileX; tileX <= maxTileX; tileX += 1) {
-    for (let tileY = minTileY; tileY <= maxTileY; tileY += 1) {
-      const tileCenterX = (tileX + 0.5) * TILE_SIZE_M;
-      const tileCenterY = (tileY + 0.5) * TILE_SIZE_M;
-      const dx = tileCenterX - centerX;
-      const dy = tileCenterY - centerY;
+  for (let areaX = minAreaX; areaX <= maxAreaX; areaX += 1) {
+    for (let areaY = minAreaY; areaY <= maxAreaY; areaY += 1) {
+      const areaCenterX = (areaX + 0.5) * AREA_SIZE_M;
+      const areaCenterY = (areaY + 0.5) * AREA_SIZE_M;
+      const dx = areaCenterX - centerX;
+      const dy = areaCenterY - centerY;
       const distSq = dx * dx + dy * dy;
       if (distSq <= radiusSq) {
-        tiles.push({ tileX, tileY });
+        areas.push({ areaX, areaY });
       }
     }
   }
 
-  return tiles;
+  return areas;
 }
 
 async function fetchChunksInBounds(
@@ -151,7 +151,7 @@ async function fetchChunksInBounds(
 
   while (true) {
     const { data, error } = await adminClient
-      .from("OSMTileChunkLite")
+      .from("OSMAreaChunkLite")
       .select("id, chunk_x, chunk_y")
       .eq("dataset_version", DATASET_VERSION)
       .gte("chunk_x", minChunkX)
@@ -179,11 +179,11 @@ async function fetchChunksInBounds(
   return { rows: allRows, error: null };
 }
 
-async function fetchTileValuesForChunkIds(
+async function fetchAreaValuesForChunkIds(
   adminClient: ReturnType<typeof createClient>,
   chunkIds: string[],
-): Promise<{ rows: SlimTileValueRow[]; error: unknown | null }> {
-  const allRows: SlimTileValueRow[] = [];
+): Promise<{ rows: SlimAreaValueRow[]; error: unknown | null }> {
+  const allRows: SlimAreaValueRow[] = [];
 
   for (let i = 0; i < chunkIds.length; i += CHUNK_ID_BATCH_SIZE) {
     const batchIds = chunkIds.slice(i, i + CHUNK_ID_BATCH_SIZE);
@@ -191,12 +191,12 @@ async function fetchTileValuesForChunkIds(
 
     while (true) {
       const { data, error } = await adminClient
-        .from("OSMTileValue")
-        .select("chunk_id, tile_local_x, tile_local_y, zone_type, zone_value")
+        .from("OSMAreaValue")
+        .select("chunk_id, area_local_x, area_local_y, zone_type, zone_value")
         .in("chunk_id", batchIds)
         .order("chunk_id", { ascending: true })
-        .order("tile_local_x", { ascending: true })
-        .order("tile_local_y", { ascending: true })
+        .order("area_local_x", { ascending: true })
+        .order("area_local_y", { ascending: true })
         .order("zone_type", { ascending: true })
         .range(offset, offset + DB_PAGE_SIZE - 1);
 
@@ -204,7 +204,7 @@ async function fetchTileValuesForChunkIds(
         return { rows: [], error };
       }
 
-      const pageRows = (data || []) as SlimTileValueRow[];
+      const pageRows = (data || []) as SlimAreaValueRow[];
       allRows.push(...pageRows);
 
       if (pageRows.length < DB_PAGE_SIZE) {
@@ -223,7 +223,7 @@ Deno.serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
-  const originDeniedResponse = buildOriginDeniedResponse(req, corsHeaders, "getTileVisualization");
+  const originDeniedResponse = buildOriginDeniedResponse(req, corsHeaders, "getAreaVisualization");
   if (originDeniedResponse) {
     return originDeniedResponse;
   }
@@ -233,7 +233,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    console.log("[getTileVisualization] Request received");
+    console.log("[getAreaVisualization] Request received");
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
     const serviceRoleKey = Deno.env.get("SERVICE_ROLE_KEY");
 
@@ -245,7 +245,7 @@ Deno.serve(async (req) => {
       auth: { persistSession: false },
     });
 
-    const body = (await req.json()) as TileVisualizationRequest;
+    const body = (await req.json()) as AreaVisualizationRequest;
     const authId = String(body.authId || "").trim();
     const latitude = Number(body.latitude || 0);
     const longitude = Number(body.longitude || 0);
@@ -275,17 +275,17 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: "Admin access required" }, 403);
     }
 
-    console.log(`[getTileVisualization] Admin ${authId.substring(0, 8)} requesting tile visualization for (${latitude}, ${longitude}), radius ${radiusM}m`);
+    console.log(`[getAreaVisualization] Admin ${authId.substring(0, 8)} requesting area visualization for (${latitude}, ${longitude}), radius ${radiusM}m`);
 
-    // Get tiles in radius
-    const searchTiles = getTilesInRadius(latitude, longitude, radiusM);
-    console.log(`[getTileVisualization] Found ${searchTiles.length} tiles in radius`);
+    // Get areas in radius
+    const searchAreas = getAreasInRadius(latitude, longitude, radiusM);
+    console.log(`[getAreaVisualization] Found ${searchAreas.length} areas in radius`);
 
     // Calculate chunk bounds
-    const minChunkX = Math.min(...searchTiles.map((tile) => Math.floor(tile.tileX / CHUNK_SIZE_TILES)));
-    const maxChunkX = Math.max(...searchTiles.map((tile) => Math.floor(tile.tileX / CHUNK_SIZE_TILES)));
-    const minChunkY = Math.min(...searchTiles.map((tile) => Math.floor(tile.tileY / CHUNK_SIZE_TILES)));
-    const maxChunkY = Math.max(...searchTiles.map((tile) => Math.floor(tile.tileY / CHUNK_SIZE_TILES)));
+    const minChunkX = Math.min(...searchAreas.map((area) => Math.floor(area.areaX / CHUNK_SIZE_AREAS)));
+    const maxChunkX = Math.max(...searchAreas.map((area) => Math.floor(area.areaX / CHUNK_SIZE_AREAS)));
+    const minChunkY = Math.min(...searchAreas.map((area) => Math.floor(area.areaY / CHUNK_SIZE_AREAS)));
+    const maxChunkY = Math.max(...searchAreas.map((area) => Math.floor(area.areaY / CHUNK_SIZE_AREAS)));
 
     // Query chunks
     const { rows: chunkRows, error: chunkError } = await fetchChunksInBounds(
@@ -297,34 +297,34 @@ Deno.serve(async (req) => {
     );
 
     if (chunkError) {
-      console.error("[getTileVisualization] Chunk query error:", chunkError);
+      console.error("[getAreaVisualization] Chunk query error:", chunkError);
       return jsonResponse({ error: "Failed to query chunks" }, 500);
     }
 
     const chunks = chunkRows;
     if (chunks.length === 0) {
-      return jsonResponse({ success: true, tiles: [] });
+      return jsonResponse({ success: true, areas: [] });
     }
 
     const chunkById = new Map(chunks.map((c) => [c.id, c]));
     const chunkIds = chunks.map((c) => c.id);
 
-    const { rows: tileValueRows, error: tileValueError } = await fetchTileValuesForChunkIds(
+    const { rows: areaValueRows, error: areaValueError } = await fetchAreaValuesForChunkIds(
       adminClient,
       chunkIds,
     );
 
-    if (tileValueError) {
-      console.error("[getTileVisualization] Tile value query error:", tileValueError);
-      return jsonResponse({ error: "Failed to query tile values" }, 500);
+    if (areaValueError) {
+      console.error("[getAreaVisualization] Area value query error:", areaValueError);
+      return jsonResponse({ error: "Failed to query area values" }, 500);
     }
 
-    console.log(`[getTileVisualization] Fetched ${chunks.length} chunks and ${tileValueRows.length} tile-value rows (paginated)`);
+    console.log(`[getAreaVisualization] Fetched ${chunks.length} chunks and ${areaValueRows.length} area-value rows (paginated)`);
 
-    // Aggregate tiles by theme
-    const tileMap = new Map<string, {
-      tileX: number;
-      tileY: number;
+    // Aggregate areas by theme
+    const areaMap = new Map<string, {
+      areaX: number;
+      areaY: number;
       forest: number;
       water: number;
       meadow: number;
@@ -333,16 +333,16 @@ Deno.serve(async (req) => {
       wetlands: number;
     }>();
 
-    const validSearchTileKeys = new Set(searchTiles.map((t) => `${t.tileX}:${t.tileY}`));
-    for (const row of tileValueRows) {
+    const validSearchAreaKeys = new Set(searchAreas.map((t) => `${t.areaX}:${t.areaY}`));
+    for (const row of areaValueRows) {
       const chunk = chunkById.get(row.chunk_id);
       if (!chunk) continue;
 
-      const tileX = chunk.chunk_x * CHUNK_SIZE_TILES + Number(row.tile_local_x);
-      const tileY = chunk.chunk_y * CHUNK_SIZE_TILES + Number(row.tile_local_y);
-      const tileKey = `${tileX}:${tileY}`;
+      const areaX = chunk.chunk_x * CHUNK_SIZE_AREAS + Number(row.area_local_x);
+      const areaY = chunk.chunk_y * CHUNK_SIZE_AREAS + Number(row.area_local_y);
+      const areaKey = `${areaX}:${areaY}`;
 
-      if (!validSearchTileKeys.has(tileKey)) continue;
+      if (!validSearchAreaKeys.has(areaKey)) continue;
 
       const zoneType = Number(row.zone_type) || 0;
       const zoneName = getThemeName(zoneType);
@@ -350,11 +350,11 @@ Deno.serve(async (req) => {
 
       if (zoneValue <= 0) continue;
 
-      let tileData = tileMap.get(tileKey);
-      if (!tileData) {
-        tileData = {
-          tileX,
-          tileY,
+      let areaData = areaMap.get(areaKey);
+      if (!areaData) {
+        areaData = {
+          areaX,
+          areaY,
           forest: 0,
           water: 0,
           meadow: 0,
@@ -362,43 +362,43 @@ Deno.serve(async (req) => {
           beach: 0,
           wetlands: 0,
         };
-        tileMap.set(tileKey, tileData);
+        areaMap.set(areaKey, areaData);
       }
 
       switch (zoneName) {
         case "forest":
-          tileData.forest += zoneValue;
+          areaData.forest += zoneValue;
           break;
         case "water":
-          tileData.water += zoneValue;
+          areaData.water += zoneValue;
           break;
         case "meadow":
-          tileData.meadow += zoneValue;
+          areaData.meadow += zoneValue;
           break;
         case "urban":
-          tileData.urban += zoneValue;
+          areaData.urban += zoneValue;
           break;
         case "beach":
-          tileData.beach += zoneValue;
+          areaData.beach += zoneValue;
           break;
         case "wetlands":
-          tileData.wetlands += zoneValue;
+          areaData.wetlands += zoneValue;
           break;
       }
     }
 
     // Build response
-    const tiles: TileData[] = [];
-    for (const [tileKey, tileData] of tileMap.entries()) {
-      const center = getTileCenter(tileData.tileX, tileData.tileY);
+    const areas: AreaData[] = [];
+    for (const [areaKey, areaData] of areaMap.entries()) {
+      const center = getAreaCenter(areaData.areaX, areaData.areaY);
 
       const themes = {
-        forest: tileData.forest,
-        water: tileData.water,
-        meadow: tileData.meadow,
-        urban: tileData.urban,
-        beach: tileData.beach,
-        wetlands: tileData.wetlands,
+        forest: areaData.forest,
+        water: areaData.water,
+        meadow: areaData.meadow,
+        urban: areaData.urban,
+        beach: areaData.beach,
+        wetlands: areaData.wetlands,
       };
 
       const total = Object.values(themes).reduce((a, b) => a + b, 0);
@@ -412,9 +412,9 @@ Deno.serve(async (req) => {
         }
       }
 
-      tiles.push({
-        tileX: tileData.tileX,
-        tileY: tileData.tileY,
+      areas.push({
+        areaX: areaData.areaX,
+        areaY: areaData.areaY,
         centerLat: center.lat,
         centerLng: center.lng,
         themes: {
@@ -429,17 +429,17 @@ Deno.serve(async (req) => {
       });
     }
 
-    console.log(`[getTileVisualization] Returning ${tiles.length} tiles with theme data`);
+    console.log(`[getAreaVisualization] Returning ${areas.length} areas with theme data`);
 
     return jsonResponse({
       success: true,
-      tilesCount: tiles.length,
-      tileSize: TILE_SIZE_M,
-      chunkSize: CHUNK_SIZE_TILES,
-      tiles,
+      areasCount: areas.length,
+      areaSize: AREA_SIZE_M,
+      chunkSize: CHUNK_SIZE_AREAS,
+      areas,
     });
   } catch (error) {
-    console.error("[getTileVisualization] Error:", error);
+    console.error("[getAreaVisualization] Error:", error);
     return jsonResponse({ error: "Internal server error" }, 500);
   }
 });

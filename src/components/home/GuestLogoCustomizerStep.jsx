@@ -15,7 +15,7 @@ const getSectionOptions = (key, allowedIds) => {
   return section.options.filter((option) => allowedIds.has(option.value));
 };
 
-const OptionTile = ({ option, isSelected, onSelect, isFace }) => (
+const OptionArea = ({ option, isSelected, onSelect, isFace }) => (
   <button
     type="button"
     onClick={() => onSelect(option.value)}
@@ -64,7 +64,7 @@ export default function GuestLogoCustomizerStep({ draft, onSelectFace, onSelectB
         <p className="mb-2 text-xs uppercase tracking-[0.14em] text-amber-100/75">Rahmen</p>
         <div className="grid grid-cols-4 gap-2">
           {borderOptions.map((option) => (
-            <OptionTile
+            <OptionArea
               key={option.id}
               option={option}
               isSelected={draft.selected_border_asset === option.value}
@@ -78,7 +78,7 @@ export default function GuestLogoCustomizerStep({ draft, onSelectFace, onSelectB
         <p className="mb-2 text-xs uppercase tracking-[0.14em] text-amber-100/75">Gesicht</p>
         <div className="grid grid-cols-4 gap-2">
           {faceOptions.map((option) => (
-            <OptionTile
+            <OptionArea
               key={option.id}
               option={option}
               isSelected={draft.selected_face_asset === option.value}

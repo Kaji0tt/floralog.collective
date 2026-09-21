@@ -16,7 +16,8 @@ export async function updateQuestProgress(user) {
       userMonthlyQuests,
       userDiscoveries,
       plants,
-      genera
+      genera,
+      zoneScans
     ] = await Promise.all([
       Query.Quest.list(),
       Query.UserQuest.filter({ auth_id: user.id }),
@@ -25,13 +26,19 @@ export async function updateQuestProgress(user) {
       Query.UserPlantDiscovery.filter({ auth_id: user.id }),
       // listAll() - quest target species can be any plant, list() truncates at 1000 rows.
       Query.Plant.listAll(),
-      Query.PlantGenus.list()
+      Query.PlantGenus.list(),
+      Query.RobotPlantZoneScan.filter({ auth_id: user.id })
     ]);
     // Hilfsfunktion: Berechne Fortschritt für eine Quest
     const calculateProgress = (quest, discoveries, plants, genera) => {
       if (!quest.required_discoveries) return 0;
 
       let matchingDiscoveries = discoveries;
+
+      if (quest.requires_zone_scan) {
+        const zoneDiscoveryIds = new Set(zoneScans.map((scan) => scan.discovery_id));
+        matchingDiscoveries = matchingDiscoveries.filter((discovery) => zoneDiscoveryIds.has(discovery.id));
+      }
 
       // Filter nach Kategorie
       if (quest.category && quest.category !== "Alle") {
@@ -66,6 +73,22 @@ export async function updateQuestProgress(user) {
           matchingDiscoveries = matchingDiscoveries.filter(d => d.plant_id === targetPlant.id);
         } else {
           matchingDiscoveries = [];
+        }
+      }
+
+      if (quest.zone_scan_category) {
+        const categoryByZoneQuest = {
+          all: new Set(['Bäume', 'Blumen', 'Sträucher']),
+          forest: new Set(['Bäume']),
+          flower: new Set(['Blumen']),
+          bush: new Set(['Sträucher'])
+        };
+        const allowedCategories = categoryByZoneQuest[quest.zone_scan_category];
+        if (allowedCategories) {
+          const categoryPlantIds = plants
+            .filter((plant) => allowedCategories.has(plant.genus_category))
+            .map((plant) => plant.id);
+          matchingDiscoveries = matchingDiscoveries.filter((discovery) => categoryPlantIds.includes(discovery.plant_id));
         }
       }
 

@@ -15,6 +15,7 @@ const FRIENDS_NEWS_TYPES = [
   "friend_request_received",
   "friend_achievement",
   "scan_liked",
+  "zone_shared_invite",
 ];
 
 const DISMISSED_BANNERS_KEY = "floralog_dismissed_news_banners";

@@ -2,6 +2,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
+import { respondToZoneSharedInvite } from "@/api/zoneSharedInviteService";
 
 /**
  * Komponente zur Anzeige von Quest-Benachrichtigungen
@@ -118,6 +119,15 @@ export default function QuestNotificationDisplay({ notification, onClose, onMark
     };
 
     const isScanLikedNotification = notification.notification_type === "scan_liked";
+    const isZoneSharedInvite = notification.notification_type === "zone_shared_invite";
+    let zoneInviteId = null;
+    if (isZoneSharedInvite) {
+      try {
+        zoneInviteId = JSON.parse(notification.description || "{}").inviteId || null;
+      } catch {
+        zoneInviteId = null;
+      }
+    }
     const scanLikeParts = isScanLikedNotification ? parseScanLikedMessage(notification.message) : null;
 
     const handleBannerBodyClick = () => {
@@ -145,6 +155,21 @@ export default function QuestNotificationDisplay({ notification, onClose, onMark
       onClose();
       if (notification.action_url) {
         navigate(createPageUrl(notification.action_url));
+      }
+    };
+
+    const handleZoneInviteResponse = async (event, response) => {
+      event.stopPropagation();
+      if (!zoneInviteId) {
+        onClose();
+        return;
+      }
+      try {
+        await respondToZoneSharedInvite({ inviteId: zoneInviteId, response });
+        onMarkAsSeen(notification.id);
+        onClose();
+      } catch (error) {
+        window.alert(error.message || "Die Zoneneinladung konnte nicht verarbeitet werden.");
       }
     };
 
@@ -188,9 +213,31 @@ export default function QuestNotificationDisplay({ notification, onClose, onMark
                 notification.message
               )}
             </span>
+            {isZoneSharedInvite && (
+              <p className="mt-1 text-xs max-w-2xl">
+                Schafft ihr innerhalb der nächsten 30 Minuten jeweils 5 Entdeckungen, erobert ihr beide 3 Areas und erhaltet extra Samen.
+              </p>
+            )}
           </div>
           <div className="flex items-center gap-2">
-            {notification.action_url && (
+            {isZoneSharedInvite ? (
+              <>
+                <button
+                  type="button"
+                  onClick={(event) => handleZoneInviteResponse(event, "accepted")}
+                  className="bg-emerald-700 hover:bg-emerald-800 text-white px-3 py-1 rounded font-semibold text-sm"
+                >
+                  Ja
+                </button>
+                <button
+                  type="button"
+                  onClick={(event) => handleZoneInviteResponse(event, "declined")}
+                  className="bg-stone-700 hover:bg-stone-800 text-white px-3 py-1 rounded font-semibold text-sm"
+                >
+                  Nein
+                </button>
+              </>
+            ) : notification.action_url && (
               <button
                 onClick={handleAnsehenClick}
                 className="bg-amber-600 hover:bg-amber-700 text-white px-4 py-1 rounded font-semibold text-sm"

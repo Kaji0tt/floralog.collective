@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { Query } from "@/api/entities";
 import { getCurrentUser, updateCurrentUserProfile } from "@/api/userApi";
 import { upsertUserProfile } from "@/api/authService";
@@ -12,7 +12,7 @@ import {
   getRobotPlantDailyCareStatus,
   performRobotPlantCareInteraction,
 } from "@/api/robotPlantService";
-import { getUserWallet } from "@/api/walletService";
+import { getAlltimeSeedLeaderboard, getUserAlltimeSeedTotal, getUserWallet } from "@/api/walletService";
 import {
   ensureUserStoryRow,
   getUserStory,
@@ -20,7 +20,7 @@ import {
   updateUserStory,
 } from "@/api/storyService";
 import { getOpenPlantQuiz, submitPlantQuizAnswer } from "@/api/plantQuizService";
-import { getTileClaims } from "@/api/tileClaimService";
+import { getAreaClaims } from "@/api/areaClaimService";
 import { trackAction } from "@/api/analyticsService";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Camera, Loader2, Leaf, Sprout, Users, Scroll, CheckCircle, AlertCircle, TreePine, Building2, Waves, Flower2, MapPin, Smartphone, Sparkles } from "lucide-react";
@@ -29,6 +29,7 @@ import AchievementNotification from "../components/achievements/AchievementNotif
 import ScanFeedbackNotification from "../components/notifications/ScanFeedbackNotification";
 import ScanZoneUnlockNotification from "../components/notifications/ScanZoneUnlockNotification";
 import RandomRewardNotification from "../components/notifications/RandomRewardNotification";
+import ZoneLootboxNotification from "../components/notifications/ZoneLootboxNotification";
 import QuizFeedbackNotification from "../components/notifications/QuizFeedbackNotification";
 import DailyLoginSparkNotification from "../components/notifications/DailyLoginSparkNotification";
 import { useNavigate, useLocation } from "react-router-dom";
@@ -93,12 +94,9 @@ import FlorabotMilestoneOverlay from "@/components/florabot/FlorabotMilestoneOve
 import { getActiveSeason } from "@/lib/seasonConfig";
 import FlorabotContextBubble from "@/components/florabot/FlorabotContextBubble";
 import {
-  pickRandomPhaseAmbientComment,
-  interpolatePercentVariables,
-  buildStoryProfileVariables,
   buildNotificationPayload,
 } from "@/lib/story/storyDefinition";
-import { getSeenMilestoneIds, getNextUnseenMilestone, markMilestoneSeen, FLORABOT_MILESTONES } from "@/lib/florabotMilestones";
+import { getSeenMilestoneIds, getNextUnseenMilestone, markMilestoneSeen, FLORABOT_MILESTONES, FLORABOT_SEASON_START_INTRO } from "@/lib/florabotMilestones";
 
 const THEME_MAP_COLORS = {
   forest: "#007a3f",
@@ -456,6 +454,7 @@ function HomeContent() {
     setScanFeedback(value);
   };
   const [activePanel, setActivePanel] = useState(null);
+  const [zoneShareFriendAuthId, setZoneShareFriendAuthId] = useState(null);
   const [shopOpenCategory, setShopOpenCategory] = useState("root");
   const [scanStreakStatus, setScanStreakStatus] = useState(null);
   const [scanStreakNotice, setScanStreakNotice] = useState(null);
@@ -883,9 +882,9 @@ function HomeContent() {
     refetchOnWindowFocus: true,
   });
 
-  const { data: allRobotPlants = [] } = useQuery({
-    queryKey: ['homeAllRobotPlants'],
-    queryFn: () => Query.RobotPlant.list(),
+  const { data: alltimeSeedLeaderboard = [] } = useQuery({
+    queryKey: ['homeAlltimeSeedLeaderboard'],
+    queryFn: () => getAlltimeSeedLeaderboard(500),
     enabled: !!user?.id,
     initialData: [],
     staleTime: 60 * 1000,
@@ -1003,6 +1002,15 @@ function HomeContent() {
     enabled: !!user?.id,
     initialData: null,
     staleTime: 30 * 1000,
+    refetchOnWindowFocus: true,
+  });
+
+  const { data: userAlltimeSeedTotal = 0 } = useQuery({
+    queryKey: ['userAlltimeSeedTotal', user?.id],
+    queryFn: () => getUserAlltimeSeedTotal(user?.id),
+    enabled: !!user?.id,
+    initialData: 0,
+    staleTime: 60 * 1000,
     refetchOnWindowFocus: true,
   });
 
@@ -1878,15 +1886,15 @@ function HomeContent() {
   const claimsCenterLng = hasLiveCachedLocation ? Number(cachedLocation?.lng) : fallbackClaimCenterLng;
 
   const {
-    data: claimedTiles = [],
-    error: tileClaimsError,
-    isLoading: isTileClaimsLoading,
-    isFetching: isTileClaimsFetching,
-    isFetched: isTileClaimsFetched,
+    data: claimedAreas = [],
+    error: areaClaimsError,
+    isLoading: isAreaClaimsLoading,
+    isFetching: isAreaClaimsFetching,
+    isFetched: isAreaClaimsFetched,
   } = useQuery({
-    queryKey: ["tileClaims", user?.id, claimsCenterLat, claimsCenterLng],
+    queryKey: ["areaClaims", user?.id, claimsCenterLat, claimsCenterLng],
     queryFn: () =>
-      getTileClaims({
+      getAreaClaims({
         latitude: claimsCenterLat,
         longitude: claimsCenterLng,
         radiusM: NEARBY_DISCOVERY_RADIUS_METERS,
@@ -1902,15 +1910,15 @@ function HomeContent() {
 
   const isClaimsPendingForMap =
     activePanel === "map" &&
-    !tileClaimsError &&
-    (isTileClaimsLoading || isTileClaimsFetching || !isTileClaimsFetched);
+    !areaClaimsError &&
+    (isAreaClaimsLoading || isAreaClaimsFetching || !isAreaClaimsFetched);
 
-  const claimedTilesWithLogos = useMemo(() => {
-    if (!Array.isArray(claimedTiles) || claimedTiles.length === 0) {
+  const claimedAreasWithLogos = useMemo(() => {
+    if (!Array.isArray(claimedAreas) || claimedAreas.length === 0) {
       return [];
     }
 
-    return claimedTiles.map((claim) => {
+    return claimedAreas.map((claim) => {
       const ownerAuthId = String(claim?.ownerAuthId || "");
       const ownerProfile = allUsers.find((profile) => String(profile?.auth_id || "") === ownerAuthId) || null;
       const ownerLogoAssets = ownerProfile
@@ -1924,16 +1932,13 @@ function HomeContent() {
         ownerLogoFaceUrl: ownerLogoAssets?.face?.imageUrl || "",
       };
     });
-  }, [claimedTiles, allUsers, logoAssets]);
+  }, [claimedAreas, allUsers, logoAssets]);
 
   const isLoadingCriticalData = isLoadingDiscoveries || isLoadingQuests || isLoadingAchievements || isLoadingFriends || isLoadingWeeklyQuests || isLoadingMonthlyQuests || isLoadingCollectionQuests;
 
   // Computed here (before conditional returns) so the useEffect below can reference it
-  // playerSeeds: Uses seasonal seeds when available, falls back to all-time
-  const allTimeSeeds = Math.max(
-    0,
-    Number(robotPlantState?.wallet_balance ?? robotPlantState?.walletBalance ?? 0)
-  );
+  // playerSeeds: Uses seasonal seeds when available, falls back to all-time.
+  const allTimeSeeds = Math.max(0, Number(userAlltimeSeedTotal ?? 0));
   const ownSeasonSeedProgress = useMemo(() => {
     if (!seasonStartDate || !user?.id) return null;
     const ownEntry = (seasonSeedLeaderboard || []).find(
@@ -1962,6 +1967,19 @@ function HomeContent() {
 
   const shouldForcePhase6ByReferral = playerSeeds >= 40000 && referralPhase6UnlockCount > 0;
   const storySeedProgress = shouldForcePhase6ByReferral ? Math.max(playerSeeds, 50000) : playerSeeds;
+  const seasonStartIntroScopedId = buildScopedMilestoneId(
+    milestoneScopeKey,
+    FLORABOT_SEASON_START_INTRO.id,
+  );
+  const shouldShowSeasonStartIntro = Boolean(
+    activeSeason?.id &&
+    userStory?.intro_seen === true &&
+    !storyCreatedThisSession &&
+    !introDismissedThisSessionRef.current &&
+    seasonStartIntroScopedId &&
+    !seenMilestonesInScope.has(FLORABOT_SEASON_START_INTRO.id) &&
+    !dismissedMilestoneIdsRef.current.has(seasonStartIntroScopedId)
+  );
   const questUnlockThreshold = FLORABOT_MILESTONES.find((milestone) => milestone.navHighlight === "quests")?.threshold ?? 1000;
   const isQuestButtonUnlocked = playerSeeds >= questUnlockThreshold;
   const isShopUnlocked = playerSeeds >= 5000;
@@ -2001,8 +2019,13 @@ function HomeContent() {
   // Florabot-Meilensteine prüfen wenn Wallet geladen
   // Must be declared before any conditional returns to satisfy React hook rules
   useEffect(() => {
+    if (!shouldShowSeasonStartIntro || activeMilestone) return;
+    setActiveMilestone(FLORABOT_SEASON_START_INTRO);
+  }, [shouldShowSeasonStartIntro, activeMilestone]);
+
+  useEffect(() => {
     if (!user?.id || !isRobotPlantStateFetched) return;
-    if (activeMilestone) return;
+    if (activeMilestone || shouldShowSeasonStartIntro) return;
 
     const introSeen = userStory
       ? userStory.intro_seen === true
@@ -2058,6 +2081,7 @@ function HomeContent() {
     seenMilestonesInScope,
     mergedSeenMilestoneIds,
     milestoneScopeKey,
+    shouldShowSeasonStartIntro,
   ]);
 
   const dismissFlorabotContextBubble = () => {
@@ -2133,9 +2157,9 @@ function HomeContent() {
     0,
     Number(userWallet?.amber_balance ?? 0)
   );
-  const playerClaimedTiles = Math.max(
+  const playerClaimedAreas = Math.max(
     0,
-    Number(robotPlantState?.claimed_tiles_count ?? robotPlantState?.claimedTilesCount ?? 0)
+    Number(robotPlantState?.claimed_areas_count ?? robotPlantState?.claimedAreasCount ?? 0)
   );
 
   const isPlantHealthPending = Boolean(user?.id) && !isRobotPlantStateFetched;
@@ -2517,6 +2541,25 @@ function HomeContent() {
     })
   );
 
+  const friendOptions = friends
+    .map((friendship) => {
+      const ownEmail = (user?.email || "").toLowerCase();
+      const friendEmail = friendship.request_sent_by?.toLowerCase() === ownEmail
+        ? friendship.request_sent_to
+        : friendship.request_sent_by;
+      const profile = allUsers.find((candidate) => candidate.user_email?.toLowerCase() === friendEmail?.toLowerCase());
+      const authId = profile?.auth_id || (friendship.request_sent_by?.toLowerCase() === ownEmail
+        ? friendship.request_sent_to_auth_id
+        : friendship.request_sent_by_auth_id);
+      if (!authId) return null;
+      return {
+        authId,
+        email: friendEmail,
+        name: profile?.display_name || profile?.full_name || friendEmail || "Unbekannt",
+      };
+    })
+    .filter(Boolean);
+
   const discoveredPlantIdSet = new Set(
     (userDiscoveries || []).map((entry) => entry?.plant_id).filter(Boolean)
   );
@@ -2714,10 +2757,10 @@ function HomeContent() {
       .map((profile) => [profile.auth_id, profile])
   );
 
-  const alltimeGlobalSeedRanking = (allRobotPlants || [])
+  const alltimeGlobalSeedRanking = (alltimeSeedLeaderboard || [])
     .filter((entry) => !!entry?.auth_id)
     .map((entry) => {
-      const seeds = Math.max(0, Number(entry?.wallet_balance ?? entry?.walletBalance ?? 0));
+      const seeds = Math.max(0, Number(entry?.alltime_seed_total ?? 0));
       const profile = profileByAuthId.get(entry.auth_id);
       return {
         authId: entry.auth_id,
@@ -2953,7 +2996,7 @@ function HomeContent() {
     global_seed_rank: ownSeedRank,
     received_likes_count: receivedLikesCount,
     total_seeds: seedMetricValue,
-    claimed_tiles: playerClaimedTiles,
+    claimed_areas: playerClaimedAreas,
     highest_scan_result: ownHighestScanRewardSeeds,
     highest_plant_status: highestPlantStatusValue,
     rarest_plant_score: rarestDiscoveredPlantScore,
@@ -2999,9 +3042,9 @@ function HomeContent() {
     );
   });
   const dailyBonusMultiplier = computeFirstScanOfDayMultiplier(!hasScanToday);
-  const claimedTileMultiplier = 1 + playerClaimedTiles * 0.1;
+  const claimedAreaMultiplier = 1 + playerClaimedAreas * 0.1;
   const knownNextScanMultiplier =
-    streakMultiplier * zoneMultiplier * careMultiplier * dailyBonusMultiplier * claimedTileMultiplier;
+    streakMultiplier * zoneMultiplier * careMultiplier * dailyBonusMultiplier * claimedAreaMultiplier;
   const noveltyMinMultiplier = 0.2;
   const noveltyMaxMultiplier = 1;
   const rarityMinMultiplier = 1;
@@ -3023,7 +3066,7 @@ function HomeContent() {
       : null;
   const playerSeedsDisplay = Math.max(0, Math.round(Number(seedMetricValue) || 0)).toLocaleString("de-DE");
   const allTimeSeedsDisplay = Math.max(0, Math.round(Number(allTimeSeeds) || 0)).toLocaleString("de-DE");
-  const conqueredZonesDisplay = Math.max(0, Math.round(Number(playerClaimedTiles) || 0)).toLocaleString("de-DE");
+  const conqueredZonesDisplay = Math.max(0, Math.round(Number(playerClaimedAreas) || 0)).toLocaleString("de-DE");
   const healthSeedBonusDisplay = Math.max(0, Math.round(Number(healthStateBonus) || 0));
 
   const formatMultiplier = (value) => {
@@ -3502,19 +3545,34 @@ function HomeContent() {
 
       <AnimatePresence>
         {showRandomReward && randomRewardQueue.length > 0 && (
-          <RandomRewardNotification
-            reward={randomRewardQueue[0]}
-            remainingCount={Math.max(0, randomRewardQueue.length - 1)}
-            onComplete={() => {
-              setRandomRewardQueue((prevQueue) => {
-                const nextQueue = prevQueue.slice(1);
-                if (nextQueue.length === 0) {
-                  setShowRandomReward(false);
-                }
-                return nextQueue;
-              });
-            }}
-          />
+          randomRewardQueue[0]?.type === "lootbox" ? (
+            <ZoneLootboxNotification
+              reward={randomRewardQueue[0]}
+              onComplete={() => {
+                setRandomRewardQueue((prevQueue) => {
+                  const nextQueue = prevQueue.slice(1);
+                  if (nextQueue.length === 0) {
+                    setShowRandomReward(false);
+                  }
+                  return nextQueue;
+                });
+              }}
+            />
+          ) : (
+            <RandomRewardNotification
+              reward={randomRewardQueue[0]}
+              remainingCount={Math.max(0, randomRewardQueue.length - 1)}
+              onComplete={() => {
+                setRandomRewardQueue((prevQueue) => {
+                  const nextQueue = prevQueue.slice(1);
+                  if (nextQueue.length === 0) {
+                    setShowRandomReward(false);
+                  }
+                  return nextQueue;
+                });
+              }}
+            />
+          )
         )}
       </AnimatePresence>
 
@@ -3862,6 +3920,10 @@ function HomeContent() {
                     onRequestClose={() => setActivePanel(null)}
                     onHeaderMetaChange={setEmbeddedHeaderMeta}
                     openAddFriendDialogNonce={embeddedFriendsAddDialogNonce}
+                    onRequestZoneShareWithFriend={(friendAuthId) => {
+                      setZoneShareFriendAuthId(friendAuthId);
+                      setActivePanel("map");
+                    }}
                   />
                 ) : activePanel === "shop" ? (
                   <ShopFeatureRoot
@@ -3889,11 +3951,11 @@ function HomeContent() {
                     isLoadingClaims={isClaimsPendingForMap}
                     hasLiveCachedLocation={hasLiveCachedLocation}
                     zoneMapError={zoneMapError}
-                    tileClaimError={tileClaimsError ? String(tileClaimsError?.message || tileClaimsError) : null}
+                    areaClaimError={areaClaimsError ? String(areaClaimsError?.message || areaClaimsError) : null}
                     onRequestLocation={handleOpenHeroZoneMap}
                     heroZones={heroZones}
                     nearbyDiscoveryPoints={nearbyDiscoveryPoints}
-                    claimedTiles={claimedTilesWithLogos}
+                    claimedAreas={claimedAreasWithLogos}
                     cachedLocation={cachedLocation}
                     heroMapCenter={heroMapCenter}
                     onDiscoveryImageClick={handleDiscoveryImageClick}
@@ -3915,6 +3977,8 @@ function HomeContent() {
                     genera={genera}
                     logoAssetCatalog={logoAssets}
                     friendEmails={[...friendEmailSet]}
+                    friendOptions={friendOptions}
+                    preselectedFriendAuthId={zoneShareFriendAuthId}
                   />
                 ) : (
                   <section data-ui="home-plant-hero-section" className="relative flex-1 min-h-0 rounded-3xl px-[clamp(0.25rem,1vw,0.75rem)] pt-[clamp(0.1rem,0vh,0.5rem)] pb-[clamp(0.12rem,0.35vh,0.28rem)] flex flex-col gap-2 bg-transparent">

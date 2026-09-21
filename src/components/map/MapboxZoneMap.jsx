@@ -5,15 +5,15 @@ import proj4 from "proj4";
 import { hexToFilter } from "@/lib/hexToFilter";
 import { NEARBY_DISCOVERY_RADIUS_METERS } from "@/lib/discoveryMap";
 
-// Must match the EPSG:3035 definition used by the backend tile grid (see e.g.
-// supabase/functions/robotPlantDailyZones/index.ts) so the sonar grid lines up with real game tiles.
+// Must match the EPSG:3035 definition used by the backend area grid (see e.g.
+// supabase/functions/robotPlantDailyZones/index.ts) so the sonar grid lines up with real game areas.
 const EPSG_3035 = "+proj=laea +lat_0=52 +lon_0=10 +x_0=4321000 +y_0=3210000 +datum=ETRS89 +units=m +no_defs +type=crs";
 proj4.defs("EPSG:3035", EPSG_3035);
-const toGameTileMeters = (lng, lat) => {
+const toGameAreaMeters = (lng, lat) => {
   const [x, y] = proj4("EPSG:4326", "EPSG:3035", [lng, lat]);
   return { x, y };
 };
-const toLngLatFromGameTileMeters = (x, y) => {
+const toLngLatFromGameAreaMeters = (x, y) => {
   const [lng, lat] = proj4("EPSG:3035", "EPSG:4326", [x, y]);
   return { lng, lat };
 };
@@ -32,16 +32,16 @@ const THEME_MAP_LABELS = {
   meadow: "Meadow",
 };
 
-const TILE_HALF_SIZE_M = 50;
-// Same size as the authoritative backend tile grid (EPSG:3035, 100m tiles - see TILE_SIZE_M in
-// supabase/functions/robotPlantDailyZones, getTileClaims, etc.), so the sonar grid matches real game tiles.
+const AREA_HALF_SIZE_M = 50;
+// Same size as the authoritative backend area grid (EPSG:3035, 100m areas - see AREA_SIZE_M in
+// supabase/functions/robotPlantDailyZones, getAreaClaims, etc.), so the sonar grid matches real game areas.
 const GRID_SPACING_M = 100;
 const GRID_LINE_COLOR = "rgba(94, 234, 212, 0.16)";
 const GRID_LINE_COLOR_MAJOR = "rgba(94, 234, 212, 0.32)";
 
-// Free, tokenless vector tiles (OpenFreeMap, community-hosted OpenMapTiles schema) used purely as a
+// Free, tokenless vector areas (OpenFreeMap, community-hosted OpenMapAreas schema) used purely as a
 // faint silhouette (coastline/water/roads) underneath the sonar grid — no buildings, no 3D, no labels.
-const OPENFREEMAP_SOURCE_URL = "https://tiles.openfreemap.org/planet";
+const OPENFREEMAP_SOURCE_URL = "https://areas.openfreemap.org/planet";
 
 // Dark echo-lot/sonar basemap: near-black background, glowing teal water/roads, no labels or 3D buildings.
 const SONAR_MAP_STYLE = {
@@ -50,7 +50,7 @@ const SONAR_MAP_STYLE = {
     ofm: {
       type: "vector",
       url: OPENFREEMAP_SOURCE_URL,
-      attribution: '&copy; <a href="https://openfreemap.org" target="_blank">OpenFreeMap</a> &copy; <a href="https://www.openmaptiles.org/" target="_blank">OpenMapTiles</a> Data from <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a>',
+      attribution: '&copy; <a href="https://openfreemap.org" target="_blank">OpenFreeMap</a> &copy; <a href="https://www.openmapareas.org/" target="_blank">OpenMapAreas</a> Data from <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a>',
     },
   },
   layers: [
@@ -128,14 +128,14 @@ const GRID_MAX_LINES_PER_AXIS = 400;
 // at map-viewport scale is respected instead of drawing a naive straight line between two endpoints.
 const GRID_LINE_SEGMENTS = 4;
 
-// Builds a grid of GeoJSON lines matching the real EPSG:3035 100m game tiles within the given lng/lat
-// bounds: reprojects the viewport into the same metric CRS the backend uses, snaps to tile boundaries,
+// Builds a grid of GeoJSON lines matching the real EPSG:3035 100m game areas within the given lng/lat
+// bounds: reprojects the viewport into the same metric CRS the backend uses, snaps to area boundaries,
 // then reprojects each line back to lng/lat.
 const buildSonarGridFeatureCollection = (bounds) => {
   if (!bounds) return { type: "FeatureCollection", features: [] };
 
   const corners = [bounds.getSouthWest(), bounds.getNorthWest(), bounds.getNorthEast(), bounds.getSouthEast()];
-  const metricCorners = corners.map((corner) => toGameTileMeters(corner.lng, corner.lat));
+  const metricCorners = corners.map((corner) => toGameAreaMeters(corner.lng, corner.lat));
 
   const padding = GRID_SPACING_M * 2;
   const xMin = Math.min(...metricCorners.map((p) => p.x)) - padding;
@@ -159,7 +159,7 @@ const buildSonarGridFeatureCollection = (bounds) => {
     const coordinates = [];
     for (let i = 0; i <= GRID_LINE_SEGMENTS; i += 1) {
       const y = yMin + ((yMax - yMin) * i) / GRID_LINE_SEGMENTS;
-      const { lng, lat } = toLngLatFromGameTileMeters(x, y);
+      const { lng, lat } = toLngLatFromGameAreaMeters(x, y);
       coordinates.push([lng, lat]);
     }
     features.push({ type: "Feature", geometry: { type: "LineString", coordinates }, properties: { major: isMajor } });
@@ -170,7 +170,7 @@ const buildSonarGridFeatureCollection = (bounds) => {
     const coordinates = [];
     for (let i = 0; i <= GRID_LINE_SEGMENTS; i += 1) {
       const x = xMin + ((xMax - xMin) * i) / GRID_LINE_SEGMENTS;
-      const { lng, lat } = toLngLatFromGameTileMeters(x, y);
+      const { lng, lat } = toLngLatFromGameAreaMeters(x, y);
       coordinates.push([lng, lat]);
     }
     features.push({ type: "Feature", geometry: { type: "LineString", coordinates }, properties: { major: isMajor } });
@@ -246,8 +246,8 @@ const buildClaimPopupHtml = (props, isLightUi) => {
   const ownerName = escapeHtml(props.ownerName || "Unbekannt");
   const ownerScanCount = Math.max(0, Number(props.ownerScanCount || 0));
   const ownerBorderColor = props.ownerBorderColor || "#f0e5a5";
-  const tileX = Number(props.tileX);
-  const tileY = Number(props.tileY);
+  const areaX = Number(props.areaX);
+  const areaY = Number(props.areaY);
   const zoneTitle = `${ownerName}'s Zone`;
 
   const cardBg = isLightUi ? "rgba(255,255,255,0.94)" : "rgba(12,14,17,0.88)";
@@ -263,8 +263,8 @@ const buildClaimPopupHtml = (props, isLightUi) => {
       </div>
       <div style="font-size:12px;color:${bodyColor};line-height:1.58;">
         <div><span style="font-weight:700;">Owner:</span> ${ownerName}</div>
-        <div><span style="font-weight:700;">Scans im Tile:</span> ${ownerScanCount}</div>
-        <div style="color:${mutedColor};margin-top:4px;">Tile ${tileX}/${tileY}</div>
+        <div><span style="font-weight:700;">Scans im Area:</span> ${ownerScanCount}</div>
+        <div style="color:${mutedColor};margin-top:4px;">Area ${areaX}/${areaY}</div>
       </div>
     </div>
   `;
@@ -656,11 +656,11 @@ const getLngLatOffsetByMeters = (lat, lng, offsetXMeter, offsetYMeter) => {
   };
 };
 
-const buildApproxTilePolygon = (centerLat, centerLng) => {
-  const nw = getLngLatOffsetByMeters(centerLat, centerLng, -TILE_HALF_SIZE_M, TILE_HALF_SIZE_M);
-  const ne = getLngLatOffsetByMeters(centerLat, centerLng, TILE_HALF_SIZE_M, TILE_HALF_SIZE_M);
-  const se = getLngLatOffsetByMeters(centerLat, centerLng, TILE_HALF_SIZE_M, -TILE_HALF_SIZE_M);
-  const sw = getLngLatOffsetByMeters(centerLat, centerLng, -TILE_HALF_SIZE_M, -TILE_HALF_SIZE_M);
+const buildApproxAreaPolygon = (centerLat, centerLng) => {
+  const nw = getLngLatOffsetByMeters(centerLat, centerLng, -AREA_HALF_SIZE_M, AREA_HALF_SIZE_M);
+  const ne = getLngLatOffsetByMeters(centerLat, centerLng, AREA_HALF_SIZE_M, AREA_HALF_SIZE_M);
+  const se = getLngLatOffsetByMeters(centerLat, centerLng, AREA_HALF_SIZE_M, -AREA_HALF_SIZE_M);
+  const sw = getLngLatOffsetByMeters(centerLat, centerLng, -AREA_HALF_SIZE_M, -AREA_HALF_SIZE_M);
 
   return [
     [nw.lng, nw.lat],
@@ -671,24 +671,24 @@ const buildApproxTilePolygon = (centerLat, centerLng) => {
   ];
 };
 
-const buildClaimOverlayData = (claimedTiles = []) => {
-  const claimByTileKey = new Map();
-  claimedTiles.forEach((claim) => {
-    const tileX = Number(claim?.tileX);
-    const tileY = Number(claim?.tileY);
-    if (!Number.isFinite(tileX) || !Number.isFinite(tileY)) return;
-    claimByTileKey.set(`${tileX}:${tileY}`, claim);
+const buildClaimOverlayData = (claimedAreas = []) => {
+  const claimByAreaKey = new Map();
+  claimedAreas.forEach((claim) => {
+    const areaX = Number(claim?.areaX);
+    const areaY = Number(claim?.areaY);
+    if (!Number.isFinite(areaX) || !Number.isFinite(areaY)) return;
+    claimByAreaKey.set(`${areaX}:${areaY}`, claim);
   });
 
   const fillFeatures = [];
   const borderFeatures = [];
 
-  claimedTiles.forEach((claim) => {
-    const tileX = Number(claim?.tileX);
-    const tileY = Number(claim?.tileY);
+  claimedAreas.forEach((claim) => {
+    const areaX = Number(claim?.areaX);
+    const areaY = Number(claim?.areaY);
     const centerLat = Number(claim?.centerLat);
     const centerLng = Number(claim?.centerLng);
-    if (!Number.isFinite(tileX) || !Number.isFinite(tileY) || !Number.isFinite(centerLat) || !Number.isFinite(centerLng)) {
+    if (!Number.isFinite(areaX) || !Number.isFinite(areaY) || !Number.isFinite(centerLat) || !Number.isFinite(centerLng)) {
       return;
     }
 
@@ -698,7 +698,7 @@ const buildClaimOverlayData = (claimedTiles = []) => {
     const ownerScanCount = Math.max(0, Number(claim?.ownerScanCount || 0));
     const ownerBorderColor = String(claim?.ownerBorderColor || "").trim() || "#f0e5a5";
 
-    const polygon = buildApproxTilePolygon(centerLat, centerLng);
+    const polygon = buildApproxAreaPolygon(centerLat, centerLng);
     fillFeatures.push({
       type: "Feature",
       geometry: {
@@ -706,8 +706,8 @@ const buildClaimOverlayData = (claimedTiles = []) => {
         coordinates: [polygon],
       },
       properties: {
-        tileX,
-        tileY,
+        areaX,
+        areaY,
         ownerAuthId,
         ownerName,
         claimGroupName,
@@ -716,19 +716,19 @@ const buildClaimOverlayData = (claimedTiles = []) => {
       },
     });
 
-    const tileKey = `${tileX}:${tileY}`;
+    const areaKey = `${areaX}:${areaY}`;
     const neighbors = {
-      north: claimByTileKey.get(`${tileX}:${tileY + 1}`),
-      east: claimByTileKey.get(`${tileX + 1}:${tileY}`),
-      south: claimByTileKey.get(`${tileX}:${tileY - 1}`),
-      west: claimByTileKey.get(`${tileX - 1}:${tileY}`),
+      north: claimByAreaKey.get(`${areaX}:${areaY + 1}`),
+      east: claimByAreaKey.get(`${areaX + 1}:${areaY}`),
+      south: claimByAreaKey.get(`${areaX}:${areaY - 1}`),
+      west: claimByAreaKey.get(`${areaX - 1}:${areaY}`),
     };
 
     const edges = [
-      { id: `${tileKey}:north`, points: [polygon[0], polygon[1]], neighbor: neighbors.north },
-      { id: `${tileKey}:east`, points: [polygon[1], polygon[2]], neighbor: neighbors.east },
-      { id: `${tileKey}:south`, points: [polygon[2], polygon[3]], neighbor: neighbors.south },
-      { id: `${tileKey}:west`, points: [polygon[3], polygon[0]], neighbor: neighbors.west },
+      { id: `${areaKey}:north`, points: [polygon[0], polygon[1]], neighbor: neighbors.north },
+      { id: `${areaKey}:east`, points: [polygon[1], polygon[2]], neighbor: neighbors.east },
+      { id: `${areaKey}:south`, points: [polygon[2], polygon[3]], neighbor: neighbors.south },
+      { id: `${areaKey}:west`, points: [polygon[3], polygon[0]], neighbor: neighbors.west },
     ];
 
     edges.forEach((edge) => {
@@ -765,12 +765,12 @@ const buildClaimOverlayData = (claimedTiles = []) => {
   };
 };
 
-const findClaimForPoint = (point, claimedTiles = []) => {
+const findClaimForPoint = (point, claimedAreas = []) => {
   const pointLat = Number(point?.lat);
   const pointLng = Number(point?.lng);
   if (!Number.isFinite(pointLat) || !Number.isFinite(pointLng)) return null;
 
-  for (const claim of claimedTiles) {
+  for (const claim of claimedAreas) {
     const centerLat = Number(claim?.centerLat);
     const centerLng = Number(claim?.centerLng);
     if (!Number.isFinite(centerLat) || !Number.isFinite(centerLng)) continue;
@@ -780,7 +780,7 @@ const findClaimForPoint = (point, claimedTiles = []) => {
     const dx = (pointLng - centerLng) * (Math.abs(lngMetersPerDegree) < 1e-6 ? 1e-6 : lngMetersPerDegree);
     const dy = (pointLat - centerLat) * latMetersPerDegree;
 
-    if (Math.abs(dx) <= TILE_HALF_SIZE_M && Math.abs(dy) <= TILE_HALF_SIZE_M) {
+    if (Math.abs(dx) <= AREA_HALF_SIZE_M && Math.abs(dy) <= AREA_HALF_SIZE_M) {
       return claim;
     }
   }
@@ -884,7 +884,7 @@ export default function MapboxZoneMap({
   fallbackCenter = null,
   focusCenter = null,
   discoveryPoints = [],
-  claimedTiles = [],
+  claimedAreas = [],
   currentAuthId = null,
   isLightUi = false,
   onTokenError = null,
@@ -1359,7 +1359,7 @@ export default function MapboxZoneMap({
         console.warn("Failed to update visibility layer", e);
       }
 
-      const claimOverlay = buildClaimOverlayData(claimedTiles);
+      const claimOverlay = buildClaimOverlayData(claimedAreas);
       const claimFillSource = map.getSource("hero-claims-fill");
       if (claimFillSource) {
         claimFillSource.setData(claimOverlay.fillFeatureCollection);
@@ -1386,8 +1386,8 @@ export default function MapboxZoneMap({
 
           if (onClaimSelectRef.current) {
             onClaimSelectRef.current({
-              tileX: Number(props.tileX),
-              tileY: Number(props.tileY),
+              areaX: Number(props.areaX),
+              areaY: Number(props.areaY),
               ownerAuthId: props.ownerAuthId || "",
             });
             return;
@@ -1461,7 +1461,7 @@ export default function MapboxZoneMap({
       claimLogoMarkersRef.current = [];
 
       if (!hideClaimLogos) {
-        claimedTiles
+        claimedAreas
           .filter((claim) => Number.isFinite(claim?.centerLat) && Number.isFinite(claim?.centerLng))
           .forEach((claim) => {
             const claimMarkerElement = createClaimLogoMarkerElement(claim, discoveryMarkerScale);
@@ -1480,7 +1480,7 @@ export default function MapboxZoneMap({
         const filteredPoints = discoveryPoints
           .filter((point) => Number.isFinite(point?.lat) && Number.isFinite(point?.lng))
           .filter((point) => {
-            const pointClaim = findClaimForPoint(point, claimedTiles);
+            const pointClaim = findClaimForPoint(point, claimedAreas);
             const scannerAuthId = String(point?.scannerAuthId || "").trim();
             return !(pointClaim && scannerAuthId && String(pointClaim.ownerAuthId || "") === scannerAuthId);
           });
@@ -1590,7 +1590,7 @@ export default function MapboxZoneMap({
     };
   }, [
     allowDiscoveryLike,
-    claimedTiles,
+    claimedAreas,
     currentAuthId,
     discoveryPoints,
     fallbackCenter?.lat,

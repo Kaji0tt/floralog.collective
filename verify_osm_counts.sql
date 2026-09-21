@@ -1,2 +1,2 @@
-select count(*) as osm_tile_value_rows from public."OSMTileValue";
-select count(*) as osm_tile_chunk_rows from public."OSMTileChunkLite";
+select count(*) as osm_area_value_rows from public."OSMAreaValue";
+select count(*) as osm_area_chunk_rows from public."OSMAreaChunkLite";

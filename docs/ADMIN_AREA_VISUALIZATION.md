@@ -1,25 +1,25 @@
-# Admin Tile Visualization - Integration Guide
+# Admin Area Visualization - Integration Guide
 
 ## Overview
 
-The "Tile Show" feature allows admins to visualize OSM tiles in a given area with their assigned themes. This helps debug zone generation and understand how tiles are classified by the backend.
+The "Area Show" feature allows admins to visualize OSM areas in a given area with their assigned themes. This helps debug zone generation and understand how areas are classified by the backend.
 
 ## Components
 
-### 1. Backend: `getTileVisualization` Edge Function
-- **File**: `supabase/functions/getTileVisualization/index.ts`
+### 1. Backend: `getAreaVisualization` Edge Function
+- **File**: `supabase/functions/getAreaVisualization/index.ts`
 - **Access**: Admin only (checks PublicProfile.role == "admin")
 - **Input**: `{ authId, latitude, longitude, radiusM }`
-- **Output**: Array of tiles with theme percentages and dominant theme
+- **Output**: Array of areas with theme percentages and dominant theme
 
 ### 2. Frontend: Service Layer
-- **File**: `src/api/tileVisualizationService.js`
-- **Function**: `getTileVisualization(authId, lat, lng, radiusM)`
-- **Returns**: `{ success, tiles[], tilesCount, tileSize, chunkSize }`
+- **File**: `src/api/areaVisualizationService.js`
+- **Function**: `getAreaVisualization(authId, lat, lng, radiusM)`
+- **Returns**: `{ success, areas[], areasCount, areaSize, chunkSize }`
 
 ### 3. Frontend: UI Component
-- **File**: `src/components/admin/TileVisualizationPanel.jsx`
-- **Component**: `TileVisualizationPanel`
+- **File**: `src/components/admin/AreaVisualizationPanel.jsx`
+- **Component**: `AreaVisualizationPanel`
 - **Props**: `{ map, userLocation, authId, isAdmin }`
 
 ## Integration Steps
@@ -27,7 +27,7 @@ The "Tile Show" feature allows admins to visualize OSM tiles in a given area wit
 ### Step 1: Add component to Home.jsx
 
 ```jsx
-import { TileVisualizationPanel } from "@/components/admin/TileVisualizationPanel";
+import { AreaVisualizationPanel } from "@/components/admin/AreaVisualizationPanel";
 import mapboxgl from "mapbox-gl";
 
 // In your render:
@@ -36,14 +36,14 @@ import mapboxgl from "mapbox-gl";
   userLocation={currentUserLocation}
   fallbackCenter={fallbackCenter}
   onMapReady={(mapInstance) => {
-    // Store map reference for tile visualization
+    // Store map reference for area visualization
     setMapRef(mapInstance);
   }}
 />
 
-{/* Add the tile visualization panel */}
+{/* Add the area visualization panel */}
 {mapRef && (
-  <TileVisualizationPanel
+  <AreaVisualizationPanel
     map={mapRef}
     userLocation={currentUserLocation}
     authId={userId}
@@ -68,7 +68,7 @@ useEffect(() => {
 ### Step 3: Deploy backend function
 
 ```bash
-npx supabase functions deploy getTileVisualization --project-ref YOUR_PROJECT_REF
+npx supabase functions deploy getAreaVisualization --project-ref YOUR_PROJECT_REF
 ```
 
 ## Usage
@@ -77,14 +77,14 @@ npx supabase functions deploy getTileVisualization --project-ref YOUR_PROJECT_RE
 2. **Open Home Page**: Navigate to the home/map view
 3. **Click Grid Icon**: A button with grid icon appears bottom-right (admins only)
 4. **Adjust Radius**: Slider controls search radius (500m - 5000m, default 2000m)
-5. **Load Tiles**: Click "Load Tiles" to fetch and visualize
+5. **Load Areas**: Click "Load Areas" to fetch and visualize
 6. **View Results**: 
-   - Tiles appear as colored grid squares on the map
+   - Areas appear as colored grid squares on the map
    - Colors indicate the dominant theme
-   - Click tiles for detailed theme breakdown
-   - List shows all tiles with percentage breakdown
+   - Click areas for detailed theme breakdown
+   - List shows all areas with percentage breakdown
 
-## Tile Visualization Details
+## Area Visualization Details
 
 ### Colors
 - **Forest**: Dark Green (#007a3f)
@@ -94,21 +94,21 @@ npx supabase functions deploy getTileVisualization --project-ref YOUR_PROJECT_RE
 - **Beach**: Amber (#fbbf24)
 - **Wetlands**: Teal (#14b8a6)
 
-### Tile Size
-- 100m × 100m tiles displayed as squares on the map
+### Area Size
+- 100m × 100m areas displayed as squares on the map
 - Approximate rendering (uses proper EPSG:3035 to lat/lng conversion)
 
 ### Interaction
-- **Hover**: Cursor changes to pointer over tiles
-- **Click**: Popup shows tile coordinates and theme breakdown
-- **List**: Scroll through all tiles with percentage indicators
+- **Hover**: Cursor changes to pointer over areas
+- **Click**: Popup shows area coordinates and theme breakdown
+- **List**: Scroll through all areas with percentage indicators
 
 ## Theme Percentages
 
-Each tile displays the distribution of zone types as percentages:
+Each area displays the distribution of zone types as percentages:
 
 ```
-[Tile X, Y] forest (Dominant Theme)
+[Area X, Y] forest (Dominant Theme)
 ┌─────────────────────────────────┐
 │ forest: 45%  urban: 30%         │
 │ water: 20%   meadow: 5%         │
@@ -120,10 +120,10 @@ Each tile displays the distribution of zone types as percentages:
 ### Check if data is loaded
 1. Open browser DevTools (F12)
 2. Go to Network tab
-3. Filter for "getTileVisualization"
-4. Check response for tiles array
+3. Filter for "getAreaVisualization"
+4. Check response for areas array
 
-### If no tiles show
+### If no areas show
 1. Verify location has OSM data (`radiusM` may need adjustment)
 2. Check admin status: `SELECT role FROM "PublicProfile" WHERE auth_id = '...'`
 3. Check Supabase function logs in dashboard
@@ -131,29 +131,29 @@ Each tile displays the distribution of zone types as percentages:
 ### Performance notes
 - Typical response time: 200-500ms for 2000m radius
 - Max 500 candidates pre-fetched in function (iOS optimization)
-- Mapbox layer rendering: <100ms for typical tile counts
+- Mapbox layer rendering: <100ms for typical area counts
 
-## Advanced: Custom Tile Filtering
+## Advanced: Custom Area Filtering
 
-To show only specific themes, modify the component's `renderTilesOnMap`:
+To show only specific themes, modify the component's `renderAreasOnMap`:
 
 ```jsx
-// Filter tiles by theme before rendering
-const filteredTiles = tiles.filter(tile => 
-  tile.dominantTheme === "forest" // Example: show only forest tiles
+// Filter areas by theme before rendering
+const filteredAreas = areas.filter(area =>
+  area.dominantTheme === "forest" // Example: show only forest areas
 );
 
-renderTilesOnMap(map, filteredTiles, result.tileSize);
+renderAreasOnMap(map, filteredAreas, result.areaSize);
 ```
 
 ## Deployment Checklist
 
-- [ ] Backend function deployed: `getTileVisualization`
-- [ ] Frontend service created: `tileVisualizationService.js`
-- [ ] Component added: `TileVisualizationPanel.jsx`
+- [ ] Backend function deployed: `getAreaVisualization`
+- [ ] Frontend service created: `areaVisualizationService.js`
+- [ ] Component added: `AreaVisualizationPanel.jsx`
 - [ ] Component integrated into Home.jsx with map ref export
 - [ ] Admin test account created with role = "admin"
-- [ ] Tested tile loading in browser
-- [ ] Tiles render with correct colors
+- [ ] Tested area loading in browser
+- [ ] Areas render with correct colors
 - [ ] Click interactions work (popups appear)
 - [ ] Mobile Safari tested (if applicable)

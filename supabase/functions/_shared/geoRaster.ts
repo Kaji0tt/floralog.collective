@@ -2,18 +2,18 @@
  * ⚠️ DEPRECATED MODULE
  *
  * This module implements the old GeoRasterCell-based zone generation system.
- * It has been completely replaced by the slim OSM database architecture (OSMTileChunkLite + OSMTileValue).
+ * It has been completely replaced by the slim OSM database architecture (OSMAreaChunkLite + OSMAreaValue).
  *
  * The new system uses:
  * - EPSG:3035 coordinate transformation (instead of grid indices)
- * - Direct tile-based queries (instead of grid cell manipulation)
+ * - Direct area-based queries (instead of grid cell manipulation)
  * - Pre-computed slim OSM data (instead of on-demand Overpass API initialization)
  *
  * Migration date: April 2026
  * New implementation: supabase/functions/robotPlantDailyZones/index.ts
  *
  * DO NOT USE THIS MODULE IN NEW CODE.
- * Existing code using this module should be refactored to use OSMTileChunkLite/OSMTileValue.
+ * Existing code using this module should be refactored to use OSMAreaChunkLite/OSMAreaValue.
  *
  * This module is kept only for archive/reference purposes.
  */
@@ -131,20 +131,20 @@ async function queryOverpassForBounds(bbox: BoundingBox): Promise<
 
   const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-  const toTiles = (source: BoundingBox, maxSpan = 0.1): BoundingBox[] => {
-    const tiles: BoundingBox[] = [];
+  const toAreas = (source: BoundingBox, maxSpan = 0.1): BoundingBox[] => {
+    const areas: BoundingBox[] = [];
     for (let south = source.south; south < source.north; south += maxSpan) {
       const north = Math.min(source.north, south + maxSpan);
       for (let west = source.west; west < source.east; west += maxSpan) {
         const east = Math.min(source.east, west + maxSpan);
-        tiles.push({ south, west, north, east });
+        areas.push({ south, west, north, east });
       }
     }
-    return tiles;
+    return areas;
   };
 
-  const queryTile = async (tile: BoundingBox) => {
-    const { south, west, north, east } = tile;
+  const queryArea = async (area: BoundingBox) => {
+    const { south, west, north, east } = area;
     const query = `
 [out:json][timeout:20];
 (
@@ -213,9 +213,9 @@ out center;
     throw new Error(`All Overpass endpoints failed (${endpointErrors.join(" | ")})`);
   };
 
-  // Smaller tiles reduce probability of endpoint-side timeout/504 on dense areas.
-  const tiles = toTiles(bbox, 0.05);
-  console.log(`[Overpass] Querying ${tiles.length} tile(s) for bounds: ${bbox.south},${bbox.west},${bbox.north},${bbox.east}`);
+  // Smaller areas reduce probability of endpoint-side timeout/504 on dense areas.
+  const areas = toAreas(bbox, 0.05);
+  console.log(`[Overpass] Querying ${areas.length} area(s) for bounds: ${bbox.south},${bbox.west},${bbox.north},${bbox.east}`);
 
   const unique = new Map<string, {
     centerLat: number;
@@ -226,26 +226,26 @@ out center;
   }>();
 
   let succeeded = 0;
-  for (const [index, tile] of tiles.entries()) {
+  for (const [index, area] of areas.entries()) {
     try {
-      const tileResults = await queryTile(tile);
-      for (const item of tileResults) {
+      const areaResults = await queryArea(area);
+      for (const item of areaResults) {
         unique.set(`${item.osmType}:${item.osmId}`, item);
       }
       succeeded += 1;
-      console.log(`[Overpass] Tile ${index + 1}/${tiles.length} ok (${tileResults.length} elements)`);
+      console.log(`[Overpass] Area ${index + 1}/${areas.length} ok (${areaResults.length} elements)`);
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : String(err);
-      console.warn(`[Overpass] Tile ${index + 1}/${tiles.length} failed: ${errMsg}`);
+      console.warn(`[Overpass] Area ${index + 1}/${areas.length} failed: ${errMsg}`);
     }
   }
 
   if (succeeded === 0) {
-    throw new Error("All Overpass tiles failed");
+    throw new Error("All Overpass areas failed");
   }
 
   const merged = Array.from(unique.values());
-  console.log(`[Overpass] Retrieved ${merged.length} unique elements from ${succeeded}/${tiles.length} tiles`);
+  console.log(`[Overpass] Retrieved ${merged.length} unique elements from ${succeeded}/${areas.length} areas`);
   return merged;
 }
 
@@ -398,16 +398,16 @@ export async function initializeGeoRasterCells(
 ): Promise<{ cellsCreated: number; durationMs: number; warning?: string }> {
   const startTime = Date.now();
 
-  const toTiles = (source: BoundingBox, maxSpan = 0.05): BoundingBox[] => {
-    const tiles: BoundingBox[] = [];
+  const toAreas = (source: BoundingBox, maxSpan = 0.05): BoundingBox[] => {
+    const areas: BoundingBox[] = [];
     for (let south = source.south; south < source.north; south += maxSpan) {
       const north = Math.min(source.north, south + maxSpan);
       for (let west = source.west; west < source.east; west += maxSpan) {
         const east = Math.min(source.east, west + maxSpan);
-        tiles.push({ south, west, north, east });
+        areas.push({ south, west, north, east });
       }
     }
-    return tiles;
+    return areas;
   };
 
   if (options?.forceRefresh) {
@@ -430,19 +430,19 @@ export async function initializeGeoRasterCells(
     }
   }
 
-  const tiles = toTiles(bbox, 0.05);
+  const areas = toAreas(bbox, 0.05);
   let insertedTotal = 0;
   let validTotal = 0;
-  let skippedTiles = 0;
-  let failedTiles = 0;
+  let skippedAreas = 0;
+  let failedAreas = 0;
 
-  console.log(`[Grid] Processing ${tiles.length} tile(s) for initialization`);
+  console.log(`[Grid] Processing ${areas.length} area(s) for initialization`);
 
-  for (const [index, tile] of tiles.entries()) {
-    const startLatIdx = Math.floor(tile.south / GRID_RESOLUTION);
-    const endLatIdx = Math.ceil(tile.north / GRID_RESOLUTION);
-    const startLngIdx = Math.floor(tile.west / GRID_RESOLUTION);
-    const endLngIdx = Math.ceil(tile.east / GRID_RESOLUTION);
+  for (const [index, area] of areas.entries()) {
+    const startLatIdx = Math.floor(area.south / GRID_RESOLUTION);
+    const endLatIdx = Math.ceil(area.north / GRID_RESOLUTION);
+    const startLngIdx = Math.floor(area.west / GRID_RESOLUTION);
+    const endLngIdx = Math.ceil(area.east / GRID_RESOLUTION);
     const expectedCellCount = (endLatIdx - startLatIdx) * (endLngIdx - startLngIdx);
 
     if (!options?.forceRefresh) {
@@ -455,15 +455,15 @@ export async function initializeGeoRasterCells(
         .lt("grid_lng_idx", endLngIdx);
 
       if (!countError && (existingCount || 0) >= expectedCellCount) {
-        skippedTiles += 1;
-        console.log(`[Grid] Tile ${index + 1}/${tiles.length} already initialized (${existingCount}/${expectedCellCount}), skipping`);
+        skippedAreas += 1;
+        console.log(`[Grid] Area ${index + 1}/${areas.length} already initialized (${existingCount}/${expectedCellCount}), skipping`);
         continue;
       }
     }
 
     try {
-      const osmElements = await queryOverpassForBounds(tile);
-      const gridCells = buildRasterGrid(osmElements, tile);
+      const osmElements = await queryOverpassForBounds(area);
+      const gridCells = buildRasterGrid(osmElements, area);
       const cellsArray = Array.from(gridCells.values());
 
       const { error: insertError, data } = await adminClient
@@ -487,26 +487,26 @@ export async function initializeGeoRasterCells(
         .select();
 
       if (insertError) {
-        failedTiles += 1;
-        console.warn(`[Grid] Tile ${index + 1}/${tiles.length} insert failed:`, insertError);
+        failedAreas += 1;
+        console.warn(`[Grid] Area ${index + 1}/${areas.length} insert failed:`, insertError);
         continue;
       }
 
       insertedTotal += data?.length || cellsArray.length;
       validTotal += cellsArray.filter((cell) => cell.is_valid).length;
-      console.log(`[Grid] Tile ${index + 1}/${tiles.length} initialized (${cellsArray.length} cells)`);
-    } catch (tileError) {
-      failedTiles += 1;
-      const errMsg = tileError instanceof Error ? tileError.message : String(tileError);
-      console.warn(`[Grid] Tile ${index + 1}/${tiles.length} failed: ${errMsg}`);
+      console.log(`[Grid] Area ${index + 1}/${areas.length} initialized (${cellsArray.length} cells)`);
+    } catch (areaError) {
+      failedAreas += 1;
+      const errMsg = areaError instanceof Error ? areaError.message : String(areaError);
+      console.warn(`[Grid] Area ${index + 1}/${areas.length} failed: ${errMsg}`);
     }
   }
 
   let warning: string | undefined;
-  if (failedTiles > 0) {
-    warning = `${failedTiles}/${tiles.length} tile(s) failed during initialization; rerun continues with remaining tiles.`;
-  } else if (insertedTotal === 0 && skippedTiles > 0) {
-    warning = "All tiles already initialized";
+  if (failedAreas > 0) {
+    warning = `${failedAreas}/${areas.length} area(s) failed during initialization; rerun continues with remaining areas.`;
+  } else if (insertedTotal === 0 && skippedAreas > 0) {
+    warning = "All areas already initialized";
   } else if (validTotal === 0) {
     warning = "No OSM-backed theme data found in requested cells";
   }

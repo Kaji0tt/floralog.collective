@@ -11,7 +11,7 @@ Floralog is a React + Vite single-page app for exploratory plant discovery and p
 - `docs/` — documentation and runtime parameter specs (see [docs/APP_PARAMS.md](docs/APP_PARAMS.md)).
 
 ## Core pages (entry points in `src/pages`):
-- `Home` — central hub showing profile, quick-access tiles, and the six core areas: `Collection`, `Achievements`, `Quests`, `Friends`, `Scanner`, `Map`.
+- `Home` — central hub showing profile, quick-access areas, and the six core areas: `Collection`, `Achievements`, `Quests`, `Friends`, `Scanner`, `Map`.
 - `Collection` — personal catalogue combining global indices with user photos. Also see `src/components/collection`
 - `Achievements` — personal progress and task lists. Also see `src/components/quests`
 - `Quests` / `Community` — shared/weekly quests and planned team/room features, statistics.

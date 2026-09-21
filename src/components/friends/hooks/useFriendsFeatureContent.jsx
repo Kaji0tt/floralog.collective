@@ -14,7 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { UserPlus, Users, Loader2, Check, X, Bell, UserMinus, Leaf, Trophy, Share2, Plus, Heart, UserCheck, BookOpenText, Clock, Newspaper, Send, ChevronDown, Handshake, ExternalLink, Gift, CheckCircle } from "lucide-react";
+import { UserPlus, Users, Loader2, Check, X, Bell, UserMinus, MapPlus, Leaf, Trophy, Share2, Plus, Heart, UserCheck, BookOpenText, Clock, Newspaper, Send, ChevronDown, Handshake, ExternalLink, Gift, CheckCircle } from "lucide-react";
 import { motion } from "framer-motion";
 import { checkAndUnlockAchievements } from "@/components/achievements/achievementChecker";
 import AchievementNotification from "@/components/achievements/AchievementNotification";
@@ -189,6 +189,7 @@ export function useFriendsFeatureContent({
   onHeaderMetaChange,
   openAddFriendDialogNonce = 0,
   onRequestClose: _onRequestClose = null,
+  onRequestZoneShareWithFriend = null,
 }) {
   const { isLightUi } = useUiTheme();
   const queryClient = useQueryClient();
@@ -583,7 +584,7 @@ export function useFriendsFeatureContent({
     return Array.from(groups.entries()).sort(([a], [b]) => b.localeCompare(a));
   }, [sotwHistory]);
 
-  const NEWS_TYPES = ['gift_received', 'collection_followed', 'friendship_accepted', 'friend_request_received', 'friend_achievement', 'scan_liked', 'admin_broadcast'];
+  const NEWS_TYPES = ['gift_received', 'collection_followed', 'friendship_accepted', 'friend_request_received', 'friend_achievement', 'scan_liked', 'admin_broadcast', 'zone_shared_invite'];
 
   const { data: userNews = [] } = useQuery({
     queryKey: ['friendsNews', user?.id, user?.email],
@@ -1228,6 +1229,8 @@ Viel Spaß beim Entdecken! 🌿`;
         return { icon: Heart, accent: 'text-rose-600', card: 'bg-rose-50 border-rose-200' };
       case 'admin_broadcast':
         return { icon: Newspaper, accent: 'text-emerald-600', card: 'bg-emerald-50 border-emerald-200' };
+      case 'zone_shared_invite':
+        return { icon: MapPlus, accent: 'text-amber-600', card: 'bg-amber-50 border-amber-200' };
       default:
         return { icon: Bell, accent: 'text-stone-600', card: 'bg-stone-50 border-stone-200' };
     }
@@ -1259,6 +1262,7 @@ Viel Spaß beim Entdecken! 🌿`;
   };
 
   const unreadNewsCount = userNews.filter((notification) => notification.seen !== true).length;
+  const unreadZoneInviteCount = userNews.filter((notification) => notification.notification_type === 'zone_shared_invite' && notification.seen !== true).length;
 
   const getPendingRequestFromNews = (newsItem) => {
     if (newsItem.notification_type !== 'friend_request_received' || !user?.email) {
@@ -1555,7 +1559,7 @@ Viel Spaß beim Entdecken! 🌿`;
   const interactiveHoverClass = isLightUi
     ? "hover:border-[#c9ab59]/55 hover:shadow-[0_10px_24px_rgba(162,129,48,0.16)]"
     : "hover:border-[#e3c97b]/60 hover:bg-stone-950/42 hover:shadow-[0_12px_28px_rgba(0,0,0,0.28)]";
-  const friendTileClass = isLightUi
+  const friendAreaClass = isLightUi
     ? "rounded-[1rem] border border-[#c6a54e]/35 bg-white/70"
     : "rounded-[1rem] border border-[#d6b665]/45 bg-stone-950/26 shadow-[inset_0_0_0_1px_rgba(214,182,101,0.14)]";
   const accentBadgeClass = isLightUi
@@ -1796,7 +1800,12 @@ Viel Spaß beim Entdecken! 🌿`;
                             : (isLightUi ? "rgba(200,172,98,0.35)" : "rgba(255,255,255,0.3)"),
                         }}
                       >
-                        <span className="font-medium truncate">{chip.title}</span>
+                        <span className="relative font-medium truncate">
+                          {chip.title}
+                          {chip.id === "friends" && unreadZoneInviteCount > 0 && (
+                            <span aria-label="Neue Zoneneinladung" className="absolute -right-3 -top-1 h-2 w-2 rounded-full bg-red-500" />
+                          )}
+                        </span>
                       </button>
                     );
                   })}
@@ -2373,7 +2382,7 @@ Viel Spaß beim Entdecken! 🌿`;
                         initial={{ opacity: 0, x: -16 }}
                         animate={{ opacity: 1, x: 0 }}
                         transition={{ delay: index * 0.04 }}
-                        className={`${friendTileClass} ${interactiveHoverClass} w-full max-w-full overflow-hidden p-2.5 md:p-3 transition-all flex items-center justify-between gap-2.5`}
+                        className={`${friendAreaClass} ${interactiveHoverClass} w-full max-w-full overflow-hidden p-2.5 md:p-3 transition-all flex items-center justify-between gap-2.5`}
                       >
                         <button
                           onClick={() => {
@@ -2426,6 +2435,20 @@ Viel Spaß beim Entdecken! 🌿`;
                             )}
                           </div>
                         </button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            onRequestZoneShareWithFriend?.(friendData.authId);
+                          }}
+                          disabled={!friendData.authId || !onRequestZoneShareWithFriend}
+                          title="Zone mit diesem Freund teilen"
+                          aria-label={`Zone mit ${friendData.name} teilen`}
+                          className={isLightUi ? "text-emerald-700 hover:bg-emerald-50 w-8 h-8 p-0 flex-shrink-0" : "text-emerald-300 hover:bg-emerald-500/10 w-8 h-8 p-0 flex-shrink-0"}
+                        >
+                          <MapPlus className="w-4 h-4" />
+                        </Button>
                         <Button
                           size="sm"
                           variant="ghost"

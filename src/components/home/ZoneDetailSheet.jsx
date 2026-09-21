@@ -1,4 +1,4 @@
-import { CheckCircle2, Leaf, X } from "lucide-react";
+import { CheckCircle2, Leaf, Share2, X } from "lucide-react";
 import GoldGradientCard from "@/components/home/GoldGradientCard";
 
 // Matches the zone circle colors drawn on the map (THEME_MAP_COLORS in MapboxZoneMap.jsx) so the
@@ -17,10 +17,10 @@ const ZONE_BADGE_THEME_STYLE = {
  *   isLightUi: boolean,
  *   onClose: () => void,
  *   onOpenScans: () => void,
- *   onOpenMoreInfo: () => void,
+ *   onShare: () => void,
  * }} props
  */
-export default function ZoneDetailSheet({ zone, isLightUi, onClose, onOpenScans, onOpenMoreInfo }) {
+export default function ZoneDetailSheet({ zone, isLightUi, onClose, onOpenScans, onShare }) {
   if (!zone) return null;
 
   const targetPlants = Array.isArray(zone.targetPlants) ? zone.targetPlants : [];
@@ -28,6 +28,13 @@ export default function ZoneDetailSheet({ zone, isLightUi, onClose, onOpenScans,
   const previewBorderGradient = isLightUi
     ? "linear-gradient(to bottom right, #e8d9a8, #c8ac62, rgba(143,107,34,0.7))"
     : "linear-gradient(to bottom right, #f0e5a5, rgba(200,172,98,0.85), #8f6b22)";
+  // Same ring-mask technique as the gold border, tinted to each button's own color instead of gold.
+  const scansBorderGradient = isLightUi
+    ? "linear-gradient(to bottom right, #a7f3d0, #059669, rgba(4,120,87,0.75))"
+    : "linear-gradient(to bottom right, #a7f3d0, #10b981, rgba(6,78,59,0.85))";
+  const shareBorderGradient = isLightUi
+    ? "linear-gradient(to bottom right, #fde68a, #d97706, rgba(146,64,14,0.75))"
+    : "linear-gradient(to bottom right, #fde68a, #f59e0b, rgba(120,53,15,0.85))";
 
   return (
     <div className="pointer-events-auto relative shrink-0 px-3 pb-3 pt-2 transition-[opacity] duration-300 sm:px-4">
@@ -166,24 +173,27 @@ export default function ZoneDetailSheet({ zone, isLightUi, onClose, onOpenScans,
             <button
               type="button"
               onClick={onOpenScans}
-              className={`rounded-xl border px-2 py-1.5 text-[11px] font-semibold leading-tight transition-colors ${
+              className={`relative rounded-xl px-2 py-1.5 text-[11px] font-semibold leading-tight transition-colors ${
                 isLightUi
-                  ? "border-emerald-600/40 bg-emerald-600 text-white hover:bg-emerald-500"
-                  : "border-emerald-300/30 bg-emerald-500 text-black hover:bg-emerald-400"
+                  ? "bg-white/70 text-emerald-800 hover:bg-white/90"
+                  : "bg-black/35 text-emerald-100 hover:bg-black/55"
               }`}
             >
               Scans
+              <span aria-hidden="true" className="gold-gradient-border-mask" style={{ background: scansBorderGradient }} />
             </button>
             <button
               type="button"
-              onClick={onOpenMoreInfo}
-              className={`px-2 py-1.5 text-[11px] font-semibold leading-tight transition-colors ${
+              onClick={onShare}
+              className={`relative flex items-center justify-center gap-1 rounded-xl px-2 py-1.5 text-[11px] font-semibold leading-tight transition-colors ${
                 isLightUi
-                  ? "text-stone-700 hover:text-stone-900"
-                  : "text-stone-200 hover:text-stone-50"
+                  ? "bg-white/70 text-amber-800 hover:bg-white/90"
+                  : "bg-black/35 text-amber-100 hover:bg-black/55"
               }`}
             >
-              Mehr Infos
+              <Share2 className="h-3 w-3" />
+              Teilen
+              <span aria-hidden="true" className="gold-gradient-border-mask" style={{ background: shareBorderGradient }} />
             </button>
           </div>
         </div>

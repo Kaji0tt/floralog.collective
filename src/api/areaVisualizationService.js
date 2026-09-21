@@ -1,6 +1,6 @@
 import { supabase } from "@/api/supabaseClient";
 
-export async function getTileVisualization(
+export async function getAreaVisualization(
   authId,
   latitude,
   longitude,
@@ -14,7 +14,7 @@ export async function getTileVisualization(
   }
 
   const response = await fetch(
-    `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/getTileVisualization`,
+    `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/getAreaVisualization`,
     {
       method: "POST",
       headers: {
@@ -32,7 +32,7 @@ export async function getTileVisualization(
 
   if (!response.ok) {
     const error = await response.json();
-    throw new Error(error.error || "Failed to get tile visualization");
+    throw new Error(error.error || "Failed to get area visualization");
   }
 
   return response.json();

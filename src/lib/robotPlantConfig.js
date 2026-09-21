@@ -102,7 +102,7 @@ export const REWARD_FORMULA_CONFIG = Object.freeze({
   },
   zoneMultiplier: {
     min: 1,
-    max: 1.5,
+    max: 2.5,
     default: 1,
     start: 1.5,
     decrementPerAdditionalScan: 0.1,

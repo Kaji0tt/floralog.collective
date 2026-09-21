@@ -7,7 +7,7 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-const TILE_SIZE_M = 100;
+const AREA_SIZE_M = 100;
 const CLAIM_THRESHOLD = 3;
 const SOMMER_2026_CUTOFF = "2026-06-21T00:00:00.000Z";
 const EPSG_3035 = "+proj=laea +lat_0=52 +lon_0=10 +x_0=4321000 +y_0=3210000 +datum=ETRS89 +units=m +no_defs +type=crs";
@@ -19,9 +19,9 @@ type DiscoveryRow = {
   discovery_location: string;
 };
 
-type TileClaimRow = {
-  tile_x: number;
-  tile_y: number;
+type AreaClaimRow = {
+  area_x: number;
+  area_y: number;
   owner_auth_id: string;
   owner_scan_count: number;
   claim_group_name: string | null;
@@ -49,16 +49,16 @@ function parseDiscoveryLocation(location: string | null | undefined): { lat: num
   return { lat, lng };
 }
 
-function getTileFromLatLng(lat: number, lng: number): { tileX: number; tileY: number } {
+function getAreaFromLatLng(lat: number, lng: number): { areaX: number; areaY: number } {
   const [x, y] = proj4("EPSG:4326", "EPSG:3035", [lng, lat]);
   return {
-    tileX: Math.floor(Number(x) / TILE_SIZE_M),
-    tileY: Math.floor(Number(y) / TILE_SIZE_M),
+    areaX: Math.floor(Number(x) / AREA_SIZE_M),
+    areaY: Math.floor(Number(y) / AREA_SIZE_M),
   };
 }
 
-function tileKey(tileX: number, tileY: number): string {
-  return `${tileX}:${tileY}`;
+function areaKey(areaX: number, areaY: number): string {
+  return `${areaX}:${areaY}`;
 }
 
 Deno.serve(async (req) => {
@@ -100,7 +100,7 @@ Deno.serve(async (req) => {
       auth: { persistSession: false },
     });
 
-    console.log("[backfillTileClaims] Loading discoveries since", SOMMER_2026_CUTOFF);
+    console.log("[backfillAreaClaims] Loading discoveries since", SOMMER_2026_CUTOFF);
 
     // 1) Load all discoveries since the summer 2026 season cutoff
     const { data: discoveries, error: discoveriesError } = await adminClient
@@ -112,15 +112,15 @@ Deno.serve(async (req) => {
       .limit(50000);
 
     if (discoveriesError) {
-      console.error("[backfillTileClaims] Failed to load discoveries", discoveriesError);
+      console.error("[backfillAreaClaims] Failed to load discoveries", discoveriesError);
       return jsonResponse({ error: "Failed to load discoveries" }, 500);
     }
 
-    console.log("[backfillTileClaims] Loaded", discoveries?.length ?? 0, "discoveries");
+    console.log("[backfillAreaClaims] Loaded", discoveries?.length ?? 0, "discoveries");
 
-    // 2) Aggregate scan counts per (tile, auth)
-    // scanCountByTile: tileKey → Map<authId, count>
-    const scanCountByTile = new Map<string, Map<string, number>>();
+    // 2) Aggregate scan counts per (area, auth)
+    // scanCountByArea: areaKey → Map<authId, count>
+    const scanCountByArea = new Map<string, Map<string, number>>();
 
     for (const row of (discoveries || []) as DiscoveryRow[]) {
       const coords = parseDiscoveryLocation(row.discovery_location);
@@ -128,40 +128,40 @@ Deno.serve(async (req) => {
       const rowAuthId = String(row.auth_id || "").trim();
       if (!isUuid(rowAuthId)) continue;
 
-      const { tileX, tileY } = getTileFromLatLng(coords.lat, coords.lng);
-      const key = tileKey(tileX, tileY);
+      const { areaX, areaY } = getAreaFromLatLng(coords.lat, coords.lng);
+      const key = areaKey(areaX, areaY);
 
-      if (!scanCountByTile.has(key)) {
-        scanCountByTile.set(key, new Map());
+      if (!scanCountByArea.has(key)) {
+        scanCountByArea.set(key, new Map());
       }
-      const authMap = scanCountByTile.get(key)!;
+      const authMap = scanCountByArea.get(key)!;
       authMap.set(rowAuthId, (authMap.get(rowAuthId) || 0) + 1);
     }
 
-    console.log("[backfillTileClaims] Aggregated", scanCountByTile.size, "distinct tiles");
+    console.log("[backfillAreaClaims] Aggregated", scanCountByArea.size, "distinct areas");
 
-    // 3) Load existing TileClaims
+    // 3) Load existing AreaClaims
     const { data: existingClaims, error: existingError } = await adminClient
-      .from("TileClaim")
-      .select("tile_x, tile_y, owner_auth_id, owner_scan_count, claim_group_name, claimed_at, updated_at")
+      .from("AreaClaim")
+      .select("area_x, area_y, owner_auth_id, owner_scan_count, claim_group_name, claimed_at, updated_at")
       .limit(100000);
 
     if (existingError) {
-      console.error("[backfillTileClaims] Failed to load existing TileClaims", existingError);
+      console.error("[backfillAreaClaims] Failed to load existing AreaClaims", existingError);
       return jsonResponse({ error: "Failed to load existing claims" }, 500);
     }
 
-    const existingByKey = new Map<string, TileClaimRow>();
-    for (const claim of (existingClaims || []) as TileClaimRow[]) {
-      existingByKey.set(tileKey(claim.tile_x, claim.tile_y), claim);
+    const existingByKey = new Map<string, AreaClaimRow>();
+    for (const claim of (existingClaims || []) as AreaClaimRow[]) {
+      existingByKey.set(areaKey(claim.area_x, claim.area_y), claim);
     }
 
-    console.log("[backfillTileClaims] Existing claims:", existingByKey.size);
+    console.log("[backfillAreaClaims] Existing claims:", existingByKey.size);
 
     // 4) Compute desired state
     type DesiredClaim = {
-      tile_x: number;
-      tile_y: number;
+      area_x: number;
+      area_y: number;
       owner_auth_id: string;
       owner_scan_count: number;
       claim_group_name: string | null;
@@ -173,11 +173,11 @@ Deno.serve(async (req) => {
     const deleteKeys: string[] = [];
     const now = new Date().toISOString();
 
-    // All tiles with at least one scan entry
-    for (const [key, authMap] of scanCountByTile) {
-      const [tileXStr, tileYStr] = key.split(":");
-      const tileX = Number(tileXStr);
-      const tileY = Number(tileYStr);
+    // All areas with at least one scan entry
+    for (const [key, authMap] of scanCountByArea) {
+      const [areaXStr, areaYStr] = key.split(":");
+      const areaX = Number(areaXStr);
+      const areaY = Number(areaYStr);
 
       const rankedCounts = Array.from(authMap.entries())
         .sort((a, b) => {
@@ -215,8 +215,8 @@ Deno.serve(async (req) => {
         : null;
 
       upserts.push({
-        tile_x: tileX,
-        tile_y: tileY,
+        area_x: areaX,
+        area_y: areaY,
         owner_auth_id: nextOwnerAuthId,
         owner_scan_count: nextOwnerScanCount,
         claim_group_name: claimGroupName,
@@ -225,15 +225,15 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Any existing claim for a tile that has NO scans at all since cutoff → delete
+    // Any existing claim for a area that has NO scans at all since cutoff → delete
     for (const [key, existing] of existingByKey) {
-      if (!scanCountByTile.has(key) && !deleteKeys.includes(key)) {
+      if (!scanCountByArea.has(key) && !deleteKeys.includes(key)) {
         deleteKeys.push(key);
       }
     }
 
     console.log(
-      `[backfillTileClaims] Plan: ${upserts.length} upserts, ${deleteKeys.length} deletes (dryRun=${dryRun})`,
+      `[backfillAreaClaims] Plan: ${upserts.length} upserts, ${deleteKeys.length} deletes (dryRun=${dryRun})`,
     );
 
     if (dryRun) {
@@ -252,17 +252,17 @@ Deno.serve(async (req) => {
     const BATCH_SIZE = 200;
 
     for (const key of deleteKeys) {
-      const [tileXStr, tileYStr] = key.split(":");
-      const tileX = Number(tileXStr);
-      const tileY = Number(tileYStr);
+      const [areaXStr, areaYStr] = key.split(":");
+      const areaX = Number(areaXStr);
+      const areaY = Number(areaYStr);
       const { error: deleteError } = await adminClient
-        .from("TileClaim")
+        .from("AreaClaim")
         .delete()
-        .eq("tile_x", tileX)
-        .eq("tile_y", tileY);
+        .eq("area_x", areaX)
+        .eq("area_y", areaY);
 
       if (deleteError) {
-        console.warn("[backfillTileClaims] Delete failed for", key, deleteError.message);
+        console.warn("[backfillAreaClaims] Delete failed for", key, deleteError.message);
       } else {
         deletedCount++;
       }
@@ -273,17 +273,17 @@ Deno.serve(async (req) => {
     for (let i = 0; i < upserts.length; i += BATCH_SIZE) {
       const batch = upserts.slice(i, i + BATCH_SIZE);
       const { error: upsertError } = await adminClient
-        .from("TileClaim")
-        .upsert(batch, { onConflict: "tile_x,tile_y", ignoreDuplicates: false });
+        .from("AreaClaim")
+        .upsert(batch, { onConflict: "area_x,area_y", ignoreDuplicates: false });
 
       if (upsertError) {
-        console.error("[backfillTileClaims] Upsert batch failed", upsertError.message);
+        console.error("[backfillAreaClaims] Upsert batch failed", upsertError.message);
         return jsonResponse({ error: "Upsert failed: " + upsertError.message }, 500);
       }
       upsertedCount += batch.length;
     }
 
-    // 7) Sync claimed_tiles_count for all affected RobotPlant rows
+    // 7) Sync claimed_areas_count for all affected RobotPlant rows
     const affectedAuthIds = new Set<string>();
     for (const u of upserts) affectedAuthIds.add(u.owner_auth_id);
     for (const key of deleteKeys) {
@@ -294,36 +294,36 @@ Deno.serve(async (req) => {
     let syncedUsers = 0;
     for (const authId of affectedAuthIds) {
       const { count } = await adminClient
-        .from("TileClaim")
-        .select("tile_x", { count: "exact", head: true })
+        .from("AreaClaim")
+        .select("area_x", { count: "exact", head: true })
         .eq("owner_auth_id", authId);
 
       const claimedCount = Math.max(0, Number(count ?? 0));
 
       const { error: syncError } = await adminClient
         .from("RobotPlant")
-        .update({ claimed_tiles_count: claimedCount })
+        .update({ claimed_areas_count: claimedCount })
         .eq("auth_id", authId);
 
       if (syncError) {
-        console.warn("[backfillTileClaims] RobotPlant sync failed for", authId, syncError.message);
+        console.warn("[backfillAreaClaims] RobotPlant sync failed for", authId, syncError.message);
       } else {
         syncedUsers++;
       }
     }
 
-    console.log(`[backfillTileClaims] Done: ${upsertedCount} upserted, ${deletedCount} deleted, ${syncedUsers} users synced`);
+    console.log(`[backfillAreaClaims] Done: ${upsertedCount} upserted, ${deletedCount} deleted, ${syncedUsers} users synced`);
 
     return jsonResponse({
       success: true,
       upsertedCount,
       deletedCount,
       syncedUsers,
-      tilesEvaluated: scanCountByTile.size,
+      areasEvaluated: scanCountByArea.size,
       discoveriesLoaded: discoveries?.length ?? 0,
     });
   } catch (error) {
-    console.error("[backfillTileClaims] Unexpected error", error);
+    console.error("[backfillAreaClaims] Unexpected error", error);
     return jsonResponse({ error: "Unexpected error: " + String(error) }, 500);
   }
 });

@@ -12,10 +12,10 @@ const getCurrentAuthId = async () => {
   return authId;
 };
 
-export const getTileClaims = async ({ latitude, longitude, radiusM = 1500 }) => {
+export const getAreaClaims = async ({ latitude, longitude, radiusM = 1500 }) => {
   const authId = await getCurrentAuthId();
 
-  const { data, error } = await supabase.functions.invoke("getTileClaims", {
+  const { data, error } = await supabase.functions.invoke("getAreaClaims", {
     body: {
       authId,
       latitude,
@@ -29,26 +29,26 @@ export const getTileClaims = async ({ latitude, longitude, radiusM = 1500 }) => 
   }
 
   if (!data?.success) {
-    throw new Error(data?.error || "Failed to load tile claims");
+    throw new Error(data?.error || "Areal-Ansprueche konnten nicht geladen werden.");
   }
 
   return Array.isArray(data.claims) ? data.claims : [];
 };
 
-export const renameTileClaimGroupName = async ({ tileX, tileY, groupName }) => {
+export const renameAreaClaimGroupName = async ({ areaX, areaY, groupName }) => {
   const authId = await getCurrentAuthId();
 
-  const { data, error } = await supabase.functions.invoke("renameTileClaimGroup", {
+  const { data, error } = await supabase.functions.invoke("renameAreaClaimGroup", {
     body: {
       authId,
-      tileX,
-      tileY,
+      areaX,
+      areaY,
       groupName,
     },
   });
 
   if (error) {
-    let resolvedMessage = error.message || "Tile name konnte nicht gespeichert werden.";
+    let resolvedMessage = error.message || "Arealname konnte nicht gespeichert werden.";
 
     try {
       const details = await error.context?.json?.();
@@ -63,7 +63,7 @@ export const renameTileClaimGroupName = async ({ tileX, tileY, groupName }) => {
   }
 
   if (!data?.success) {
-    throw new Error(data?.error || "Tile name konnte nicht gespeichert werden.");
+    throw new Error(data?.error || "Arealname konnte nicht gespeichert werden.");
   }
 
   return data;

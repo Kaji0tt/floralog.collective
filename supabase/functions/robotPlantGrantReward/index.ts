@@ -63,16 +63,16 @@ type RewardBreakdown = {
   noveltyMultiplier: number;
   careMultiplier: number;
   firstScanOfDayMultiplier: number;
-  preTileClaimReward?: number;
-  tileClaimMultiplier?: number;
-  claimedTilesCount?: number;
+  preAreaClaimReward?: number;
+  areaClaimMultiplier?: number;
+  claimedAreasCount?: number;
   preStreakReward: number;
   finalReward: number;
 };
 
-type TileClaimRow = {
-  tile_x: number;
-  tile_y: number;
+type AreaClaimRow = {
+  area_x: number;
+  area_y: number;
   owner_auth_id: string;
   owner_scan_count: number;
   claim_group_name: string | null;
@@ -80,13 +80,13 @@ type TileClaimRow = {
   updated_at: string;
 };
 
-type TileClaimResolution = {
-  tileX: number;
-  tileY: number;
+type AreaClaimResolution = {
+  areaX: number;
+  areaY: number;
   ownerAuthId: string | null;
   ownerScanCount: number;
-  claimedTilesCountForAuth: number;
-  tileClaimMultiplier: number;
+  claimedAreasCountForAuth: number;
+  areaClaimMultiplier: number;
 };
 
 type ScanRewardContext = {
@@ -105,6 +105,17 @@ type ScanRewardContext = {
 
 const SCAN_EVENT_SOURCES = new Set(["scan", "new_scan", "new_season_scan", "season_rediscovery", "new_global_scan"]);
 
+function isMissingRpcFunctionError(error: unknown): boolean {
+  const maybeError = error as { code?: string; message?: string } | null | undefined;
+  const message = String(maybeError?.message || "").toLowerCase();
+  return (
+    maybeError?.code === "PGRST202" ||
+    maybeError?.code === "42883" ||
+    message.includes("could not find the function") ||
+    message.includes("function public.apply_due_season_seed_reset")
+  );
+}
+
 const REWARD_FORMULA_CONFIG = {
   baseByEvent: {
     scan: 10,
@@ -113,7 +124,7 @@ const REWARD_FORMULA_CONFIG = {
     season_rediscovery: 20,
     new_global_scan: 50,
   },
-  zoneMultiplier: { min: 1, max: 1.5, default: 1, start: 1.5, decrementPerAdditionalScan: 0.1 },
+  zoneMultiplier: { min: 1, max: 2.5, default: 1, start: 1.5, decrementPerAdditionalScan: 0.1 },
   noveltyMultiplier: { min: 0.2, max: 1, decrementPerDuplicateScan: 0.2 },
   careMultiplier: { min: 1, max: 2 },
   firstScanOfDayMultiplier: { min: 1, max: 2, default: 1 },
@@ -153,8 +164,6 @@ const NORMALIZED_RARITY_MULTIPLIERS: Record<string, number> = {
 };
 
 const EARTH_RADIUS_M = 6371000;
-const SCAN_LIKE_CARE_GAIN_DAILY_CAP = 5;
-
 // Scan-Streak retention system (replaces the old login-streak sparks claim).
 const SCAN_STREAK_PFLEGE_BASE_OFFSET = 2;
 const SCAN_STREAK_PFLEGE_CAP = 10;
@@ -170,10 +179,10 @@ const SCAN_STREAK_BOUNDARY_FUNKEN = [5, 10, 20, 30];
 const SCAN_STREAK_BOUNDARY_BERNSTEIN_FROM_INDEX = 3;
 const SCAN_STREAK_BOUNDARY_BERNSTEIN_AMOUNT = 5;
 
-// Minimum scans by one user on a tile to claim it.
+// Minimum scans by one user on a area to claim it.
 // Lowered from 4 → 3: 3 scans at the same location are sufficient to claim.
 const CLAIM_THRESHOLD = 3;
-const TILE_SIZE_M = 100;
+const AREA_SIZE_M = 100;
 const EPSG_3035 = "+proj=laea +lat_0=52 +lon_0=10 +x_0=4321000 +y_0=3210000 +datum=ETRS89 +units=m +no_defs +type=crs";
 
 proj4.defs("EPSG:3035", EPSG_3035);
@@ -463,33 +472,33 @@ const getDistanceBetweenCoordinatesM = (
   return EARTH_RADIUS_M * c;
 };
 
-const getTileFromLatLng = (lat: number, lng: number): { tileX: number; tileY: number } => {
+const getAreaFromLatLng = (lat: number, lng: number): { areaX: number; areaY: number } => {
   const [x, y] = proj4("EPSG:4326", "EPSG:3035", [lng, lat]);
   return {
-    tileX: Math.floor(Number(x) / TILE_SIZE_M),
-    tileY: Math.floor(Number(y) / TILE_SIZE_M),
+    areaX: Math.floor(Number(x) / AREA_SIZE_M),
+    areaY: Math.floor(Number(y) / AREA_SIZE_M),
   };
 };
 
 const resolveAdjacentGroupNameForOwner = async (
   adminClient: ReturnType<typeof createClient>,
   ownerAuthId: string,
-  tileX: number,
-  tileY: number,
+  areaX: number,
+  areaY: number,
 ): Promise<string | null> => {
-  const minTileX = tileX - 1;
-  const maxTileX = tileX + 1;
-  const minTileY = tileY - 1;
-  const maxTileY = tileY + 1;
+  const minAreaX = areaX - 1;
+  const maxAreaX = areaX + 1;
+  const minAreaY = areaY - 1;
+  const maxAreaY = areaY + 1;
 
   const { data: neighbors, error } = await adminClient
-    .from("TileClaim")
-    .select("tile_x, tile_y, claim_group_name, updated_at")
+    .from("AreaClaim")
+    .select("area_x, area_y, claim_group_name, updated_at")
     .eq("owner_auth_id", ownerAuthId)
-    .gte("tile_x", minTileX)
-    .lte("tile_x", maxTileX)
-    .gte("tile_y", minTileY)
-    .lte("tile_y", maxTileY)
+    .gte("area_x", minAreaX)
+    .lte("area_x", maxAreaX)
+    .gte("area_y", minAreaY)
+    .lte("area_y", maxAreaY)
     .order("updated_at", { ascending: false });
 
   if (error) {
@@ -498,10 +507,10 @@ const resolveAdjacentGroupNameForOwner = async (
   }
 
   for (const row of neighbors || []) {
-    const rowTileX = Number(row.tile_x);
-    const rowTileY = Number(row.tile_y);
-    if (!Number.isFinite(rowTileX) || !Number.isFinite(rowTileY)) continue;
-    const manhattanDistance = Math.abs(rowTileX - tileX) + Math.abs(rowTileY - tileY);
+    const rowAreaX = Number(row.area_x);
+    const rowAreaY = Number(row.area_y);
+    if (!Number.isFinite(rowAreaX) || !Number.isFinite(rowAreaY)) continue;
+    const manhattanDistance = Math.abs(rowAreaX - areaX) + Math.abs(rowAreaY - areaY);
     if (manhattanDistance !== 1) continue;
 
     const groupName = String(row.claim_group_name || "").trim();
@@ -513,43 +522,43 @@ const resolveAdjacentGroupNameForOwner = async (
   return null;
 };
 
-const syncClaimedTileCountForUser = async (
+const syncClaimedAreaCountForUser = async (
   adminClient: ReturnType<typeof createClient>,
   authId: string,
 ): Promise<number> => {
   const { count } = await adminClient
-    .from("TileClaim")
-    .select("tile_x", { count: "exact", head: true })
+    .from("AreaClaim")
+    .select("area_x", { count: "exact", head: true })
     .eq("owner_auth_id", authId);
 
   const claimedCount = Math.max(0, Number(count ?? 0));
 
   await adminClient
     .from("RobotPlant")
-    .update({ claimed_tiles_count: claimedCount })
+    .update({ claimed_areas_count: claimedCount })
     .eq("auth_id", authId);
 
   return claimedCount;
 };
 
-const resolveTileClaimForScan = async (
+const resolveAreaClaimForScan = async (
   adminClient: ReturnType<typeof createClient>,
   authId: string,
   discoveryLocation: string | null | undefined,
-): Promise<TileClaimResolution | null> => {
+): Promise<AreaClaimResolution | null> => {
   const discoveryCoords = parseDiscoveryLocation(discoveryLocation);
   if (!discoveryCoords) return null;
 
-  const { tileX, tileY } = getTileFromLatLng(discoveryCoords.lat, discoveryCoords.lng);
+  const { areaX, areaY } = getAreaFromLatLng(discoveryCoords.lat, discoveryCoords.lng);
 
   const { data: existingClaim } = await adminClient
-    .from("TileClaim")
-    .select("tile_x, tile_y, owner_auth_id, owner_scan_count, claim_group_name, claimed_at, updated_at")
-    .eq("tile_x", tileX)
-    .eq("tile_y", tileY)
-    .maybeSingle<TileClaimRow>();
+    .from("AreaClaim")
+    .select("area_x, area_y, owner_auth_id, owner_scan_count, claim_group_name, claimed_at, updated_at")
+    .eq("area_x", areaX)
+    .eq("area_y", areaY)
+    .maybeSingle<AreaClaimRow>();
 
-  // Only count scans from Sommer 2026 (ab 21.06.2026) for zone/tile-claim ownership.
+  // Only count scans from Sommer 2026 (ab 21.06.2026) for zone/area-claim ownership.
   const SOMMER_2026_CUTOFF = "2026-06-21T00:00:00.000Z";
 
   const { data: allDiscoveries, error: allDiscoveriesError } = await adminClient
@@ -561,7 +570,7 @@ const resolveTileClaimForScan = async (
     .limit(50000);
 
   if (allDiscoveriesError) {
-    throw new Error(`Failed to load discoveries for tile claim aggregation: ${allDiscoveriesError.message}`);
+    throw new Error(`Failed to load discoveries for area claim aggregation: ${allDiscoveriesError.message}`);
   }
 
   const scanCountByAuth = new Map<string, number>();
@@ -569,8 +578,8 @@ const resolveTileClaimForScan = async (
   for (const row of allDiscoveries || []) {
     const coords = parseDiscoveryLocation(String(row.discovery_location || ""));
     if (!coords) continue;
-    const rowTile = getTileFromLatLng(coords.lat, coords.lng);
-    if (rowTile.tileX !== tileX || rowTile.tileY !== tileY) continue;
+    const rowArea = getAreaFromLatLng(coords.lat, coords.lng);
+    if (rowArea.areaX !== areaX || rowArea.areaY !== areaY) continue;
 
     const rowAuthId = String(row.auth_id || "").trim();
     if (!isUuid(rowAuthId)) continue;
@@ -613,29 +622,29 @@ const resolveTileClaimForScan = async (
     let claimGroupNameToPersist = existingGroupName;
 
     if (!claimGroupNameToPersist || nextOwnerAuthId !== previousOwnerAuthId) {
-      claimGroupNameToPersist = await resolveAdjacentGroupNameForOwner(adminClient, nextOwnerAuthId, tileX, tileY);
+      claimGroupNameToPersist = await resolveAdjacentGroupNameForOwner(adminClient, nextOwnerAuthId, areaX, areaY);
     }
 
     await adminClient
-      .from("TileClaim")
+      .from("AreaClaim")
       .upsert(
         {
-          tile_x: tileX,
-          tile_y: tileY,
+          area_x: areaX,
+          area_y: areaY,
           owner_auth_id: nextOwnerAuthId,
           owner_scan_count: nextOwnerScanCount,
           claim_group_name: claimGroupNameToPersist,
           claimed_at: existingClaim?.claimed_at || new Date().toISOString(),
           updated_at: new Date().toISOString(),
         },
-        { onConflict: "tile_x,tile_y", ignoreDuplicates: false },
+        { onConflict: "area_x,area_y", ignoreDuplicates: false },
       );
   } else if (existingClaim) {
     await adminClient
-      .from("TileClaim")
+      .from("AreaClaim")
       .delete()
-      .eq("tile_x", tileX)
-      .eq("tile_y", tileY);
+      .eq("area_x", areaX)
+      .eq("area_y", areaY);
   }
 
   const ownersToSync = new Set<string>();
@@ -643,23 +652,23 @@ const resolveTileClaimForScan = async (
   if (previousOwnerAuthId) ownersToSync.add(previousOwnerAuthId);
   if (nextOwnerAuthId) ownersToSync.add(nextOwnerAuthId);
 
-  let claimedTilesCountForAuth = 0;
+  let claimedAreasCountForAuth = 0;
   for (const ownerAuthId of ownersToSync) {
-    const syncedCount = await syncClaimedTileCountForUser(adminClient, ownerAuthId);
+    const syncedCount = await syncClaimedAreaCountForUser(adminClient, ownerAuthId);
     if (ownerAuthId === authId) {
-      claimedTilesCountForAuth = syncedCount;
+      claimedAreasCountForAuth = syncedCount;
     }
   }
 
-  const tileClaimMultiplier = 1 + Math.min(claimedTilesCountForAuth, 10) * 0.1;
+  const areaClaimMultiplier = 1 + Math.min(claimedAreasCountForAuth, 10) * 0.1;
 
   return {
-    tileX,
-    tileY,
+    areaX,
+    areaY,
     ownerAuthId: nextOwnerAuthId,
     ownerScanCount: Math.max(0, Number(nextOwnerScanCount || 0)),
-    claimedTilesCountForAuth,
-    tileClaimMultiplier,
+    claimedAreasCountForAuth,
+    areaClaimMultiplier,
   };
 };
 
@@ -1065,7 +1074,7 @@ Deno.serve(async (req) => {
     let effectiveDataQualityDelta = dataQualityDelta;
     let effectiveCareDelta = careDelta;
     let rewardDetails: RewardBreakdown | null = null;
-    let tileClaimResolution: TileClaimResolution | null = null;
+    let areaClaimResolution: AreaClaimResolution | null = null;
     let zoneSparkReward: Record<string, unknown> | null = null;
     let scanStreakFunkenReward: Record<string, unknown> | null = null;
     let scanStreakBernsteinReward: Record<string, unknown> | null = null;
@@ -1086,22 +1095,22 @@ Deno.serve(async (req) => {
 
       effectiveEventSource = scanContext.eventSource;
       rewardDetails = scanContext.rewardDetails;
-      tileClaimResolution = await resolveTileClaimForScan(
+      areaClaimResolution = await resolveAreaClaimForScan(
         adminClient,
         authId,
         scanContext.discovery.discovery_location,
       );
 
       const baseFinalReward = Math.max(1, Math.round(Number(rewardDetails.finalReward || 0)));
-      const tileClaimMultiplier = Number(tileClaimResolution?.tileClaimMultiplier || 1);
-      const claimedTilesCount = Math.max(0, Number(tileClaimResolution?.claimedTilesCountForAuth || 0));
-      const multipliedFinalReward = Math.max(1, Math.round(baseFinalReward * tileClaimMultiplier));
+      const areaClaimMultiplier = Number(areaClaimResolution?.areaClaimMultiplier || 1);
+      const claimedAreasCount = Math.max(0, Number(areaClaimResolution?.claimedAreasCountForAuth || 0));
+      const multipliedFinalReward = Math.max(1, Math.round(baseFinalReward * areaClaimMultiplier));
 
       rewardDetails = {
         ...rewardDetails,
-        preTileClaimReward: baseFinalReward,
-        tileClaimMultiplier: roundMultiplier(tileClaimMultiplier),
-        claimedTilesCount,
+        preAreaClaimReward: baseFinalReward,
+        areaClaimMultiplier: roundMultiplier(areaClaimMultiplier),
+        claimedAreasCount,
         finalReward: multipliedFinalReward,
       };
 
@@ -1120,12 +1129,12 @@ Deno.serve(async (req) => {
         derived_care_delta: effectiveCareDelta,
         zone_scan_applied: scanContext.matchedZoneId,
         scan_streak: scanContext.scanStreakOutcome,
-        tile_claim: tileClaimResolution
+        area_claim: areaClaimResolution
           ? {
-              tile_x: tileClaimResolution.tileX,
-              tile_y: tileClaimResolution.tileY,
-              owner_auth_id: tileClaimResolution.ownerAuthId,
-              owner_scan_count: tileClaimResolution.ownerScanCount,
+              area_x: areaClaimResolution.areaX,
+              area_y: areaClaimResolution.areaY,
+              owner_auth_id: areaClaimResolution.ownerAuthId,
+              owner_scan_count: areaClaimResolution.ownerScanCount,
             }
           : null,
       };
@@ -1144,29 +1153,11 @@ Deno.serve(async (req) => {
     }
 
     if (effectiveEventSource === "scan_like_received") {
-      const { startIso, endIso } = getUtcDayWindow();
-      const { count: likeRewardsTodayCount, error: likeRewardsTodayError } = await adminClient
-        .from("RobotPlantWalletLedger")
-        .select("id", { count: "exact", head: true })
-        .eq("auth_id", authId)
-        .eq("event_source", "scan_like_received")
-        .gte("created_at", startIso)
-        .lt("created_at", endIso);
-
-      if (likeRewardsTodayError) {
-        console.error("[robotPlantGrantReward] failed to count today's like rewards", likeRewardsTodayError);
-        return jsonResponse({ error: "Failed to validate daily like care limit" }, 500);
-      }
-
-      const likeRewardsToday = Math.max(0, Number(likeRewardsTodayCount ?? 0));
-      const canGrantLikeCare = likeRewardsToday < SCAN_LIKE_CARE_GAIN_DAILY_CAP;
-      effectiveCareDelta = canGrantLikeCare ? 1 : 0;
+      effectiveCareDelta = 0;
 
       metadata = {
         ...metadata,
-        like_care_delta_applied: effectiveCareDelta,
-        like_care_daily_cap: SCAN_LIKE_CARE_GAIN_DAILY_CAP,
-        like_rewards_today_before_apply: likeRewardsToday,
+        like_care_delta_applied: 0,
       };
     }
 
@@ -1178,6 +1169,35 @@ Deno.serve(async (req) => {
       !SCAN_EVENT_SOURCES.has(effectiveEventSource)
     ) {
       effectiveCareDelta = applyRecoveryGain(effectiveCareDelta, currentCareValue);
+    }
+
+    if (SCAN_EVENT_SOURCES.has(effectiveEventSource)) {
+      const todayKey = new Date().toISOString().slice(0, 10);
+      const { error: seasonResetError } = await adminClient.rpc("apply_due_season_seed_reset", {
+        p_today: todayKey,
+      });
+
+      if (seasonResetError) {
+        if (isMissingRpcFunctionError(seasonResetError)) {
+          console.warn("[robotPlantGrantReward] season seed reset RPC unavailable", seasonResetError);
+        } else {
+          console.error("[robotPlantGrantReward] season seed reset failed", seasonResetError);
+          return jsonResponse({ error: "Failed to apply season seed reset" }, 500);
+        }
+      }
+
+      const { error: healthResetError } = await adminClient.rpc("apply_due_robot_health_reset", {
+        p_today: todayKey,
+      });
+
+      if (healthResetError) {
+        if (isMissingRpcFunctionError(healthResetError)) {
+          console.warn("[robotPlantGrantReward] RobotHealth reset RPC unavailable", healthResetError);
+        } else {
+          console.error("[robotPlantGrantReward] RobotHealth reset failed", healthResetError);
+          return jsonResponse({ error: "Failed to apply RobotHealth season reset" }, 500);
+        }
+      }
     }
 
     const { data, error } = await adminClient.rpc("robot_plant_grant_reward", {
@@ -1198,10 +1218,10 @@ Deno.serve(async (req) => {
 
     const result = Array.isArray(data) ? data[0] : data;
 
-    if (tileClaimResolution) {
-      await syncClaimedTileCountForUser(adminClient, authId);
-      if (tileClaimResolution.ownerAuthId && tileClaimResolution.ownerAuthId !== authId) {
-        await syncClaimedTileCountForUser(adminClient, tileClaimResolution.ownerAuthId);
+    if (areaClaimResolution) {
+      await syncClaimedAreaCountForUser(adminClient, authId);
+      if (areaClaimResolution.ownerAuthId && areaClaimResolution.ownerAuthId !== authId) {
+        await syncClaimedAreaCountForUser(adminClient, areaClaimResolution.ownerAuthId);
       }
     }
 
@@ -1307,7 +1327,7 @@ Deno.serve(async (req) => {
         result,
         rewardDetails,
         zoneSparkReward,
-        tileClaim: tileClaimResolution,
+        areaClaim: areaClaimResolution,
         eventSource: effectiveEventSource,
         energyDelta: Math.round(effectiveEnergyDelta),
         dataQualityDelta: Math.round(effectiveDataQualityDelta),

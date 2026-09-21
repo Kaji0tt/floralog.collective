@@ -1,7 +1,7 @@
 # Deployment Checklist – Raster Grid System
 
 ⚠️ **NOTE: This checklist documents the DEPRECATED GeoRasterCell system.** 
-The system has been migrated to slim OSM database (OSMTileChunkLite + OSMTileValue) as of April 2026.
+The system has been migrated to slim OSM database (OSMAreaChunkLite + OSMAreaValue) as of April 2026.
 See `robotPlantDailyZones` function for current implementation.
 
 ## Pre-Deployment
@@ -9,7 +9,7 @@ See `robotPlantDailyZones` function for current implementation.
 - [ ] Backup your database (recommended)
 - [ ] Review migration file: `migrations/021_create_geo_raster_grid.sql` (DEPRECATED)
 - [ ] Review functions:
-  - [ ] `supabase/functions/robotPlantDailyZones/index.ts` (NOW uses OSMTileChunkLite + OSMTileValue)
+  - [ ] `supabase/functions/robotPlantDailyZones/index.ts` (NOW uses OSMAreaChunkLite + OSMAreaValue)
   - [ ] `supabase/functions/initializeGeoRasterGrid/index.ts` (DEPRECATED - no longer in use)
 - [ ] Ensure you have admin access to Supabase project
 
@@ -29,7 +29,7 @@ supabase migration up
 2. Copy-paste the SQL from `migrations/021_create_geo_raster_grid.sql`
 3. Execute the migration
 4. Verify tables were created: (NOTE: GeoRasterCell system is DEPRECATED)
-   - [ ] ~~`GeoRasterCell` table exists~~ (DEPRECATED - replaced by OSMTileChunkLite)
+   - [ ] ~~`GeoRasterCell` table exists~~ (DEPRECATED - replaced by OSMAreaChunkLite)
    - [ ] ~~`RasterCellQueryLog` table exists~~ (DEPRECATED - no longer needed)
    - [ ] Indexes created (DEPRECATED)
    - [ ] RLS policies in place (DEPRECATED)

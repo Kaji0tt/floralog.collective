@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
   Plus, Target, Calendar, CalendarDays, Trash2, Loader2, 
-  TreeDeciduous, Leaf, Flower2, Sparkles, Check, Edit2, X
+  TreeDeciduous, Leaf, Flower2, Sparkles, Check, Edit2, X, Users
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -33,7 +33,7 @@ const difficultyOptions = [
 ];
 
 const getDefaultSeedRewardForTab = (tab) =>
-  tab === "weekly" ? 1500 : tab === "monthly" ? 1000 : 500;
+  tab === "weekly" ? 1500 : tab === "monthly" ? 1000 : tab === "community" ? 400 : 500;
 
 export default function AdminQuestCreator() {
   const queryClient = useQueryClient();
@@ -75,7 +75,10 @@ export default function AdminQuestCreator() {
     xp_reward: 50,
     seed_reward: getDefaultSeedRewardForTab("quest"),
     icon_emoji: "🗺️",
-    is_active: true
+    is_active: true,
+    radius_m: 50,
+    start_date: "",
+    end_date: ""
   });
 
   // Fetch existing quests
@@ -99,40 +102,49 @@ export default function AdminQuestCreator() {
     queryFn: () => Query.PlantGenus.list(),
   });
 
+  const { data: plants = [] } = useQuery({
+    queryKey: ['plants'],
+    queryFn: () => Query.Plant.listAll(),
+  });
+
+  const { data: communityQuests = [], isLoading: communityLoading } = useQuery({
+    queryKey: ['communityQuests'],
+    queryFn: () => Query.CommunityQuest.list(),
+  });
+
+  const { data: rewardsList = [] } = useQuery({
+    queryKey: ['rewards'],
+    queryFn: () => Query.Reward.list(),
+  });
+
+  const entityNameForTab = (tab) =>
+    tab === "quest" ? "Quest" : tab === "monthly" ? "MonthlyQuest" : tab === "weekly" ? "WeeklyQuest" : "CommunityQuest";
+
+  const queryKeyForTab = (tab) =>
+    tab === "quest" ? 'quests' : tab === "monthly" ? 'monthlyQuests' : tab === "weekly" ? 'weeklyQuests' : 'communityQuests';
+
   // Mutations
   const createQuestMutation = useMutation({
-    mutationFn: async (data) => {
-      const entityName = activeTab === "quest" ? "Quest" : activeTab === "monthly" ? "MonthlyQuest" : "WeeklyQuest";
-      return Query[entityName].create(data);
-    },
+    mutationFn: async (data) => Query[entityNameForTab(activeTab)].create(data),
     onSuccess: () => {
-      const queryKey = activeTab === "quest" ? 'quests' : activeTab === "monthly" ? 'monthlyQuests' : 'weeklyQuests';
-      queryClient.invalidateQueries({ queryKey: [queryKey] });
+      queryClient.invalidateQueries({ queryKey: [queryKeyForTab(activeTab)] });
       resetForm();
     },
   });
 
   const updateQuestMutation = useMutation({
-    mutationFn: async ({ id, data }) => {
-      const entityName = activeTab === "quest" ? "Quest" : activeTab === "monthly" ? "MonthlyQuest" : "WeeklyQuest";
-      return Query[entityName].update(id, data);
-    },
+    mutationFn: async ({ id, data }) => Query[entityNameForTab(activeTab)].update(id, data),
     onSuccess: () => {
-      const queryKey = activeTab === "quest" ? 'quests' : activeTab === "monthly" ? 'monthlyQuests' : 'weeklyQuests';
-      queryClient.invalidateQueries({ queryKey: [queryKey] });
+      queryClient.invalidateQueries({ queryKey: [queryKeyForTab(activeTab)] });
       resetForm();
       setEditingQuest(null);
     },
   });
 
   const deleteQuestMutation = useMutation({
-    mutationFn: async (id) => {
-      const entityName = activeTab === "quest" ? "Quest" : activeTab === "monthly" ? "MonthlyQuest" : "WeeklyQuest";
-      return Query[entityName].delete(id);
-    },
+    mutationFn: async (id) => Query[entityNameForTab(activeTab)].delete(id),
     onSuccess: () => {
-      const queryKey = activeTab === "quest" ? 'quests' : activeTab === "monthly" ? 'monthlyQuests' : 'weeklyQuests';
-      queryClient.invalidateQueries({ queryKey: [queryKey] });
+      queryClient.invalidateQueries({ queryKey: [queryKeyForTab(activeTab)] });
     },
   });
 
@@ -155,7 +167,10 @@ export default function AdminQuestCreator() {
       xp_reward: 50,
       seed_reward: getDefaultSeedRewardForTab(tab),
       icon_emoji: "🗺️",
-      is_active: true
+      is_active: true,
+      radius_m: 50,
+      start_date: "",
+      end_date: ""
     });
     setEditingQuest(null);
   };
@@ -179,9 +194,12 @@ export default function AdminQuestCreator() {
       targets_operator: quest.targets_operator || "UND",
       target_plants: quest.target_plants || [],
       xp_reward: quest.xp_reward || 50,
-      seed_reward: quest.seed_reward || (activeTab === "weekly" ? 1500 : activeTab === "monthly" ? 1000 : 500),
+      seed_reward: quest.seed_reward || getDefaultSeedRewardForTab(activeTab),
       icon_emoji: quest.icon_emoji || "🗺️",
-      is_active: quest.is_active !== undefined ? quest.is_active : true
+      is_active: quest.is_active !== undefined ? quest.is_active : true,
+      radius_m: quest.radius_m || 50,
+      start_date: quest.start_date ? quest.start_date.slice(0, 16) : "",
+      end_date: quest.end_date ? quest.end_date.slice(0, 16) : ""
     });
   };
 
@@ -195,8 +213,14 @@ export default function AdminQuestCreator() {
       requirement: formData.requirement,
       category: formData.category,
       required_discoveries: parseInt(formData.required_discoveries) || undefined,
-      seed_reward: parseInt(formData.seed_reward) || (activeTab === "weekly" ? 1500 : activeTab === "monthly" ? 1000 : 500),
+      seed_reward: parseInt(formData.seed_reward) || getDefaultSeedRewardForTab(activeTab),
     };
+
+    if (activeTab === "community") {
+      questData.radius_m = parseInt(formData.radius_m) || 50;
+      questData.start_date = formData.start_date ? new Date(formData.start_date).toISOString() : null;
+      questData.end_date = formData.end_date ? new Date(formData.end_date).toISOString() : null;
+    }
 
     // Add reward_name if specified (matches DB schema)
     if (formData.reward) {
@@ -221,8 +245,8 @@ export default function AdminQuestCreator() {
       }
     }
 
-    // Add target fields for monthly/weekly
-    if (activeTab === "monthly" || activeTab === "weekly") {
+    // Add target fields for monthly/weekly/community
+    if (activeTab === "monthly" || activeTab === "weekly" || activeTab === "community") {
       if (formData.target_genus_name) {
         questData.target_genus_name = formData.target_genus_name;
       }
@@ -242,6 +266,7 @@ export default function AdminQuestCreator() {
     if (activeTab === "quest") return quests.sort((a, b) => (a.quest_number || 0) - (b.quest_number || 0));
     if (activeTab === "monthly") return monthlyQuests.sort((a, b) => (a.quest_number || 0) - (b.quest_number || 0));
     if (activeTab === "weekly") return weeklyQuests.sort((a, b) => (a.quest_number || 0) - (b.quest_number || 0));
+    if (activeTab === "community") return communityQuests.sort((a, b) => (a.quest_number || 0) - (b.quest_number || 0));
     return weeklyQuests;
   };
 
@@ -251,7 +276,7 @@ export default function AdminQuestCreator() {
     return Math.max(...current.map(q => q.quest_number || 0)) + 1;
   };
 
-  const dataLoading = questsLoading || monthlyLoading || weeklyLoading;
+  const dataLoading = questsLoading || monthlyLoading || weeklyLoading || communityLoading;
 
   if (isLoading || dataLoading) {
     return (
@@ -285,7 +310,7 @@ export default function AdminQuestCreator() {
 
         {/* Tab Navigation */}
         <Tabs value={activeTab} onValueChange={(v) => { setActiveTab(v); resetForm(v); }} className="mb-8">
-          <TabsList className="bg-white border border-stone-200 p-1 h-auto shadow-sm w-full grid grid-cols-3">
+          <TabsList className="bg-white border border-stone-200 p-1 h-auto shadow-sm w-full grid grid-cols-4">
             <TabsTrigger
               value="quest"
               className="data-[state=active]:bg-green-600 data-[state=active]:text-white font-semibold py-3"
@@ -306,6 +331,13 @@ export default function AdminQuestCreator() {
             >
               <CalendarDays className="w-4 h-4 mr-2" />
               Wöchentlich ({weeklyQuests.length})
+            </TabsTrigger>
+            <TabsTrigger
+              value="community"
+              className="data-[state=active]:bg-indigo-600 data-[state=active]:text-white font-semibold py-3"
+            >
+              <Users className="w-4 h-4 mr-2" />
+              Community ({communityQuests.length})
             </TabsTrigger>
           </TabsList>
         </Tabs>
@@ -371,11 +403,30 @@ export default function AdminQuestCreator() {
                     </div>
                     <div>
                       <Label>Belohnung (optional)</Label>
-                      <Input
-                        value={formData.reward}
-                        onChange={(e) => setFormData({...formData, reward: e.target.value})}
-                        placeholder="z.B. Titel: Waldläufer oder Hintergrund: Forest"
-                      />
+                      {activeTab === "community" ? (
+                        <Select
+                          value={formData.reward || "null"}
+                          onValueChange={(v) => setFormData({...formData, reward: v === "null" ? "" : v})}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Kein zusätzlicher Reward" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="null">Kein zusätzlicher Reward</SelectItem>
+                            {rewardsList.map(r => (
+                              <SelectItem key={r.id} value={r.name}>
+                                {r.display_name || r.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        <Input
+                          value={formData.reward}
+                          onChange={(e) => setFormData({...formData, reward: e.target.value})}
+                          placeholder="z.B. Titel: Waldläufer oder Hintergrund: Forest"
+                        />
+                      )}
                     </div>
                     <div>
                       <Label>Samen-Belohnung *</Label>
@@ -414,15 +465,57 @@ export default function AdminQuestCreator() {
                     </Select>
                   </div>
                   <div>
-                    <Label>Benötigte Entdeckungen</Label>
+                    <Label>{activeTab === "community" ? "Community-Ziel (gesamt, alle Spieler) *" : "Benötigte Entdeckungen"}</Label>
                     <Input
                       type="number"
                       value={formData.required_discoveries}
                       onChange={(e) => setFormData({...formData, required_discoveries: e.target.value})}
                       min={1}
+                      required={activeTab === "community"}
                     />
                   </div>
                 </div>
+
+                {activeTab === "community" && (
+                  <div>
+                    <Label>Mindestabstand pro Nutzer (Meter) *</Label>
+                    <Input
+                      type="number"
+                      value={formData.radius_m}
+                      onChange={(e) => setFormData({...formData, radius_m: e.target.value})}
+                      min={1}
+                      required
+                    />
+                    <p className="text-xs text-stone-500 mt-1">
+                      Ein weiterer Scan derselben Pflanze durch denselben Nutzer zählt nur, wenn er mehr als
+                      diesen Abstand vom letzten gezählten Scan entfernt ist (verhindert Grinding an einer Pflanze).
+                    </p>
+                  </div>
+                )}
+
+                {activeTab === "community" && (
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label>Start (optional)</Label>
+                      <Input
+                        type="datetime-local"
+                        value={formData.start_date}
+                        onChange={(e) => setFormData({...formData, start_date: e.target.value})}
+                      />
+                    </div>
+                    <div>
+                      <Label>Ende (optional)</Label>
+                      <Input
+                        type="datetime-local"
+                        value={formData.end_date}
+                        onChange={(e) => setFormData({...formData, end_date: e.target.value})}
+                      />
+                    </div>
+                    <p className="col-span-2 text-xs text-stone-500 -mt-2">
+                      Leer lassen für ein dauerhaft laufendes Event ohne festen Zeitraum.
+                    </p>
+                  </div>
+                )}
 
                 {/* Quest-specific fields */}
                 {activeTab === "quest" && (
@@ -594,8 +687,8 @@ export default function AdminQuestCreator() {
                   </>
                 )}
 
-                {/* Monthly/Weekly specific fields */}
-                {(activeTab === "monthly" || activeTab === "weekly") && (
+                {/* Monthly/Weekly/Community specific fields */}
+                {(activeTab === "monthly" || activeTab === "weekly" || activeTab === "community") && (
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <Label>Ziel-Gattung (optional)</Label>
@@ -679,7 +772,8 @@ export default function AdminQuestCreator() {
                 {activeTab === "quest" && <Target className="w-5 h-5 text-green-600" />}
                 {activeTab === "monthly" && <Calendar className="w-5 h-5 text-amber-600" />}
                 {activeTab === "weekly" && <CalendarDays className="w-5 h-5 text-purple-600" />}
-                {activeTab === "quest" ? "Alle Quests" : activeTab === "monthly" ? "Monatliche Quests" : "Wöchentliche Quests"}
+                {activeTab === "community" && <Users className="w-5 h-5 text-indigo-600" />}
+                {activeTab === "quest" ? "Alle Quests" : activeTab === "monthly" ? "Monatliche Quests" : activeTab === "weekly" ? "Wöchentliche Quests" : "Community-Quests"}
                 <Badge variant="outline">{getCurrentQuests().length}</Badge>
               </CardTitle>
             </CardHeader>
@@ -723,7 +817,24 @@ export default function AdminQuestCreator() {
                                   )}
                                   {quest.required_discoveries && (
                                     <Badge variant="outline">
-                                      {quest.required_discoveries}x
+                                      {activeTab === "community" ? `${quest.current_progress || 0} / ${quest.required_discoveries}` : `${quest.required_discoveries}x`}
+                                    </Badge>
+                                  )}
+                                  {activeTab === "community" && quest.radius_m && (
+                                    <Badge className="bg-blue-100 text-blue-700">
+                                      📍 {quest.radius_m}m
+                                    </Badge>
+                                  )}
+                                  {activeTab === "community" && quest.completed && (
+                                    <Badge className="bg-green-600 text-white">
+                                      ✓ Ziel erreicht
+                                    </Badge>
+                                  )}
+                                  {activeTab === "community" && (quest.start_date || quest.end_date) && (
+                                    <Badge variant="outline">
+                                      📅 {quest.start_date ? new Date(quest.start_date).toLocaleDateString('de-DE') : "sofort"}
+                                      {" – "}
+                                      {quest.end_date ? new Date(quest.end_date).toLocaleDateString('de-DE') : "offen"}
                                     </Badge>
                                   )}
                                   {quest.difficulty && (

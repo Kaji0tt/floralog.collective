@@ -7,6 +7,8 @@ const NON_PERSISTED_QUERY_KEYS = new Set([
 	'allProfilesForStats',
 	'allFriendRecordsForStats',
 	'allRobotPlantsForStats',
+	'alltimeSeedLeaderboardForStats',
+	'homeAlltimeSeedLeaderboard',
 	'globalScanLeaderboard',
 	'highestScanResultsLeaderboard',
 	'globalScanTaxonomyHighlights',

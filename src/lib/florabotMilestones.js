@@ -10,6 +10,13 @@
 
 import { STORY_PROGRESS_CONDITIONS, STORY_COPY } from "@/lib/story/storyDefinition";
 
+export const FLORABOT_SEASON_START_INTRO = {
+  id: STORY_COPY.seasonStartIntro.id,
+  threshold: 0,
+  eyebrow: STORY_COPY.seasonStartIntro.eyebrow,
+  messages: STORY_COPY.seasonStartIntro.messages,
+};
+
 /**
  * Derived from STORY_PROGRESS_CONDITIONS.milestones + STORY_COPY.milestones.
  * contextBubble panel is resolved via STORY_PROGRESS_CONDITIONS.contextBubbles.

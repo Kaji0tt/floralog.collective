@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import proj4 from "https://esm.sh/proj4@2.15.0";
 import { buildOriginDeniedResponse } from "../_shared/origin.ts";
 
 const corsHeaders = {
@@ -8,6 +9,7 @@ const corsHeaders = {
 };
 
 const EARTH_RADIUS_M = 6371000;
+const AREA_SIZE_M = 100;
 
 type RequestBody = {
   discoveryId?: string | null;
@@ -60,6 +62,106 @@ type ProfileRow = {
   full_name?: string | null;
 };
 
+type SharedInviteRow = {
+  id: string;
+  sender_auth_id: string;
+  recipient_auth_id: string;
+  zone_theme: string | null;
+  center_lat: number | null;
+  center_lng: number | null;
+  radius_m: number | null;
+  challenge_expires_at: string | null;
+  status: string;
+};
+
+async function grantSharedInviteAreas(
+  adminClient: ReturnType<typeof createClient>,
+  invite: SharedInviteRow,
+): Promise<void> {
+  const centerLat = Number(invite.center_lat);
+  const centerLng = Number(invite.center_lng);
+  if (!Number.isFinite(centerLat) || !Number.isFinite(centerLng)) return;
+
+  const center = getAreaFromLatLng(centerLat, centerLng);
+  const candidates = [
+    [0, 0], [1, 0], [0, 1], [-1, 0], [0, -1], [1, 1], [-1, 1], [1, -1], [-1, -1],
+  ];
+  const owners = [invite.sender_auth_id, invite.recipient_auth_id];
+  let candidateIndex = 0;
+
+  for (const ownerAuthId of owners) {
+    let granted = 0;
+    while (granted < 3 && candidateIndex < candidates.length) {
+      const [offsetX, offsetY] = candidates[candidateIndex++];
+      const areaX = center.areaX + offsetX;
+      const areaY = center.areaY + offsetY;
+      const { data: existing } = await adminClient
+        .from("AreaClaim")
+        .select("area_x")
+        .eq("area_x", areaX)
+        .eq("area_y", areaY)
+        .maybeSingle();
+      if (existing) continue;
+
+      const { error: claimError } = await adminClient.from("AreaClaim").insert({
+        area_x: areaX,
+        area_y: areaY,
+        owner_auth_id: ownerAuthId,
+        owner_scan_count: 5,
+        claim_group_name: "Geteilte Zone",
+      });
+      if (claimError) continue;
+
+      const { error: walletError } = await adminClient.rpc("wallet_grant_currency", {
+        p_auth_id: ownerAuthId,
+        p_currency_code: "seeds_progress",
+        p_event_source: "zone_shared_invite_area",
+        p_event_reference: `${invite.id}:${ownerAuthId}:${areaX}:${areaY}`,
+        p_amount: 1,
+        p_direction: "credit",
+        p_metadata: { invite_id: invite.id, area_x: areaX, area_y: areaY },
+      });
+      if (walletError) console.warn("[grantScanZoneUnlocks] Shared area seed grant failed:", walletError.message);
+      granted += 1;
+    }
+
+    await grantRandomHealthBoost(adminClient, ownerAuthId, 3);
+  }
+}
+
+const HEALTH_STAT_COLUMNS = ["energy", "data_quality", "care"] as const;
+
+async function grantRandomHealthBoost(
+  adminClient: ReturnType<typeof createClient>,
+  authId: string,
+  amount: number,
+): Promise<void> {
+  const column = HEALTH_STAT_COLUMNS[Math.floor(Math.random() * HEALTH_STAT_COLUMNS.length)];
+
+  const { data: robotPlant, error: fetchError } = await adminClient
+    .from("RobotPlant")
+    .select(column)
+    .eq("auth_id", authId)
+    .maybeSingle();
+
+  if (fetchError || !robotPlant) {
+    console.warn("[grantScanZoneUnlocks] Could not load RobotPlant for health boost:", fetchError?.message);
+    return;
+  }
+
+  const currentValue = Number((robotPlant as Record<string, number | null>)[column] ?? 0);
+  const nextValue = Math.min(100, Math.max(0, currentValue) + amount);
+
+  const { error: updateError } = await adminClient
+    .from("RobotPlant")
+    .update({ [column]: nextValue })
+    .eq("auth_id", authId);
+
+  if (updateError) {
+    console.warn("[grantScanZoneUnlocks] Shared invite health boost update failed:", updateError.message);
+  }
+}
+
 function jsonResponse(payload: unknown, status = 200): Response {
   return new Response(JSON.stringify(payload), {
     status,
@@ -89,6 +191,11 @@ function distanceM(first: { lat: number; lng: number }, second: { lat: number; l
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 
   return EARTH_RADIUS_M * c;
+}
+
+function getAreaFromLatLng(lat: number, lng: number): { areaX: number; areaY: number } {
+  const [x, y] = proj4("EPSG:4326", "EPSG:3035", [lng, lat]);
+  return { areaX: Math.floor(Number(x) / AREA_SIZE_M), areaY: Math.floor(Number(y) / AREA_SIZE_M) };
 }
 
 function normalizeText(value: string | null | undefined): string {
@@ -235,7 +342,26 @@ Deno.serve(async (req) => {
       return jsonResponse({ success: true, unlocked: [] });
     }
 
+    let zoneProgress: {
+      zoneId: string;
+      zoneTheme: string | null;
+      scanCount: number;
+      previousScanCount: number;
+      completed: boolean;
+      claimKey: string;
+    } | null = null;
+
     if (discovery?.id && matchedZone?.id) {
+      const { data: currentZoneState, error: currentZoneStateError } = await adminClient
+        .from("RobotPlantUserZoneState")
+        .select("scans_in_zone")
+        .eq("auth_id", authId)
+        .eq("zone_id", matchedZone.id)
+        .eq("day_key", dayKey)
+        .maybeSingle();
+
+      const previousScanCount = Number(currentZoneState?.scans_in_zone ?? 0);
+
       const { data: scanCount, error: zoneStateError } = await adminClient.rpc(
         "record_robotplant_zone_scan",
         {
@@ -249,14 +375,78 @@ Deno.serve(async (req) => {
       if (zoneStateError) {
         console.error("[grantScanZoneUnlocks] Failed to record zone scan:", zoneStateError);
       } else {
-        console.log(`[grantScanZoneUnlocks] Recorded zone scan ${discovery.id}; count=${scanCount}`);
+        const nextScanCount = Number(scanCount ?? 0);
+        const justCompleted = previousScanCount < 5 && nextScanCount >= 5;
+
+        zoneProgress = {
+          zoneId: matchedZone.id,
+          zoneTheme: matchedZone.theme,
+          scanCount: nextScanCount,
+          previousScanCount,
+          completed: justCompleted,
+          claimKey: `zone-lootbox:${authId}:${matchedZone.id}:${dayKey}`,
+        };
+
+        console.log(`[grantScanZoneUnlocks] Recorded zone scan ${discovery.id}; count=${nextScanCount}; justCompleted=${justCompleted}`);
+      }
+    }
+
+    const { data: sharedInvites, error: sharedInviteError } = await adminClient
+      .from("ZoneSharedInvite")
+      .select("id, sender_auth_id, recipient_auth_id, zone_theme, center_lat, center_lng, radius_m, challenge_expires_at, status")
+      .eq("status", "accepted")
+      .or(`sender_auth_id.eq.${authId},recipient_auth_id.eq.${authId}`);
+
+    if (sharedInviteError) {
+      console.warn("[grantScanZoneUnlocks] Could not load shared zone invites:", sharedInviteError.message);
+    } else if (discovery?.id && coords) {
+      for (const invite of (sharedInvites || []) as SharedInviteRow[]) {
+        if (!invite.challenge_expires_at || new Date(invite.challenge_expires_at).getTime() <= Date.now()) continue;
+        const inviteCenter = {
+          lat: Number(invite.center_lat),
+          lng: Number(invite.center_lng),
+        };
+        if (!Number.isFinite(inviteCenter.lat) || !Number.isFinite(inviteCenter.lng)) continue;
+        if (distanceM(coords, inviteCenter) > Number(invite.radius_m || 0)) continue;
+
+        const { error: sharedScanError } = await adminClient
+          .from("ZoneSharedInviteScan")
+          .upsert({
+            invite_id: invite.id,
+            auth_id: authId,
+            discovery_id: discovery.id,
+          }, { onConflict: "invite_id,discovery_id", ignoreDuplicates: true });
+
+        if (sharedScanError) {
+          console.warn("[grantScanZoneUnlocks] Could not record shared zone scan:", sharedScanError.message);
+          continue;
+        }
+
+        const { data: progressRows } = await adminClient
+          .from("ZoneSharedInviteScan")
+          .select("auth_id")
+          .eq("invite_id", invite.id);
+        const senderCount = (progressRows || []).filter((row) => row.auth_id === invite.sender_auth_id).length;
+        const recipientCount = (progressRows || []).filter((row) => row.auth_id === invite.recipient_auth_id).length;
+
+        if (senderCount >= 5 && recipientCount >= 5) {
+          const { data: completedInvite } = await adminClient
+            .from("ZoneSharedInvite")
+            .update({ status: "completed", completed_at: new Date().toISOString() })
+            .eq("id", invite.id)
+            .eq("status", "accepted")
+            .select("id")
+            .maybeSingle();
+          if (completedInvite?.id) {
+            await grantSharedInviteAreas(adminClient, invite);
+          }
+        }
       }
     }
 
     const { data: rewards, error: rewardsError } = await adminClient
       .from("Rewards")
-      .select("id, name, display_name, value, image_url, type, requires_zone_theme, requires_plant_species_id, requires_plant_genus_id")
-      .not("requires_zone_theme", "is", null);
+      .select("id, name, display_name, value, image_url, type, requires_zone_theme, requires_plant_species_id, requires_plant_genus_id");
 
     if (rewardsError) {
       return jsonResponse({ success: false, error: rewardsError.message }, 500);
@@ -281,11 +471,28 @@ Deno.serve(async (req) => {
       return speciesMatches || genusMatches;
     });
 
-    if (matchingRewards.length === 0) {
-      return jsonResponse({ success: true, unlocked: [] });
-    }
+    const firstZoneBackgroundValueByTheme: Record<string, string> = {
+      water: "profile_bg_background_water",
+      meadow: "profile_bg_background_flowers",
+      forest: "profile_bg_background_forest",
+      urban: "profile_bg_background_urban",
+    };
+    const firstZoneBackgroundValue = zoneProgress?.completed
+      ? firstZoneBackgroundValueByTheme[matchedTheme]
+      : null;
+    const firstZoneBackgroundReward = firstZoneBackgroundValue
+      ? ((rewards || []) as RewardRow[]).find(
+          (reward) => normalizeText(reward.value) === firstZoneBackgroundValue,
+        )
+      : null;
+    const rewardsToConsider = firstZoneBackgroundReward
+      ? [...matchingRewards, firstZoneBackgroundReward]
+      : matchingRewards;
 
-    const rewardIds = matchingRewards.map((reward) => reward.id);
+    const rewardIds = Array.from(new Set(rewardsToConsider.map((reward) => reward.id)));
+    if (rewardIds.length === 0) {
+      return jsonResponse({ success: true, unlocked: [], zoneProgress });
+    }
     const { data: existingUserRewards } = await adminClient
       .from("UserRewards")
       .select("reward_id")
@@ -293,10 +500,10 @@ Deno.serve(async (req) => {
       .in("reward_id", rewardIds);
 
     const unlockedIds = new Set((existingUserRewards || []).map((row) => row.reward_id));
-    const rewardsToInsert = matchingRewards.filter((reward) => !unlockedIds.has(reward.id));
+    const rewardsToInsert = rewardsToConsider.filter((reward) => !unlockedIds.has(reward.id));
 
     if (rewardsToInsert.length === 0) {
-      return jsonResponse({ success: true, unlocked: [] });
+      return jsonResponse({ success: true, unlocked: [], zoneProgress });
     }
 
     const { data: profile } = await adminClient
@@ -332,6 +539,7 @@ Deno.serve(async (req) => {
         image_url: reward.image_url,
         type: reward.type,
       })),
+      zoneProgress,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);

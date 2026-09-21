@@ -7,7 +7,7 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-const TILE_SIZE_M = 100;
+const AREA_SIZE_M = 100;
 const EPSG_3035 = "+proj=laea +lat_0=52 +lon_0=10 +x_0=4321000 +y_0=3210000 +datum=ETRS89 +units=m +no_defs +type=crs";
 proj4.defs("EPSG:3035", EPSG_3035);
 
@@ -18,9 +18,9 @@ type RequestBody = {
   radiusM?: number;
 };
 
-type TileClaimRow = {
-  tile_x: number;
-  tile_y: number;
+type AreaClaimRow = {
+  area_x: number;
+  area_y: number;
   owner_auth_id: string;
   owner_scan_count: number;
   claim_group_name: string | null;
@@ -74,9 +74,9 @@ function metricToLngLat(x: number, y: number): { lat: number; lng: number } {
   return { lat: Number(lat), lng: Number(lng) };
 }
 
-function getTileCenter(tileX: number, tileY: number): { lat: number; lng: number } {
-  const centerX = (tileX + 0.5) * TILE_SIZE_M;
-  const centerY = (tileY + 0.5) * TILE_SIZE_M;
+function getAreaCenter(areaX: number, areaY: number): { lat: number; lng: number } {
+  const centerX = (areaX + 0.5) * AREA_SIZE_M;
+  const centerY = (areaY + 0.5) * AREA_SIZE_M;
   return metricToLngLat(centerX, centerY);
 }
 
@@ -116,35 +116,35 @@ Deno.serve(async (req) => {
     }
 
     const { x: centerX, y: centerY } = lngLatToMetric(longitude, latitude);
-    const minTileX = Math.floor((centerX - radiusM) / TILE_SIZE_M);
-    const maxTileX = Math.floor((centerX + radiusM) / TILE_SIZE_M);
-    const minTileY = Math.floor((centerY - radiusM) / TILE_SIZE_M);
-    const maxTileY = Math.floor((centerY + radiusM) / TILE_SIZE_M);
+    const minAreaX = Math.floor((centerX - radiusM) / AREA_SIZE_M);
+    const maxAreaX = Math.floor((centerX + radiusM) / AREA_SIZE_M);
+    const minAreaY = Math.floor((centerY - radiusM) / AREA_SIZE_M);
+    const maxAreaY = Math.floor((centerY + radiusM) / AREA_SIZE_M);
 
     const { data: claims, error: claimError } = await adminClient
-      .from("TileClaim")
-      .select("tile_x, tile_y, owner_auth_id, owner_scan_count, claim_group_name, claimed_at, updated_at")
-      .gte("tile_x", minTileX)
-      .lte("tile_x", maxTileX)
-      .gte("tile_y", minTileY)
-      .lte("tile_y", maxTileY)
-      .order("tile_x", { ascending: true })
-      .order("tile_y", { ascending: true });
+      .from("AreaClaim")
+      .select("area_x, area_y, owner_auth_id, owner_scan_count, claim_group_name, claimed_at, updated_at")
+      .gte("area_x", minAreaX)
+      .lte("area_x", maxAreaX)
+      .gte("area_y", minAreaY)
+      .lte("area_y", maxAreaY)
+      .order("area_x", { ascending: true })
+      .order("area_y", { ascending: true });
 
     if (claimError) {
-      console.error("[getTileClaims] claim query failed", claimError);
+      console.error("[getAreaClaims] claim query failed", claimError);
       return jsonResponse({ error: "Failed to load claims" }, 500);
     }
 
-    const filteredClaims = (claims || []).filter((claim: TileClaimRow) => {
-      const tileCenterX = (claim.tile_x + 0.5) * TILE_SIZE_M;
-      const tileCenterY = (claim.tile_y + 0.5) * TILE_SIZE_M;
-      const dx = tileCenterX - centerX;
-      const dy = tileCenterY - centerY;
+    const filteredClaims = (claims || []).filter((claim: AreaClaimRow) => {
+      const areaCenterX = (claim.area_x + 0.5) * AREA_SIZE_M;
+      const areaCenterY = (claim.area_y + 0.5) * AREA_SIZE_M;
+      const dx = areaCenterX - centerX;
+      const dy = areaCenterY - centerY;
       return dx * dx + dy * dy <= radiusM * radiusM;
     });
 
-    const ownerIds = Array.from(new Set(filteredClaims.map((claim: TileClaimRow) => claim.owner_auth_id))).filter(isUuid);
+    const ownerIds = Array.from(new Set(filteredClaims.map((claim: AreaClaimRow) => claim.owner_auth_id))).filter(isUuid);
     let ownerProfiles: PublicProfileRow[] = [];
 
     if (ownerIds.length > 0) {
@@ -154,7 +154,7 @@ Deno.serve(async (req) => {
         .in("auth_id", ownerIds);
 
       if (profileError) {
-        console.warn("[getTileClaims] profile query failed", profileError);
+        console.warn("[getAreaClaims] profile query failed", profileError);
       } else {
         ownerProfiles = (profileRows || []) as PublicProfileRow[];
       }
@@ -162,13 +162,13 @@ Deno.serve(async (req) => {
 
     const profileByAuth = new Map(ownerProfiles.map((profile) => [profile.auth_id, profile]));
 
-    const responseClaims = filteredClaims.map((claim: TileClaimRow) => {
-      const center = getTileCenter(claim.tile_x, claim.tile_y);
+    const responseClaims = filteredClaims.map((claim: AreaClaimRow) => {
+      const center = getAreaCenter(claim.area_x, claim.area_y);
       const ownerProfile = profileByAuth.get(claim.owner_auth_id) || null;
       const ownerName = deriveOwnerName(ownerProfile);
       return {
-        tileX: claim.tile_x,
-        tileY: claim.tile_y,
+        areaX: claim.area_x,
+        areaY: claim.area_y,
         centerLat: center.lat,
         centerLng: center.lng,
         ownerAuthId: claim.owner_auth_id,
@@ -187,7 +187,7 @@ Deno.serve(async (req) => {
       radiusM,
     });
   } catch (error) {
-    console.error("[getTileClaims] unexpected error", error);
+    console.error("[getAreaClaims] unexpected error", error);
     return jsonResponse({ error: "Unexpected error" }, 500);
   }
 });

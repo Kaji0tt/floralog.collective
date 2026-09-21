@@ -1,4 +1,4 @@
-﻿// @ts-nocheck
+// @ts-nocheck
 import React, { useEffect, useMemo, useState, useRef } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Capacitor } from "@capacitor/core";
@@ -34,7 +34,7 @@ const MULTIPLIER_STEP_TOOLTIPS = {
   novelty: "Bonus fuer neue oder lange nicht bestaetigte Entdeckungen.",
   care: "Bonus durch die Pflege deines Florabots (Scan-Streak, erhaltene Likes).",
   firstScan: "Bonus fuer deinen ersten Scan des heutigen Tages.",
-  tiles: "Bonus durch beanspruchte Kartenkacheln in deiner Zone.",
+  areas: "Bonus durch beanspruchte Kartenkacheln in deiner Zone.",
 };
 
 // Nativ (Android/iOS) via Capacitor Haptics vibrieren, im Browser per Vibration API.
@@ -55,12 +55,12 @@ function buildRewardSteps(rewardDetails, isInActiveZone) {
   if (!rewardDetails) return [];
   let runningReward = rewardDetails.baseReward ?? 0;
   const preStreakSteps = [];
-  const formatTileBonusLabel = (multiplier) => {
+  const formatAreaBonusLabel = (multiplier) => {
     const bonusPercent = Math.max(0, (Number(multiplier) - 1) * 100);
     const roundedPercent = Number.isInteger(bonusPercent)
       ? bonusPercent
       : Math.round(bonusPercent * 10) / 10;
-    return `+ ${roundedPercent}% durch Tiles`;
+    return `+ ${roundedPercent}% durch Areas`;
   };
 
   function pushPreStreakStep(id, label, multiplier) {
@@ -102,20 +102,20 @@ function buildRewardSteps(rewardDetails, isInActiveZone) {
 
   const currentReward = rewardDetails.preStreakReward;
 
-  if (rewardDetails.tileClaimMultiplier && rewardDetails.tileClaimMultiplier !== 1) {
-    const preTileReward =
-      typeof rewardDetails.preTileClaimReward === "number"
-        ? rewardDetails.preTileClaimReward
+  if (rewardDetails.areaClaimMultiplier && rewardDetails.areaClaimMultiplier !== 1) {
+    const preAreaReward =
+      typeof rewardDetails.preAreaClaimReward === "number"
+        ? rewardDetails.preAreaClaimReward
         : currentReward;
 
     steps.push({
-      id: "tiles",
-      label: "Tiles",
-      multiplier: rewardDetails.tileClaimMultiplier,
+      id: "areas",
+      label: "Areas",
+      multiplier: rewardDetails.areaClaimMultiplier,
       result: rewardDetails.finalReward,
-      positive: rewardDetails.tileClaimMultiplier > 1,
-      displayValue: formatTileBonusLabel(rewardDetails.tileClaimMultiplier),
-      from: preTileReward,
+      positive: rewardDetails.areaClaimMultiplier > 1,
+      displayValue: formatAreaBonusLabel(rewardDetails.areaClaimMultiplier),
+      from: preAreaReward,
     });
   }
   return steps;

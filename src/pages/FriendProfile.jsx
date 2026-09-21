@@ -6,6 +6,7 @@ import { supabase } from "@/api/supabaseClient";
 import { createUserNotification } from "@/api/notificationService";
 import { buildNotificationPayload } from "@/lib/story/storyDefinition";
 import { sendFriendRequest } from "@/api/friendService";
+import { getUserAlltimeSeedTotal } from "@/api/walletService";
 import { useUiTheme } from "@/lib/UiThemeContext";
 import { useFriendData } from "@/components/friends/hooks/useFriendData";
 import FriendExperienceShell from "@/components/friends/FriendExperienceShell";
@@ -486,6 +487,15 @@ export default function FriendProfile() {
     staleTime: 30_000,
   });
 
+  const { data: friendAlltimeSeedTotal = 0 } = useQuery({
+    queryKey: ["friendAlltimeSeedTotal", friendUser?.auth_id],
+    queryFn: () => getUserAlltimeSeedTotal(friendUser?.auth_id),
+    enabled: !!friendUser?.auth_id && activeTab === "profile",
+    initialData: 0,
+    staleTime: 60_000,
+    refetchOnWindowFocus: true,
+  });
+
   const activeSeason = getActiveSeason();
   const seasonStartDate = activeSeason?.startDate || null;
 
@@ -773,10 +783,7 @@ export default function FriendProfile() {
   });
 
   const displayedOverallPlantHealth = isPlantHealthPending ? null : overallPlantHealth;
-  const friendAllTimeSeeds = Math.max(
-    0,
-    Number(friendRobotPlant?.wallet_balance ?? friendRobotPlant?.walletBalance ?? 0)
-  );
+  const friendAllTimeSeeds = Math.max(0, Number(friendAlltimeSeedTotal ?? 0));
   const friendSeasonSeedEntry = useMemo(() => {
     if (!seasonStartDate || !friendUser?.auth_id) return null;
     return (friendSeasonSeedLeaderboard || []).find(
@@ -784,9 +791,9 @@ export default function FriendProfile() {
     ) || null;
   }, [seasonStartDate, friendSeasonSeedLeaderboard, friendUser?.auth_id]);
   const friendSeasonSeedsValue = Math.max(0, Number(friendSeasonSeedEntry?.weekly_seed_total ?? 0));
-  const friendClaimedTiles = Math.max(
+  const friendClaimedAreas = Math.max(
     0,
-    Number(friendRobotPlant?.claimed_tiles_count ?? friendRobotPlant?.claimedTilesCount ?? 0)
+    Number(friendRobotPlant?.claimed_areas_count ?? friendRobotPlant?.claimedAreasCount ?? 0)
   );
   const friendStreakDays = Math.max(0, Number(friendRobotPlant?.streak_days ?? 0));
   const friendMemberSinceDays = useMemo(() => {
@@ -841,7 +848,7 @@ export default function FriendProfile() {
       total_seeds:                     friendAllTimeSeeds,
       season_seeds:                    friendSeasonSeedsValue,
       alltime_seeds:                   friendAllTimeSeeds,
-      claimed_tiles:                   friendClaimedTiles,
+      claimed_areas:                   friendClaimedAreas,
       highest_plant_status:            displayedOverallPlantHealth ?? 0,
       daily_streak_days:               friendStreakDays,
       member_since_days:               friendMemberSinceDays,
@@ -870,7 +877,7 @@ export default function FriendProfile() {
     friendUser?.selected_badge_ids,
     friendAllTimeSeeds,
     friendSeasonSeedsValue,
-    friendClaimedTiles,
+    friendClaimedAreas,
     displayedOverallPlantHealth,
     friendStreakDays,
     friendMemberSinceDays,

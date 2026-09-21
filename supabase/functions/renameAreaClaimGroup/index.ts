@@ -9,14 +9,14 @@ const corsHeaders = {
 };
 
 type RenameBody = {
-  tileX?: number;
-  tileY?: number;
+  areaX?: number;
+  areaY?: number;
   groupName?: string;
 };
 
-type OwnerTileRow = {
-  tile_x: number;
-  tile_y: number;
+type OwnerAreaRow = {
+  area_x: number;
+  area_y: number;
 };
 
 const BAD_WORD_PATTERNS: RegExp[] = [
@@ -74,38 +74,38 @@ function isFiniteInteger(value: unknown): value is number {
   return Number.isFinite(value) && Number.isInteger(value);
 }
 
-function tileKey(tileX: number, tileY: number): string {
-  return `${tileX}:${tileY}`;
+function areaKey(areaX: number, areaY: number): string {
+  return `${areaX}:${areaY}`;
 }
 
-function getConnectedOwnerTiles(seedX: number, seedY: number, ownerTiles: OwnerTileRow[]): OwnerTileRow[] {
-  const byKey = new Map<string, OwnerTileRow>();
-  ownerTiles.forEach((tile) => {
-    byKey.set(tileKey(tile.tile_x, tile.tile_y), tile);
+function getConnectedOwnerAreas(seedX: number, seedY: number, ownerAreas: OwnerAreaRow[]): OwnerAreaRow[] {
+  const byKey = new Map<string, OwnerAreaRow>();
+  ownerAreas.forEach((area) => {
+    byKey.set(areaKey(area.area_x, area.area_y), area);
   });
 
-  const startKey = tileKey(seedX, seedY);
+  const startKey = areaKey(seedX, seedY);
   if (!byKey.has(startKey)) return [];
 
   const visited = new Set<string>();
   const queue: string[] = [startKey];
-  const connected: OwnerTileRow[] = [];
+  const connected: OwnerAreaRow[] = [];
 
   while (queue.length > 0) {
     const currentKey = queue.shift();
     if (!currentKey || visited.has(currentKey)) continue;
 
     visited.add(currentKey);
-    const currentTile = byKey.get(currentKey);
-    if (!currentTile) continue;
+    const currentArea = byKey.get(currentKey);
+    if (!currentArea) continue;
 
-    connected.push(currentTile);
+    connected.push(currentArea);
 
     const neighbors = [
-      tileKey(currentTile.tile_x + 1, currentTile.tile_y),
-      tileKey(currentTile.tile_x - 1, currentTile.tile_y),
-      tileKey(currentTile.tile_x, currentTile.tile_y + 1),
-      tileKey(currentTile.tile_x, currentTile.tile_y - 1),
+      areaKey(currentArea.area_x + 1, currentArea.area_y),
+      areaKey(currentArea.area_x - 1, currentArea.area_y),
+      areaKey(currentArea.area_x, currentArea.area_y + 1),
+      areaKey(currentArea.area_x, currentArea.area_y - 1),
     ];
 
     neighbors.forEach((neighborKey) => {
@@ -123,7 +123,7 @@ Deno.serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
-  const originDeniedResponse = buildOriginDeniedResponse(req, corsHeaders, "renameTileClaimGroup");
+  const originDeniedResponse = buildOriginDeniedResponse(req, corsHeaders, "renameAreaClaimGroup");
   if (originDeniedResponse) {
     return originDeniedResponse;
   }
@@ -160,12 +160,12 @@ Deno.serve(async (req) => {
     }
 
     const body = (await req.json()) as RenameBody;
-    const tileX = Number(body.tileX);
-    const tileY = Number(body.tileY);
+    const areaX = Number(body.areaX);
+    const areaY = Number(body.areaY);
     const groupName = String(body.groupName || "").trim();
 
-    if (!isFiniteInteger(tileX) || !isFiniteInteger(tileY)) {
-      return jsonResponse({ error: "tileX and tileY must be integers" }, 400);
+    if (!isFiniteInteger(areaX) || !isFiniteInteger(areaY)) {
+      return jsonResponse({ error: "areaX and areaY must be integers" }, 400);
     }
 
     if (groupName.length < 3 || groupName.length > 48) {
@@ -186,44 +186,44 @@ Deno.serve(async (req) => {
       auth: { persistSession: false },
     });
 
-    const { data: ownerTiles, error: ownerTilesError } = await adminClient
-      .from("TileClaim")
-      .select("tile_x, tile_y")
+    const { data: ownerAreas, error: ownerAreasError } = await adminClient
+      .from("AreaClaim")
+      .select("area_x, area_y")
       .eq("owner_auth_id", user.id);
 
-    if (ownerTilesError) {
-      console.error("[renameTileClaimGroup] Failed to load owner tiles", ownerTilesError);
-      return jsonResponse({ error: "Failed to load owner tile group" }, 500);
+    if (ownerAreasError) {
+      console.error("[renameAreaClaimGroup] Failed to load owner areas", ownerAreasError);
+      return jsonResponse({ error: "Besitzte Areale konnten nicht geladen werden." }, 500);
     }
 
-    const connectedTiles = getConnectedOwnerTiles(tileX, tileY, (ownerTiles || []) as OwnerTileRow[]);
-    if (connectedTiles.length === 0) {
-      return jsonResponse({ error: "Tile is not owned by current user" }, 403);
+    const connectedAreas = getConnectedOwnerAreas(areaX, areaY, (ownerAreas || []) as OwnerAreaRow[]);
+    if (connectedAreas.length === 0) {
+      return jsonResponse({ error: "Dieses Areal gehoert nicht dem aktuellen Nutzer." }, 403);
     }
 
-    for (const tile of connectedTiles) {
+    for (const area of connectedAreas) {
       const { error: updateError } = await adminClient
-        .from("TileClaim")
+        .from("AreaClaim")
         .update({ claim_group_name: groupName, updated_at: new Date().toISOString() })
         .eq("owner_auth_id", user.id)
-        .eq("tile_x", tile.tile_x)
-        .eq("tile_y", tile.tile_y);
+        .eq("area_x", area.area_x)
+        .eq("area_y", area.area_y);
 
       if (updateError) {
-        console.error("[renameTileClaimGroup] Update failed", updateError);
-        return jsonResponse({ error: "Failed to save tile group name" }, 500);
+        console.error("[renameAreaClaimGroup] Update failed", updateError);
+        return jsonResponse({ error: "Arealname konnte nicht gespeichert werden." }, 500);
       }
     }
 
     return jsonResponse({
       success: true,
       groupName,
-      updatedCount: connectedTiles.length,
-      tileX,
-      tileY,
+      updatedCount: connectedAreas.length,
+      areaX,
+      areaY,
     });
   } catch (error) {
-    console.error("[renameTileClaimGroup] Unexpected error", error);
+    console.error("[renameAreaClaimGroup] Unexpected error", error);
     return jsonResponse({ error: "Unexpected error" }, 500);
   }
 });

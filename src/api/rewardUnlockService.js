@@ -17,5 +17,7 @@ export const grantScanZoneUnlocks = async ({ discoveryId, plantId = null, discov
     throw new Error(data?.error || "Scan-Zonen-Freischaltung fehlgeschlagen.");
   }
 
-  return Array.isArray(data?.unlocked) ? data.unlocked : [];
+  const unlocked = Array.isArray(data?.unlocked) ? data.unlocked : [];
+  unlocked.zoneProgress = data?.zoneProgress || null;
+  return unlocked;
 };

@@ -165,6 +165,33 @@ export const STORY_COPY = {
     },
   ],
 
+  seasonStartIntro: {
+    id: "season_start_intro",
+    eyebrow: "Neue Saison",
+    messages: [
+      {
+        title: "Willkommen zurück, %display_name%!",
+        body: "Die Erde hat sich weitergedreht und eine neue Saison beginnt. Ich habe dabei etwas Spannendes in meinen Systemen entdeckt.",
+      },
+      {
+        title: "Entdecker-Knospen in den Geozonen",
+        body: "Hinter den Geozonen warten jetzt Knospen auf uns. Ich kann sie aber nur finden, wenn wir die Zonen gemeinsam erkunden.",
+      },
+      {
+        title: "Gemeinsam Zonen erobern",
+        body: "Du kannst Geozonen jetzt mit Freunden teilen. Beide erhalten dann die größtemögliche Anzahl von Arealen innerhalb der Zone.",
+      },
+      {
+        title: "Jedes Areal zählt",
+        body: "Jedes eroberte Areal produziert beim Scannen zusätzlich 1 Samen. Das bedeutet, wenn ihr Geozonen gemeinsam erkundet, erhaltet ihr garantiert 3 zusätzliche Samen je Scan!",
+      },
+      {
+        title: "Halte mich gesund",
+        body: "Je besser meine Gesundheit, desto mehr und größer sind unsere Zonen! Klicke auf die Karte unten links, um mehr zu erfahren.",
+      },
+    ],
+  },
+
   milestones: {
     m500: {
       contextBubble: "Das ist das globale Floralog. Es zeigt alle Entdeckungen aller Florabots der Erde. Du kannst deinen eigenen Fortschritt sehen, oder nach bestimmten Kollektionen suchen!",

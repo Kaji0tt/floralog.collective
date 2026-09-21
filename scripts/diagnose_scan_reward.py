@@ -127,8 +127,8 @@ else:
             print(f"       firstScanOfDayMult:      {rb.get('firstScanOfDayMultiplier')}")
             print(f"       streakMultiplier:        {rb.get('streakMultiplier')}")
             print(f"       preStreakReward:         {rb.get('preStreakReward')}  ← nach absoluteMaxReward-Cap (350)")
-            print(f"       preTileClaimReward:      {rb.get('preTileClaimReward')}")
-            print(f"       tileClaimMultiplier:     {rb.get('tileClaimMultiplier')}")
+            print(f"       preAreaClaimReward:      {rb.get('preAreaClaimReward')}")
+            print(f"       areaClaimMultiplier:     {rb.get('areaClaimMultiplier')}")
             print(f"       finalReward:             {rb.get('finalReward')}")
             # Berechne was OHNE Cap rausgekommen wäre
             adj = rb.get('adjustedBaseReward') or 0
@@ -138,7 +138,7 @@ else:
             cm = rb.get('careMultiplier') or 1
             fsm = rb.get('firstScanOfDayMultiplier') or 1
             sm = rb.get('streakMultiplier') or 1
-            tc = rb.get('tileClaimMultiplier') or 1
+            tc = rb.get('areaClaimMultiplier') or 1
             uncapped_pre = adj * zm * rm * nm * cm * fsm
             uncapped_final = uncapped_pre * sm * tc
             capped_at = rb.get('preStreakReward') or 0
@@ -157,11 +157,11 @@ rp_rows = supabase_get(
     "RobotPlant",
     {
         "auth_id": f"eq.{auth_id}",
-        "select": "energy,data_quality,care,streak_days,claimed_tiles_count,updated_at",
+        "select": "energy,data_quality,care,streak_days,claimed_areas_count,updated_at",
     },
 )
 if rp_rows:
     rp = rp_rows[0]
-    print(f"   energy={rp['energy']}  data_quality={rp['data_quality']}  care={rp['care']}  streak_days={rp['streak_days']}  tiles={rp.get('claimed_tiles_count')}  updated={rp['updated_at']}")
+    print(f"   energy={rp['energy']}  data_quality={rp['data_quality']}  care={rp['care']}  streak_days={rp['streak_days']}  areas={rp.get('claimed_areas_count')}  updated={rp['updated_at']}")
 else:
     print("   Kein RobotPlant-Eintrag gefunden (defaults werden verwendet).")

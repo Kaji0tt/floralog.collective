@@ -27,6 +27,7 @@ import {
   grantRobotPlantRewardServerSide,
 } from "@/api/robotPlantService";
 import { grantScanZoneUnlocks } from "@/api/rewardUnlockService";
+import { claimZoneLootbox } from "@/api/zoneLootboxService";
 import { ROBOT_PLANT_EVENT_SOURCES } from "@/lib/robotPlantConfig";
 import { getActiveSeason, classifyScan } from "@/lib/seasonConfig";
 import { updateQuestProgress } from "@/components/utils/questProgress";
@@ -951,8 +952,6 @@ export default function Scanner() {
       setCurrentAchievementIndex(0);
     }
 
-    // Quest-Progress zentral anhand aller Entdeckungen aktualisieren
-    await updateQuestProgress(user);
     const completedWeeklyQuest = await getCompletedWeeklyQuestForDiscovery(newDiscovery.id);
     queryClient.invalidateQueries({ queryKey: ['userWeeklyQuests'] });
 
@@ -972,9 +971,45 @@ export default function Scanner() {
         plantId: plant.id,
         discoveryLocation: locationString,
       });
+
+      const zoneCompletion = scanZoneUnlocks?.zoneProgress;
+      if (zoneCompletion?.completed) {
+        try {
+          const lootboxResult = await claimZoneLootbox({
+            zoneTheme: zoneCompletion.zoneTheme,
+            zoneId: zoneCompletion.zoneId,
+            claimKey: zoneCompletion.claimKey,
+          });
+
+          const lootboxReward = lootboxResult?.reward || null;
+          const lootboxCurrencies = Array.isArray(lootboxResult?.currencies) ? lootboxResult.currencies : [];
+          if (lootboxReward || lootboxCurrencies.length > 0) {
+            randomRewards = [
+              ...randomRewards,
+              {
+                id: lootboxReward?.id || lootboxReward?.reward_id || "zone-lootbox",
+                display_name: lootboxReward?.name || lootboxReward?.display_name || "Entdecker-Knospe",
+                name: lootboxReward?.name || lootboxReward?.display_name || "Entdecker-Knospe",
+                value: lootboxReward?.value || (lootboxResult?.rewardStatus === "duplicate_compensated" ? `${lootboxResult?.duplicateSeedValue ?? 0} Seeds` : ""),
+                image_url: lootboxReward?.imageUrl || lootboxReward?.image_url || null,
+                type: lootboxReward?.type || "lootbox",
+                rewardStatus: lootboxResult?.rewardStatus || null,
+                duplicateSeedValue: lootboxResult?.duplicateSeedValue ?? null,
+                currencies: lootboxCurrencies,
+                zoneTheme: zoneCompletion.zoneTheme,
+              },
+            ];
+          }
+        } catch (lootboxError) {
+          console.error("Fehler beim Claim der Zone-Lootbox:", lootboxError);
+        }
+      }
     } catch (error) {
       console.error("Fehler bei scan-basierten Zonen-Freischaltungen:", error);
     }
+
+    // Der Zonen-Grant schreibt zuerst den Scan in RobotPlantZoneScan.
+    await updateQuestProgress(user);
     if (scanZoneUnlocks.length > 0) {
       queryClient.invalidateQueries({ queryKey: ["userRewards"] });
     }
@@ -1091,8 +1126,6 @@ export default function Scanner() {
         setCurrentAchievementIndex(0);
       }
 
-      // Quest-Progress zentral anhand aller Entdeckungen aktualisieren
-      await updateQuestProgress(user);
       const completedWeeklyQuest = await getCompletedWeeklyQuestForDiscovery(newDiscoveryId);
       queryClient.invalidateQueries({ queryKey: ['userWeeklyQuests'] });
 
@@ -1112,9 +1145,41 @@ export default function Scanner() {
           plantId: newPlant.id,
           discoveryLocation: locationString,
         });
+
+        const zoneCompletion = scanZoneUnlocks?.zoneProgress;
+        if (zoneCompletion?.completed) {
+          try {
+            const lootboxResult = await claimZoneLootbox({
+              zoneTheme: zoneCompletion.zoneTheme,
+              zoneId: zoneCompletion.zoneId,
+              claimKey: zoneCompletion.claimKey,
+            });
+
+            const lootboxReward = lootboxResult?.reward || null;
+            if (lootboxReward) {
+              randomRewards = [
+                ...randomRewards,
+                {
+                  id: lootboxReward.id || lootboxReward.reward_id || "zone-lootbox",
+                  display_name: lootboxReward.name || lootboxReward.display_name || "Entdecker-Knospe",
+                  name: lootboxReward.name || lootboxReward.display_name || "Entdecker-Knospe",
+                  value: lootboxReward.value || (lootboxResult?.rewardStatus === "duplicate_compensated" ? `${lootboxResult?.duplicateSeedValue ?? 0} Seeds` : ""),
+                  image_url: lootboxReward.imageUrl || lootboxReward.image_url || null,
+                  type: lootboxReward.type || "lootbox",
+                  rewardStatus: lootboxResult?.rewardStatus || null,
+                  duplicateSeedValue: lootboxResult?.duplicateSeedValue ?? null,
+                  zoneTheme: zoneCompletion.zoneTheme,
+                },
+              ];
+            }
+          } catch (lootboxError) {
+            console.error("Fehler beim Claim der Zone-Lootbox fuer neue Global-Pflanze:", lootboxError);
+          }
+        }
       } catch (unlockError) {
         console.error("Fehler bei scan-basierten Zonen-Freischaltungen fuer neue Global-Pflanze:", unlockError);
       }
+      await updateQuestProgress(user);
       if (scanZoneUnlocks.length > 0) {
         queryClient.invalidateQueries({ queryKey: ["userRewards"] });
       }

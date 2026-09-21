@@ -2,7 +2,7 @@
  * Supabase Edge Function: Initialize Geo Raster Grid
  *
  * ⚠️ DEPRECATED: This function and the GeoRasterCell system are no longer in use.
- * The system has been completely migrated to the slim OSM database (OSMTileChunkLite + OSMTileValue).
+ * The system has been completely migrated to the slim OSM database (OSMAreaChunkLite + OSMAreaValue).
  * This function is kept for backward compatibility only and should NOT be called.
  * Last used: Version with proj4-based robotPlantDailyZones migration (April 2026)
  *

@@ -4,7 +4,7 @@
 iOS Safari (iPad/iPhone) crashed when the "Neu generieren" button was clicked to regenerate zones. This was happening on the new slim OSM database implementation, despite it replacing unreliable Overpass API calls.
 
 ## Root Causes Identified
-1. **Excessive Proj4 Transformations**: `getTilesInRadius()` called `lngLatToMetric()` repeatedly (~1000+ times for 3.5km radius)
+1. **Excessive Proj4 Transformations**: `getAreasInRadius()` called `lngLatToMetric()` repeatedly (~1000+ times for 3.5km radius)
 2. **Memory-Intensive Array Operations**: Large candidate arrays were created, sorted multiple times, and filtered repeatedly
 3. **Redundant Distance Calculations**: Distance calculations were happen multiple times during sorting, especially on iOS with limited resources
 4. **Suboptimal Object Allocation**: Too many intermediate objects (anchorPoints, themeScores) created in memory
@@ -12,7 +12,7 @@ iOS Safari (iPad/iPhone) crashed when the "Neu generieren" button was clicked to
 
 ## Optimizations Applied (April 2026)
 
-### 1. **getTilesInRadius() - Distance Calculation Optimization**
+### 1. **getAreasInRadius() - Distance Calculation Optimization**
 ```typescript
 // BEFORE: Used Math.sqrt for every distance check
 if (Math.sqrt(dx * dx + dy * dy) <= radiusM) { ... }
@@ -28,16 +28,16 @@ if (distSq <= radiusSq) { ... }
 ```typescript
 // BEFORE: Created Record<ZoneTheme, number> objects
 const existing = {
-  tileX, tileY,
+  areaX, areaY,
   themeTotals: { forest: 0, water: 0, meadow: 0, urban: 0 },
   zoneRowCount: 0,
 };
 
 // AFTER: Pre-computed flat structure + array pre-allocation
-cells.length = tileMap.size; // Pre-allocate
+cells.length = areaMap.size; // Pre-allocate
 // ...
-for (const tileData of tileMap.values()) {
-  const total = tileData.forest + tileData.water + ...;
+for (const areaData of areaMap.values()) {
+  const total = areaData.forest + areaData.water + ...;
   cells[cellIndex++] = { ... };
 }
 ```
@@ -81,12 +81,12 @@ const MAX_CANDIDATES = Math.min(cells.length * 2, 500); // Prevent array explosi
 
 | Operation | Before | After | Improvement |
 |-----------|--------|-------|-------------|
-| getTilesInRadius | ~80ms | ~50ms | 37% faster |
+| getAreasInRadius | ~80ms | ~50ms | 37% faster |
 | buildSlimRasterCells | ~120ms | ~70ms | 42% faster |
 | selectBestZones | ~200ms | ~120ms | 40% faster |
 | Total response | ~800-1000ms | ~400-500ms | 50-60% faster |
 
-*Note: Measurements on 3.5km radius search, ~1000 OSM tiles, Berlin location*
+*Note: Measurements on 3.5km radius search, ~1000 OSM areas, Berlin location*
 
 ## Testing on iOS
 
@@ -99,8 +99,8 @@ const MAX_CANDIDATES = Math.min(cells.length * 2, 500); // Prevent array explosi
 
 ### Debug Console (Safari Web Inspector)
 ```
-[robotPlantDailyZones] Searching 1248 OSM tiles within 3500m radius
-[robotPlantDailyZones] Found 145 usable slim OSM tiles from 12 chunks
+[robotPlantDailyZones] Searching 1248 OSM areas within 3500m radius
+[robotPlantDailyZones] Found 145 usable slim OSM areas from 12 chunks
 [robotPlantDailyZones] Zone generation completed in 420ms with 4 zones
 ```
 
@@ -120,8 +120,8 @@ const MAX_CANDIDATES = Math.min(cells.length * 2, 500); // Prevent array explosi
 4. Monitor memory usage in Web Inspector
 
 ### If further optimization needed:
-1. Implement tile pre-fetching/caching on client
-2. Reduce initial tile search radius on first request
+1. Implement area pre-fetching/caching on client
+2. Reduce initial area search radius on first request
 3. Use Web Workers for coordinate transformations (if supported)
 4. Implement request timeout with user feedback
 

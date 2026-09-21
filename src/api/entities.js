@@ -177,6 +177,7 @@ function createEntity(tableName) {
 // Where naming differs, we map them manually below.
 const tables = [
   'Classroom', 'ClassroomMember', 'ClassroomQuest',
+  'CommunityQuest', 'UserCommunityQuest',
   'DailyQuest', 'Friend', 'MonthlyQuest',
   'News', 'Plant', 'PlantGenus', 'PublicProfile', 'Quest',
   'LogoAsset',
@@ -189,7 +190,7 @@ const tables = [
   'UserActionEvent',
   // Robot Plant core loop
   'RobotPlant', 'RobotPlantWalletLedger', 'RobotPlantZone',
-  'RobotPlantUserZoneState', 'RobotPlantDailyChallenge', 'RobotPlantUserDailyChallenge',
+  'RobotPlantZoneScan', 'RobotPlantUserZoneState', 'RobotPlantDailyChallenge', 'RobotPlantUserDailyChallenge',
   'RobotPlantShopItem', 'RobotPlantUserInventory', 'RobotPlantActiveEffect',
   'PlantQuiz', 'PlantQuizSlotRoll', 'PlantQuizExcludedDiscovery',
   // Community tag knowledge layer

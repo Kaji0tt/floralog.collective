@@ -1,39 +1,61 @@
 /**
  * Season configuration for Floralog seasonal collections.
- * Each season defines a time-bounded collection period where scans
- * are tracked separately from the global collection.
+ * Each season starts on the 21st day of the quarter season month
+ * (March, June, September, December) and ends the day before the next one.
  */
 
-export const SEASONS = [
-  {
-    id: "fruehling-2026",
-    title: "Frühling 2026",
-    startDate: "2026-03-20",
-    endDate: "2026-06-20",
-    emoji: "🌸",
-  },
-  {
-    id: "sommer-2026",
-    title: "Sommer 2026",
-    startDate: "2026-06-21",
-    endDate: "2026-09-22",
-    emoji: "☀️",
-  },
-  {
-    id: "herbst-2026",
-    title: "Herbst 2026",
-    startDate: "2026-09-23",
-    endDate: "2026-12-21",
-    emoji: "🍂",
-  },
-  {
-    id: "winter-2026",
-    title: "Winter 2026/27",
-    startDate: "2026-12-22",
-    endDate: "2027-03-19",
-    emoji: "❄️",
-  },
+const SEASON_DEFINITIONS = [
+  { slug: "fruehling", title: "Frühling Saison", monthIndex: 2, emoji: "🌸" },
+  { slug: "sommer", title: "Sommer Saison", monthIndex: 5, emoji: "☀️" },
+  { slug: "herbst", title: "Herbst Saison", monthIndex: 8, emoji: "🍂" },
+  { slug: "winter", title: "Winter Saison", monthIndex: 11, emoji: "❄️" },
 ];
+
+const SEASON_START_DAY = 21;
+const FIRST_AUTOMATED_SEASON_YEAR = 2026;
+const FUTURE_SEASON_YEARS = 4;
+
+function toDateKey(date) {
+  return date.toISOString().slice(0, 10);
+}
+
+function buildSeason(definition, year) {
+  const nextDefinitionIndex = (SEASON_DEFINITIONS.indexOf(definition) + 1) % SEASON_DEFINITIONS.length;
+  const nextDefinition = SEASON_DEFINITIONS[nextDefinitionIndex];
+  const nextYear = definition.slug === "winter" ? year + 1 : year;
+  const startDate = new Date(Date.UTC(year, definition.monthIndex, SEASON_START_DAY));
+  const nextStartDate = new Date(Date.UTC(nextYear, nextDefinition.monthIndex, SEASON_START_DAY));
+  const endDate = new Date(nextStartDate);
+  endDate.setUTCDate(endDate.getUTCDate() - 1);
+
+  const displayYear = definition.slug === "winter"
+    ? `${year}/${String(year + 1).slice(2)}`
+    : String(year);
+
+  return {
+    id: `${definition.slug}-${year}`,
+    title: `${definition.title} ${displayYear}`,
+    startDate: toDateKey(startDate),
+    endDate: toDateKey(endDate),
+    emoji: definition.emoji,
+  };
+}
+
+function buildSeasons(referenceDate = new Date()) {
+  const referenceYear = referenceDate.getUTCFullYear();
+  const finalYear = referenceYear + FUTURE_SEASON_YEARS;
+  const seasons = [];
+
+  for (let year = FIRST_AUTOMATED_SEASON_YEAR; year <= finalYear; year += 1) {
+    SEASON_DEFINITIONS.forEach((definition) => {
+      seasons.push(buildSeason(definition, year));
+    });
+  }
+
+  return seasons;
+}
+
+export const SEASONS = buildSeasons();
 
 export const ALL_TIME_SEASON = {
   id: "alltime",

@@ -2,6 +2,10 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useUiTheme } from "@/lib/UiThemeContext";
 import FlorabotOverlayShell from "./FlorabotOverlayShell";
+import {
+  buildStoryProfileVariables,
+  interpolatePercentVariables,
+} from "@/lib/story/storyDefinition";
 
 /**
  * Full-screen Florabot milestone overlay.
@@ -23,6 +27,9 @@ export default function FlorabotMilestoneOverlay({ milestone, profile, logoAsset
   const messages = milestone.messages || [];
   const isLast = slideIndex >= messages.length - 1;
   const currentMsg = messages[slideIndex] || {};
+  const storyVariables = buildStoryProfileVariables(profile);
+  const resolvedTitle = interpolatePercentVariables(currentMsg.title, storyVariables);
+  const resolvedBody = interpolatePercentVariables(currentMsg.body, storyVariables);
 
   const handleNext = () => {
     if (isLast) {
@@ -38,7 +45,7 @@ export default function FlorabotMilestoneOverlay({ milestone, profile, logoAsset
 
   return (
     <FlorabotOverlayShell
-      eyebrow={`${milestone.threshold.toLocaleString("de")} Samen`}
+      eyebrow={milestone.eyebrow || `${milestone.threshold.toLocaleString("de")} Samen`}
       profile={profile}
       logoAssets={logoAssets}
       footer={(
@@ -119,14 +126,14 @@ export default function FlorabotMilestoneOverlay({ milestone, profile, logoAsset
                 isLightUi ? "text-stone-800" : "text-stone-100"
               }`}
             >
-              {currentMsg.title}
+              {resolvedTitle}
             </p>
             <p
               className={`mt-2 text-sm leading-relaxed ${
                 isLightUi ? "text-stone-600" : "text-stone-300"
               }`}
             >
-              {currentMsg.body}
+              {resolvedBody}
             </p>
           </div>
         </motion.div>

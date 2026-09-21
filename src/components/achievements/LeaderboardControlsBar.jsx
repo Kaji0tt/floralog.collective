@@ -77,19 +77,19 @@ export default function LeaderboardControlsBar({
   ];
 
   return (
-    <div className="w-full flex flex-col gap-2">
+    <div className="w-full flex flex-col gap-2 overflow-visible">
       {/* Container with Season Selector */}
       <GoldGradientCard
         as="div"
-        className="w-full shrink-0"
+        className="w-full shrink-0 overflow-visible"
         blur
         rounded="2xl"
         shadow={false}
         borderClassName="gold-gradient-border-mask-thin"
-        contentClassName="p-2 flex flex-col items-center justify-center"
+        contentClassName="p-2 flex flex-col items-center justify-center overflow-visible"
       >
         <div
-          className="w-full flex items-center justify-between px-2 select-none"
+          className="w-full flex items-center justify-between px-2 select-none overflow-visible"
           onTouchStart={handleTouchStart}
           onTouchEnd={handleTouchEnd}
         >
@@ -106,7 +106,7 @@ export default function LeaderboardControlsBar({
             <ChevronLeft className="w-4 h-4" />
           </button>
 
-          <div className="flex items-center justify-center min-w-0 flex-1 px-2">
+          <div className="flex items-center justify-center min-w-0 flex-1 px-2 overflow-visible">
             <AnimatePresence mode="wait" initial={false}>
               <motion.div
                 key={currentSeason.id}
@@ -114,10 +114,10 @@ export default function LeaderboardControlsBar({
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: 3, scale: 0.97 }}
                 transition={{ duration: 0.16 }}
-                className="flex items-center gap-2 text-center truncate"
+                className="flex max-w-full items-center gap-2 overflow-visible text-center whitespace-nowrap"
               >
                 <span
-                  className={`text-xl sm:text-2xl font-black tracking-wide truncate ${
+                  className={`text-xl sm:text-2xl font-black tracking-wide ${
                     isLightUi
                       ? "text-[#8f6b22] drop-shadow-[0_2px_6px_rgba(200,172,98,0.6)]"
                       : "text-[#fefce8] drop-shadow-[0_2px_14px_rgba(240,229,165,0.9)] [text-shadow:_0_3px_10px_rgba(0,0,0,0.95)]"

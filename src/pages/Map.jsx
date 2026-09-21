@@ -3,7 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import { Query } from "@/api/entities";
 import { getCurrentUser } from "@/api/userApi";
 import { useQuery } from "@tanstack/react-query";
-import { getTileClaims } from "@/api/tileClaimService";
+import { getAreaClaims } from "@/api/areaClaimService";
 import MapboxZoneMap from "@/components/map/MapboxZoneMap";
 import { parseDiscoveryCoordinates } from "@/lib/discoveryMap";
 import { cacheLocation, getCachedLocation, requestCurrentLocation } from "@/lib/locationSync";
@@ -97,10 +97,10 @@ export default function Map() {
     [filteredDiscoveries]
   );
 
-  const { data: claimedTiles = [], error: tileClaimsError, isLoading: isTileClaimsLoading } = useQuery({
-    queryKey: ["tileClaims", claimsCenterLat, claimsCenterLng],
+  const { data: claimedAreas = [], error: areaClaimsError, isLoading: isAreaClaimsLoading } = useQuery({
+    queryKey: ["areaClaims", claimsCenterLat, claimsCenterLng],
     queryFn: () =>
-      getTileClaims({
+      getAreaClaims({
         latitude: claimsCenterLat,
         longitude: claimsCenterLng,
         radiusM: 1500,
@@ -305,7 +305,7 @@ export default function Map() {
                 userLocation={hasUserLocation ? mapCenter : null}
                 fallbackCenter={mapCenter}
                 discoveryPoints={discoveryPoints}
-                claimedTiles={claimedTiles}
+                claimedAreas={claimedAreas}
                 currentAuthId={user?.id || null}
                 className="h-full w-full"
               />

@@ -34,7 +34,7 @@ const normalizeForModeration = (value) =>
     .replace(/\s+/g, " ")
     .trim();
 
-export const hasProfanityInTileClaimName = (value) => {
+export const hasProfanityInAreaClaimName = (value) => {
   const normalized = normalizeForModeration(value);
   if (!normalized) return false;
   return BAD_WORD_PATTERNS.some((pattern) => pattern.test(normalized));

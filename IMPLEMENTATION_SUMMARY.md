@@ -2,8 +2,8 @@
 
 ⚠️ **DEPRECATED: This document describes the old GeoRasterCell system (April 2026 or earlier).**
 
-The system has been completely migrated to **slim OSM database architecture** (OSMTileChunkLite + OSMTileValue).
-See [OSM_TILES_SLIM_GUIDE.md](OSM_TILES_SLIM_GUIDE.md) for current implementation details.
+The system has been completely migrated to **slim OSM database architecture** (OSMAreaChunkLite + OSMAreaValue).
+See [OSM_AREAS_SLIM_GUIDE.md](OSM_AREAS_SLIM_GUIDE.md) for current implementation details.
 
 ---
 
@@ -23,9 +23,9 @@ See [OSM_TILES_SLIM_GUIDE.md](OSM_TILES_SLIM_GUIDE.md) for current implementatio
 - Used pre-computed `GeoRasterCell` table from database
 
 **Current approach (slim OSM, April 2026+):**
-- Queries pre-computed `OSMTileChunkLite` + `OSMTileValue` tables
+- Queries pre-computed `OSMAreaChunkLite` + `OSMAreaValue` tables
 - Uses EPSG:3035 projection (meter-based grid)
-- 100m tile resolution with 10×10 chunk grouping
+- 100m area resolution with 10×10 chunk grouping
 - Fast, predictable: <100ms typical for 3.5km radius
 - No grid cell manipulation or on-demand initialization
 
@@ -40,8 +40,8 @@ const rasterCells = await adminClient
 
 // NEW (slim OSM):
 const { data: chunkRows } = await adminClient
-  .from("OSMTileChunkLite")
-  .select("id, chunk_x, chunk_y, tile_count")
+  .from("OSMAreaChunkLite")
+  .select("id, chunk_x, chunk_y, area_count")
   .eq("dataset_version", DATASET_VERSION)
   .gte("chunk_x", minChunkX)
   .lte("chunk_x", maxChunkX);
@@ -54,8 +54,8 @@ const { data: chunkRows } = await adminClient
 - Was: Upserts into ~~`GeoRasterCell`~~ table (REPLACED by bulk OSM data import)
 
 ### 4. **Data Pipeline** (current, slim OSM)
-- `data/pipeline/build_osm_tiles_slim.py`: Extracts tile zones from PostGIS database
-- `data/pipeline/upload_osm_tiles_slim.py`: Bulk imports to OSMTileChunkLite + OSMTileValue
+- `data/pipeline/build_osm_areas_slim.py`: Extracts area zones from PostGIS database
+- `data/pipeline/upload_osm_areas_slim.py`: Bulk imports to OSMAreaChunkLite + OSMAreaValue
 - Dataset: Pre-computed Germany OSM data (osm_de_2026_04_10)
 
 ### 5. **Configuration** (`supabase/config.toml`)
@@ -96,8 +96,8 @@ natural=meadow → meadow (0.85)
 ```
 
 ### Current System (slim OSM)
-See [OSM_TILES_SLIM_GUIDE.md](OSM_TILES_SLIM_GUIDE.md) for:
-- Tile grid architecture (100m × 100m tiles, 10×10 chunk grouping)
+See [OSM_AREAS_SLIM_GUIDE.md](OSM_AREAS_SLIM_GUIDE.md) for:
+- Area grid architecture (100m × 100m areas, 10×10 chunk grouping)
 - EPSG:3035 coordinate transformation
 - Zone type enumeration (0-5: forest, water, meadow, urban, beach, wetlands)
 - Query patterns and performance characteristics
@@ -114,7 +114,7 @@ See [OSM_TILES_SLIM_GUIDE.md](OSM_TILES_SLIM_GUIDE.md) for:
 
 ⚠️ The following steps were used with the old GeoRasterCell system. They are **no longer needed** with the slim OSM architecture.
 
-For current deployment, see [OSM_TILES_SLIM_GUIDE.md](OSM_TILES_SLIM_GUIDE.md).
+For current deployment, see [OSM_AREAS_SLIM_GUIDE.md](OSM_AREAS_SLIM_GUIDE.md).
 
 ### Old Step 1: Database Migration (DEPRECATED)
 ```bash
@@ -143,7 +143,7 @@ curl -X POST https://PROJECT.supabase.co/functions/v1/initializeGeoRasterGrid \
 
 - ❌ ~~Migration deployed successfully~~ (no longer needed)
 - ✅ `robotPlantDailyZones` deployed with new slim OSM implementation
-- ❌ ~~`GeoRasterCell` table has data~~ (replaced by OSMTileChunkLite/OSMTileValue)
+- ❌ ~~`GeoRasterCell` table has data~~ (replaced by OSMAreaChunkLite/OSMAreaValue)
 - ✅ Open map in app, click "Standort ermitteln"
 - ✅ Zones appear within 1-2 seconds (typically <100ms)
 - ✅ Check console logs for `osmSlimBased: true`

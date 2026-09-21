@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { Query } from "@/api/entities";
 import { trackAction } from "@/api/analyticsService";
 import { createUserNotification } from "@/api/notificationService";
@@ -27,7 +27,7 @@ import AchievementNotification from "@/components/achievements/AchievementNotifi
 import { getCurrentWeeklyQuest, getCurrentMonthlyQuest, getWeekNumber } from "@/components/quests/QuestRotationHelper";
 import { updateQuestProgress } from "@/components/utils/questProgress";
 import { grantRobotPlantRewardServerSide } from "@/api/robotPlantService";
-import { grantWalletCurrency } from "@/api/walletService";
+import { getAlltimeSeedLeaderboard, grantWalletCurrency } from "@/api/walletService";
 import { useUiTheme } from "@/lib/UiThemeContext";
 import { createPageUrl } from "@/utils";
 import { resolveTitleValue } from "@/lib/profileCustomizationOptions";
@@ -42,11 +42,12 @@ import LeaderboardUserCard from "@/components/achievements/LeaderboardUserCard";
 import LeaderboardTable from "@/components/achievements/LeaderboardTable";
 import GoldGradientCard from "@/components/home/GoldGradientCard";
 
-/** @type {{ regular: number, weekly: number, monthly: number }} */
+/** @type {{ regular: number, weekly: number, monthly: number, community: number }} */
 const DEFAULT_QUEST_SEED_REWARD_BY_TYPE = {
   regular: 500,
   weekly: 1500,
   monthly: 1000,
+  community: 400,
 };
 
 const ALLOWED_ACHIEVEMENTS_TABS = new Set(["quests", "stats"]);
@@ -65,6 +66,7 @@ const resolveQuestSeedReward = ({ questType, seedReward }) => {
   }
   if (questType === "weekly") return DEFAULT_QUEST_SEED_REWARD_BY_TYPE.weekly;
   if (questType === "monthly") return DEFAULT_QUEST_SEED_REWARD_BY_TYPE.monthly;
+  if (questType === "community") return DEFAULT_QUEST_SEED_REWARD_BY_TYPE.community;
   return DEFAULT_QUEST_SEED_REWARD_BY_TYPE.regular;
 };
 
@@ -75,6 +77,15 @@ const QUEST_REDEEM_TABLE_BY_TYPE = {
 };
 
 const markQuestRedeemedOnce = async ({ userQuestId, questType, redeemedAt }) => {
+  if (questType === "community") {
+    // Gated server-side: only succeeds once the community-wide goal was reached.
+    const { data, error } = await supabase.rpc("claim_community_quest_reward", {
+      p_user_community_quest_id: userQuestId,
+    });
+    if (error) throw new Error(error.message || "Community-Quest konnte nicht eingelöst werden.");
+    return data;
+  }
+
   const tableName = QUEST_REDEEM_TABLE_BY_TYPE[questType];
   if (!tableName) throw new Error(`Unknown quest type: ${questType}`);
 
@@ -460,6 +471,25 @@ export function useAchievementsFeatureContent({
     refetchOnReconnect: true,
   });
 
+  const { data: communityQuests = [] } = useQuery({
+    queryKey: ['communityQuests'],
+    queryFn: () => Query.CommunityQuest.list(),
+    staleTime: 30 * 1000,
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
+  });
+
+  const { data: userCommunityQuests = [] } = useQuery({
+    queryKey: ['userCommunityQuests', user?.id],
+    queryFn: () => Query.UserCommunityQuest.filter({ auth_id: user?.id }),
+    enabled: !!user?.id,
+    staleTime: 30 * 1000,
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
+  });
+
   const { data: rewards = [] } = useQuery({
     queryKey: ['rewards'],
     queryFn: () => Query.Reward.list(),
@@ -520,9 +550,9 @@ export function useAchievementsFeatureContent({
     refetchOnReconnect: true,
   });
 
-  const { data: allRobotPlants = [], refetch: refetchAllRobotPlants } = useQuery({
-    queryKey: ['allRobotPlantsForStats'],
-    queryFn: () => Query.RobotPlant.list(),
+  const { data: alltimeSeedLeaderboard = [], refetch: refetchAlltimeSeedLeaderboard } = useQuery({
+    queryKey: ['alltimeSeedLeaderboardForStats'],
+    queryFn: () => getAlltimeSeedLeaderboard(500),
     staleTime: 60 * 1000,
     refetchOnMount: 'always',
     refetchOnWindowFocus: true,
@@ -735,7 +765,7 @@ export function useAchievementsFeatureContent({
         await Promise.all([
           refetchAllDiscoveries(),
           refetchAllProfiles(),
-          refetchAllRobotPlants(),
+          refetchAlltimeSeedLeaderboard(),
           refetchGlobalScanLeaderboard(),
           refetchWeeklySeedLeaderboard(),
           refetchSeasonSeedLeaderboard(),
@@ -762,7 +792,7 @@ export function useAchievementsFeatureContent({
     selectedSeasonId,
     refetchAllDiscoveries,
     refetchAllProfiles,
-    refetchAllRobotPlants,
+    refetchAlltimeSeedLeaderboard,
     refetchGlobalScanLeaderboard,
     refetchWeeklySeedLeaderboard,
     refetchSeasonSeedLeaderboard,
@@ -1467,16 +1497,69 @@ export function useAchievementsFeatureContent({
     }));
   });
 
+  // Community-Quests: gemeinsames Server-Ziel, sichtbar für alle. Eine Teilnahme
+  // (UserCommunityQuest) entsteht automatisch beim ersten zählenden Scan.
+  const activeCommunityQuests = communityQuests
+    .filter((quest) => quest.is_active !== false)
+    .flatMap((quest) => {
+      const userQuest = userCommunityQuests.find((ucq) => ucq.community_quest_id === quest.id);
+      if (userQuest?.status === 'redeemed') return [];
+
+      const reward = rewards.find(r => r.name === quest.reward_name);
+      const seedReward = resolveQuestSeedReward({ questType: 'community', seedReward: quest.seed_reward });
+      const rewardDisplayName = reward?.display_name ? `${seedReward} Samen + ${reward.display_name}` : `${seedReward} Samen`;
+
+      return [{
+        ...quest,
+        userQuestId: userQuest?.id,
+        progress: quest.current_progress || 0,
+        required_discoveries: quest.required_discoveries || 0,
+        isCompleted: !!quest.completed,
+        type: 'community',
+        seedReward,
+        rewardDisplayName,
+        rewardData: reward,
+        canRedeem: !!quest.completed && !!userQuest && userQuest.status !== 'redeemed',
+        hasJoined: !!userQuest,
+      }];
+    });
+
+  // Abgeschlossene & eingelöste Community-Quests (Historie)
+  const completedCommunityQuests = communityQuests.flatMap((quest) => {
+    const reward = rewards.find(r => r.name === quest.reward_name);
+    const seedReward = resolveQuestSeedReward({ questType: 'community', seedReward: quest.seed_reward });
+    const rewardDisplayName = reward?.display_name ? `${seedReward} Samen + ${reward.display_name}` : `${seedReward} Samen`;
+    const relatedUserQuests = userCommunityQuests.filter((ucq) =>
+      ucq.community_quest_id === quest.id && ucq.status === 'redeemed'
+    );
+
+    return relatedUserQuests.map((ucq) => ({
+      ...quest,
+      userQuestId: ucq.id,
+      progress: quest.current_progress || quest.required_discoveries || 0,
+      required_discoveries: quest.required_discoveries || 0,
+      isCompleted: true,
+      type: 'community',
+      seedReward,
+      rewardDisplayName,
+      rewardData: reward,
+      canRedeem: false,
+      completedAt: ucq.redeemed_at,
+    }));
+  });
+
   // Zeige alle relevanten Quest-Typen gesammelt ohne Unterkategorie
   const activeQuests = [
     ...activeRegularQuests,
     ...(activeWeeklyQuest ? [activeWeeklyQuest] : []),
     ...(activeMonthlyQuest ? [activeMonthlyQuest] : []),
+    ...activeCommunityQuests,
   ];
   const completedQuests = [
     ...completedRegularQuests,
     ...completedWeeklyQuests,
     ...completedMonthlyQuests,
+    ...completedCommunityQuests,
   ];
 
   // Sortiere abgeschlossene Quests nach Abschlussdatum (neueste zuerst)
@@ -1808,8 +1891,8 @@ export function useAchievementsFeatureContent({
         careMultiplier: parseMultiplier(entry?.care_multiplier),
         streakMultiplier: parseMultiplier(entry?.streak_multiplier),
         firstScanOfDayMultiplier: parseMultiplier(entry?.first_scan_of_day_multiplier),
-        tileClaimMultiplier: parseMultiplier(entry?.tile_claim_multiplier),
-        preTileClaimReward: Math.max(0, Number(entry?.pre_tile_claim_reward ?? 0)),
+        areaClaimMultiplier: parseMultiplier(entry?.area_claim_multiplier),
+        preAreaClaimReward: Math.max(0, Number(entry?.pre_area_claim_reward ?? 0)),
         detailKey: scanDetailKey,
         name:
           profile?.display_name ||
@@ -1857,7 +1940,7 @@ export function useAchievementsFeatureContent({
       ["Pflege", entry.careMultiplier],
       ["Streak", entry.streakMultiplier],
       ["Erster Scan/Tag", entry.firstScanOfDayMultiplier],
-      ["Tile", entry.tileClaimMultiplier],
+      ["Area", entry.areaClaimMultiplier],
     ];
 
     return candidates
@@ -1877,31 +1960,34 @@ export function useAchievementsFeatureContent({
     emailByAuthIdFromDiscoveries.set(authId, email);
   });
 
-  // Globales Samenstand-Ranking: alle Spieler nach wallet_balance
+  // Globales All-Time-Samenranking: historische Seed-Ledger, nicht resetbarer Saisonbestand.
   const profileByAuthId = new Map(
     (allProfiles || [])
       .filter((profile) => !!profile.auth_id)
       .map((profile) => [profile.auth_id, profile])
   );
 
-  const alltimeSeedRanking = (allRobotPlants || [])
-    .filter((rp) => !!rp.auth_id && Number(rp.wallet_balance) > 0)
-    .map((rp) => {
-      const profile = profileByAuthId.get(rp.auth_id);
-      const isOwn = Boolean(ownAuthId && rp.auth_id === ownAuthId);
+  const alltimeSeedRanking = (alltimeSeedLeaderboard || [])
+    .filter((entry) => !!entry.auth_id && Number(entry.alltime_seed_total) > 0)
+    .map((entry) => {
+      const profile = profileByAuthId.get(entry.auth_id);
+      const isOwn = Boolean(ownAuthId && entry.auth_id === ownAuthId);
       const resolvedEmail =
+        (entry?.user_email && String(entry.user_email).toLowerCase()) ||
         (profile?.user_email && String(profile.user_email).toLowerCase()) ||
-        emailByAuthIdFromDiscoveries.get(rp.auth_id) ||
+        emailByAuthIdFromDiscoveries.get(entry.auth_id) ||
         (isOwn && user?.email ? String(user.email).toLowerCase() : null) ||
         null;
       return {
-        authId: rp.auth_id,
+        authId: entry.auth_id,
         email: resolvedEmail,
-        seeds: Number(rp.wallet_balance ?? 0),
+        seeds: Math.max(0, Number(entry.alltime_seed_total ?? 0)),
         isOwn,
         name:
           profile?.display_name ||
           profile?.full_name ||
+          entry?.display_name ||
+          entry?.full_name ||
           (isOwn ? (user?.display_name || user?.full_name || user?.email) : (profile?.user_email || "")),
       };
     })
@@ -2446,6 +2532,7 @@ export function useAchievementsFeatureContent({
                   weekly:     { tint: "rgba(101,166,132,0.36)", border: "rgba(158,223,189,0.30)", iconBg: "bg-emerald-300/16 border-white/20 text-emerald-100" },
                   monthly:    { tint: "rgba(251,191,36,0.34)",  border: "rgba(251,191,36,0.30)",  iconBg: "bg-amber-300/16 border-white/20 text-amber-100" },
                   collection: { tint: "rgba(104,134,189,0.34)", border: "rgba(167,190,237,0.30)", iconBg: "bg-blue-300/16 border-white/20 text-blue-100" },
+                  community:  { tint: "rgba(129,140,248,0.36)",  border: "rgba(165,180,252,0.30)", iconBg: "bg-indigo-300/16 border-white/20 text-indigo-100" },
                   regular:    { tint: "rgba(146,181,93,0.38)",  border: "rgba(199,224,151,0.30)", iconBg: "bg-lime-300/16 border-white/20 text-lime-100" },
                 };
                 const accent = accentMap[quest.type] || accentMap.regular;
@@ -2453,6 +2540,7 @@ export function useAchievementsFeatureContent({
                 const typeLabel = quest.type === "weekly" ? "📅 Wöchentlich"
                   : quest.type === "monthly" ? "📆 Monatlich"
                   : quest.type === "collection" ? `🗺️ ${quest.icon_emoji || "Sammlung"}`
+                  : quest.type === "community" ? "🌍 Community"
                   : null;
 
                 const QuestIcon = quest.isCompleted ? CheckCircle2 : Target;
@@ -2586,7 +2674,9 @@ export function useAchievementsFeatureContent({
                                     Einlösen
                                   </Button>
                                 ) : (
-                                  <span className="text-[11px] italic text-white/50">Bereits eingelöst</span>
+                                  <span className="text-[11px] italic text-white/50">
+                                    {quest.type === "community" && !quest.hasJoined ? "Nicht teilgenommen" : "Bereits eingelöst"}
+                                  </span>
                                 )}
                               </div>
                             </div>
@@ -2615,12 +2705,14 @@ export function useAchievementsFeatureContent({
                       weekly:     { tint: "rgba(101,166,132,0.18)", border: "rgba(158,223,189,0.18)", iconBg: "bg-emerald-300/10 border-white/15 text-emerald-100/60" },
                       monthly:    { tint: "rgba(251,191,36,0.16)",  border: "rgba(251,191,36,0.18)",  iconBg: "bg-amber-300/10 border-white/15 text-amber-100/60" },
                       collection: { tint: "rgba(104,134,189,0.16)", border: "rgba(167,190,237,0.18)", iconBg: "bg-blue-300/10 border-white/15 text-blue-100/60" },
+                      community:  { tint: "rgba(129,140,248,0.18)",  border: "rgba(165,180,252,0.18)", iconBg: "bg-indigo-300/10 border-white/15 text-indigo-100/60" },
                       regular:    { tint: "rgba(146,181,93,0.18)",  border: "rgba(199,224,151,0.18)", iconBg: "bg-lime-300/10 border-white/15 text-lime-100/60" },
                     };
                     const accent = accentMap[quest.type] || accentMap.regular;
                     const typeLabel = quest.type === "weekly" ? "📅 Wöchentlich"
                       : quest.type === "monthly" ? "📆 Monatlich"
                       : quest.type === "collection" ? `🗺️ Sammlung`
+                      : quest.type === "community" ? "🌍 Community"
                       : null;
 
                     return (
