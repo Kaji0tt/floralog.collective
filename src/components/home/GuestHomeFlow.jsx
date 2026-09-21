@@ -465,7 +465,10 @@ export default function GuestHomeFlow() {
     const queryParams = new URLSearchParams(window.location.search);
     const hasRecoveryType = hashParams.get("type") === "recovery" || queryParams.get("type") === "recovery";
     const hasAuthTokens = hashParams.has("access_token") && hashParams.has("refresh_token");
-    const recoveryCode = queryParams.get("code");
+    // Only treat a bare `?code=` as a recovery code when `type=recovery` is also present -
+    // Google OAuth's PKCE callback also lands here with a `?code=` param and must not be
+    // mistaken for a password-reset link (it would sign the user out mid-login).
+    const recoveryCode = hasRecoveryType ? queryParams.get("code") : null;
 
     const normalizeRecoverySession = async () => {
       if (!(hasRecoveryType || hasAuthTokens || recoveryCode)) {
