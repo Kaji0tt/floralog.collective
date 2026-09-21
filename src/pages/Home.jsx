@@ -1968,8 +1968,10 @@ function HomeContent() {
     }).length;
   }, [allReferrals, user?.email]);
 
-  const shouldForcePhase6ByReferral = playerSeeds >= 40000 && referralPhase6UnlockCount > 0;
-  const storySeedProgress = shouldForcePhase6ByReferral ? Math.max(playerSeeds, 50000) : playerSeeds;
+  // Story unlock progression is based on all-time seeds, not the active season.
+  const storySeedProgressBase = allTimeSeeds;
+  const shouldForcePhase6ByReferral = storySeedProgressBase >= 40000 && referralPhase6UnlockCount > 0;
+  const storySeedProgress = shouldForcePhase6ByReferral ? Math.max(storySeedProgressBase, 50000) : storySeedProgressBase;
   const seasonStartIntroScopedId = buildScopedMilestoneId(
     milestoneScopeKey,
     FLORABOT_SEASON_START_INTRO.id,
@@ -2008,7 +2010,7 @@ function HomeContent() {
         phase6_unlocked_by_referral: true,
         phase6_referral_unlocked_at: new Date().toISOString(),
       },
-      seed_progress_at_last_eval: Math.max(playerSeeds, 50000),
+      seed_progress_at_last_eval: storySeedProgress,
       last_story_eval_at: new Date().toISOString(),
     })
       .then((nextStory) => {
@@ -2017,7 +2019,7 @@ function HomeContent() {
       .catch((error) => {
         console.warn("[Home] Could not persist referral phase 6 unlock state:", error?.message || error);
       });
-  }, [playerSeeds, shouldForcePhase6ByReferral, user?.id, userStory]);
+  }, [storySeedProgress, shouldForcePhase6ByReferral, user?.id, userStory]);
 
   // Florabot-Meilensteine prüfen wenn Wallet geladen
   // Must be declared before any conditional returns to satisfy React hook rules
@@ -2047,7 +2049,7 @@ function HomeContent() {
     // New UserStory rows for existing users should not replay historic milestones.
     if (storyCreatedThisSession) {
       const reachedMilestoneIds = FLORABOT_MILESTONES
-        .filter((milestone) => playerSeeds >= milestone.threshold)
+        .filter((milestone) => storySeedProgress >= milestone.threshold)
         .map((milestone) => buildScopedMilestoneId(milestoneScopeKey, milestone.id))
         .filter(Boolean);
 
@@ -2057,7 +2059,7 @@ function HomeContent() {
 
         updateUserStory(user.id, {
           seen_milestone_ids: mergedScopedSeenIds,
-          seed_progress_at_last_eval: playerSeeds,
+          seed_progress_at_last_eval: storySeedProgress,
           last_story_eval_at: new Date().toISOString(),
         })
           .then((nextStory) => {
@@ -2071,11 +2073,11 @@ function HomeContent() {
       setStoryCreatedThisSession(false);
     }
 
-    const next = getNextUnseenMilestone(playerSeeds, seenIds);
+    const next = getNextUnseenMilestone(storySeedProgress, seenIds);
     if (next && dismissedMilestoneIdsRef.current.has(next.id)) return;
     if (next) setActiveMilestone(next);
   }, [
-    playerSeeds,
+    storySeedProgress,
     user?.id,
     isRobotPlantStateFetched,
     activeMilestone,

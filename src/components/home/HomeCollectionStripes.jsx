@@ -744,6 +744,13 @@ export default function HomeCollectionStripes({
   // updateBadgeLogoScale, not an external input. Re-running this settle-pass whenever it
   // changes turned it into a feedback loop (state change -> effect -> recompute -> state change -> ...)
   // that manifested as a continuous jitter/shake of the logo and badges.
+  // Depend on `Boolean(profileBadges)` (panel shown/hidden), NOT the `profileBadges` node itself:
+  // Home.jsx passes that prop as an inline JSX literal, so it's a new object reference on every
+  // Home re-render. Using it directly as a dep re-ran this rAF-delayed settle-pass on every
+  // unrelated Home re-render during the opening seconds (data fetches resolving etc.), each time
+  // nudging badgeLogoScale/profileBadgesTopPx a hair - which is exactly what looked like the logo
+  // and badges "jumping" shortly after Home opened.
+  const hasProfileBadges = Boolean(profileBadges);
   useEffect(() => {
     let firstFrameId = null;
     let secondFrameId = null;
@@ -756,7 +763,7 @@ export default function HomeCollectionStripes({
       if (firstFrameId) window.cancelAnimationFrame(firstFrameId);
       if (secondFrameId) window.cancelAnimationFrame(secondFrameId);
     };
-  }, [isHealthView, profileBadges, updateBadgeLogoScale]);
+  }, [isHealthView, hasProfileBadges, updateBadgeLogoScale]);
 
   useEffect(() => {
     return () => {
