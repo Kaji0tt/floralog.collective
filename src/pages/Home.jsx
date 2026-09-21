@@ -385,6 +385,7 @@ function HomeContent() {
     zoneGenerationDay,
     hasCalledZoneGenerationToday,
     setZoneGenerationDayForUser,
+    user: authUser,
   } = useAuth();
   const [user, setUser] = useState(null);
   const botName = user?.bot_name || null;
@@ -1085,7 +1086,7 @@ function HomeContent() {
 
   const loadUserData = async () => {
     const currentUser = await getCurrentUser();
-    setUser(currentUser);
+    setUser(currentUser || authUser);
     setIsLoadingUser(false);
     // Refetch alle Queries um Stats sofort zu aktualisieren
     queryClient.refetchQueries({ queryKey: ['userDiscoveries'] });
@@ -1103,6 +1104,8 @@ function HomeContent() {
   };
 
   useEffect(() => {
+    if (!authUser?.id) return undefined;
+
     loadUserData();
 
     // Subscription für User-Updates
@@ -1135,7 +1138,7 @@ function HomeContent() {
       unsubscribe();
       window.removeEventListener('userUpdated', handleUserUpdate);
     };
-  }, []);
+  }, [authUser?.id]);
 
   // Referral-Code aus localStorage verarbeiten, sobald User eingeloggt ist (einmalig)
   useEffect(() => {
@@ -3910,6 +3913,7 @@ function HomeContent() {
                 ) : activePanel === "achievements" ? (
                   <AchievementsFeatureRoot
                     embedded
+                    initialTab="achievements"
                     onRequestClose={() => setActivePanel(null)}
                     onHeaderMetaChange={setEmbeddedHeaderMeta}
                     onUserUpdated={(freshUser) => setUser(freshUser)}

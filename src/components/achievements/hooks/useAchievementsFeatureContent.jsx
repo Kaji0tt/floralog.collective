@@ -5,10 +5,9 @@ import { createUserNotification } from "@/api/notificationService";
 import { buildNotificationPayload } from "@/lib/story/storyDefinition";
 import { getCurrentUser, updateCurrentUserProfile } from "@/api/userApi";
 import { useQuery } from "@tanstack/react-query";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Trophy, Leaf, Target, CheckCircle2, Gift, Users, ChevronDown, ChevronUp, ChevronLeft, Loader2, ScanSearch, Globe, CalendarDays, User } from "lucide-react";
-import { getNavButtonStyle, NAV_COLOR_ORDER } from "@/components/navigation/navButtonStyles";
+import { Trophy, Leaf, Target, CheckCircle2, Gift, ChevronDown, ChevronUp, Loader2 } from "lucide-react";
 import { motion } from "framer-motion";
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
@@ -17,8 +16,6 @@ import { Button } from "@/components/ui/button";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { CheckCircle } from "lucide-react";
 import MobileBackButton from "@/components/navigation/MobileBackButton";
-import { Tabs, TabsContent } from "@/components/ui/tabs";
-import { Progress } from "@/components/ui/progress";
 import { AnimatePresence } from "framer-motion";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import ScanFeedbackNotification from "@/components/notifications/ScanFeedbackNotification";
@@ -33,7 +30,6 @@ import { createPageUrl } from "@/utils";
 import { resolveTitleValue } from "@/lib/profileCustomizationOptions";
 import { supabase } from "@/api/supabaseClient";
 import { resolveEquippedLogoAssetsWithCatalog } from "@/lib/logoAccessoryAssets";
-import { hexToFilter } from "@/lib/hexToFilter";
 import CustomLogoAvatar from "@/components/profile/CustomLogoAvatar";
 import { getAllLeaderboardSeasons, getSeasonById, getActiveSeason } from "@/lib/seasonConfig";
 import LeaderboardControlsBar from "@/components/achievements/LeaderboardControlsBar";
@@ -244,6 +240,7 @@ const getAverageColor = (imageUrl) => {
 export function useAchievementsFeatureContent({
   embedded = false,
   initialTab = null,
+  showModuleHeader = true,
   onHeaderMetaChange,
   onRequestClose: _onRequestClose = null,
   onUserUpdated,
@@ -280,10 +277,11 @@ export function useAchievementsFeatureContent({
   const [showPersonalStats, setShowPersonalStats] = useState(true);
   const [statsSection, setStatsSection] = useState("global");
   const [globalSubSection, setGlobalSubSection] = useState("scans");
-  // Layered navigation: "leaderboard", "quests" (persistent pill header switches between them)
+  // Layered navigation: "leaderboard", "quests", "achievements" (persistent pill header switches between them)
   const [achievementsView, setAchievementsView] = useState(() => (
-    // resolveAchievementsTab() falls back to "quests" for an empty/unknown tab, so compare the raw value directly.
-    String(initialTab || "").toLowerCase() === "quests" ? "quests" : "leaderboard"
+    String(initialTab || "").toLowerCase() === "leaderboard" ? "leaderboard"
+      : String(initialTab || "").toLowerCase() === "achievements" ? "achievements"
+      : "quests"
   ));
   const _prevAchievementsViewRef = useRef(achievementsView);
   useEffect(() => {
@@ -1187,6 +1185,7 @@ export function useAchievementsFeatureContent({
     const titleMap = {
       leaderboard: `Rangliste · ${selectedSeason?.title || "Saison"}`,
       quests: "Aufgaben",
+      achievements: "Erfolge",
     };
     onHeaderMetaChange({
       title: titleMap[achievementsView] ?? "Aufgaben",
@@ -2164,10 +2163,10 @@ export function useAchievementsFeatureContent({
       isActive: achievementsView === "quests",
     },
     {
-      id: "leaderboard",
-      title: "Rangliste",
-      onSelect: () => setAchievementsView("leaderboard"),
-      isActive: achievementsView === "leaderboard",
+      id: "achievements",
+      title: "Erfolge",
+      onSelect: () => setAchievementsView("achievements"),
+      isActive: achievementsView === "achievements",
     },
   ];
 
@@ -2392,41 +2391,134 @@ export function useAchievementsFeatureContent({
       <div className={embedded ? "w-full h-full min-h-0 flex flex-col" : "w-full"}>
 
         {/* ── PERSISTENT PILL HEADER (Aufgaben / Rangliste) ── */}
-        <GoldGradientCard
-          as="div"
-          className={tabsHeaderClass}
-          blur
-          borderClassName="gold-gradient-border-mask-thin"
-          shadow={false}
-          contentClassName="px-2 py-2"
-        >
-          <div className="grid grid-cols-2 gap-2 min-w-0">
-            {moduleChips.map((chip) => (
-              <button
-                key={chip.id}
-                type="button"
-                onClick={chip.onSelect}
-                className={
-                  "flex items-center justify-center gap-2 px-2 py-1.5 rounded-full border text-[11px] whitespace-nowrap transition-colors min-w-0 " +
-                  (chip.isActive
-                    ? (isLightUi
-                      ? "bg-white/90 text-[#8f6b22] shadow-sm"
-                      : "bg-black/55 text-[#f7f0c1] shadow-sm")
-                    : (isLightUi
-                      ? "bg-white/55 text-stone-700 hover:bg-white/75"
-                      : "bg-black/35 text-stone-200 hover:bg-black/50"))
-                }
-                style={{
-                  borderColor: chip.isActive
-                    ? (isLightUi ? "rgba(200,172,98,0.70)" : "rgba(240,229,165,0.75)")
-                    : (isLightUi ? "rgba(200,172,98,0.35)" : "rgba(255,255,255,0.3)"),
-                }}
-              >
-                <span className="font-medium truncate">{chip.title}</span>
-              </button>
-            ))}
+        {showModuleHeader && (
+          <GoldGradientCard
+            as="div"
+            className={tabsHeaderClass}
+            blur
+            borderClassName="gold-gradient-border-mask-thin"
+            shadow={false}
+            contentClassName="px-2 py-2"
+          >
+            <div className="grid grid-cols-2 gap-2 min-w-0">
+              {moduleChips.map((chip) => (
+                <button
+                  key={chip.id}
+                  type="button"
+                  onClick={chip.onSelect}
+                  className={
+                    "flex items-center justify-center gap-2 px-2 py-1.5 rounded-full border text-[11px] whitespace-nowrap transition-colors min-w-0 " +
+                    (chip.isActive
+                      ? (isLightUi
+                        ? "bg-white/90 text-[#8f6b22] shadow-sm"
+                        : "bg-black/55 text-[#f7f0c1] shadow-sm")
+                      : (isLightUi
+                        ? "bg-white/55 text-stone-700 hover:bg-white/75"
+                        : "bg-black/35 text-stone-200 hover:bg-black/50"))
+                  }
+                  style={{
+                    borderColor: chip.isActive
+                      ? (isLightUi ? "rgba(200,172,98,0.70)" : "rgba(240,229,165,0.75)")
+                      : (isLightUi ? "rgba(200,172,98,0.35)" : "rgba(255,255,255,0.3)"),
+                  }}
+                >
+                  <span className="font-medium truncate">{chip.title}</span>
+                </button>
+              ))}
+            </div>
+          </GoldGradientCard>
+        )}
+
+        {/* ── ERFOLGE ── */}
+        {achievementsView === "achievements" && (
+          <div className={achievementsContentClass} style={embeddedContentMaskStyle}>
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4 }}
+              className="max-w-6xl mx-auto space-y-4"
+              style={embedded ? { paddingTop: listTopFadePx, paddingBottom: listBottomFadePx } : undefined}
+            >
+              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+                {sortedAchievements.map((achievement, index) => {
+                  const isUnlocked = userAchievements.some((ua) => ua.achievement_id === achievement.id);
+                  const achievementReward = achievement.reward_name ? rewards.find((r) => r.name === achievement.reward_name) : null;
+                  const rewardTitleValue = resolveTitleValue(achievementReward?.value, achievementReward?.display_name);
+                  const isCurrentTitle = achievementReward?.type === 'title' && resolveTitleValue(user?.selected_title) === rewardTitleValue;
+
+                  return (
+                    <motion.div
+                      key={achievement.id}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: index * 0.03 }}
+                    >
+                      <Card className={`border shadow-sm transition-all duration-300 ${isUnlocked ? achievementUnlockedCardClass : achievementLockedCardClass}`}>
+                        <CardContent className="p-3">
+                          <div className="flex items-start gap-2">
+                            <div className={`text-2xl ${isUnlocked ? '' : 'grayscale opacity-30'} flex-shrink-0`}>
+                              {achievement.icon_emoji}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-1 mb-1">
+                                <Badge className={`${getRarityColor(achievement.rarity)} text-white font-semibold text-[10px] px-1 py-0`}>
+                                  {achievement.rarity}
+                                </Badge>
+                                {isUnlocked && <Trophy className="w-3 h-3 text-amber-500" />}
+                              </div>
+                              <h3 className={`text-sm font-bold mb-1 ${isUnlocked ? achievementTitleClass : achievementLockedTitleClass}`}>
+                                {achievement.title}
+                              </h3>
+                              <p className={`text-xs mb-1 ${isUnlocked ? achievementMutedTextClass : achievementLockedMutedTextClass}`}>
+                                {achievement.description}
+                              </p>
+
+                              {achievementReward && (
+                                <div className={`flex items-center gap-1 text-xs mt-2 px-2 py-1 rounded-lg ${isUnlocked ? achievementRewardClass : achievementLockedRewardClass}`}>
+                                  <Gift className="w-3 h-3" />
+                                  <span className="font-semibold">{achievementReward.display_name}</span>
+                                </div>
+                              )}
+
+                              {achievementReward && achievementReward.type === 'title' && isUnlocked && (
+                                <Button
+                                  onClick={() => handleSelectTitle(achievement, achievementReward)}
+                                  disabled={isCurrentTitle || updateTitleMutation.isPending}
+                                  className={`w-full text-[10px] h-6 mt-1 ${isCurrentTitle ? 'bg-green-600 hover:bg-green-600' : 'bg-purple-600 hover:bg-purple-700'}`}
+                                  size="sm"
+                                >
+                                  {isCurrentTitle ? (
+                                    <>
+                                      <CheckCircle className="w-2.5 h-2.5 mr-1" />
+                                      Aktiv
+                                    </>
+                                  ) : (
+                                    `Titel: ${rewardTitleValue}`
+                                  )}
+                                </Button>
+                              )}
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </motion.div>
+                  );
+                })}
+
+                {sortedAchievements.length === 0 && (
+                  <Card className={`border-2 backdrop-blur-md ${isLightUi ? "border-stone-200 bg-white/80" : "border-[#f0e5a5]/25 bg-black/35"}`}>
+                    <CardContent className="p-12 text-center">
+                      <Trophy className={`w-16 h-16 mx-auto mb-4 ${isLightUi ? "text-stone-400" : "text-stone-500"}`} />
+                      <h3 className={`text-xl font-bold mb-2 ${isLightUi ? "text-stone-900" : "text-stone-100"}`}>
+                        Noch keine Erfolge verfügbar
+                      </h3>
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
+            </motion.div>
           </div>
-        </GoldGradientCard>
+        )}
 
         {/* ── RANGLISTE CONTENT ── */}
         {achievementsView === "leaderboard" && (

@@ -25,9 +25,13 @@ const BADGE_LOGO_UNIT_MAX_WIDTH_REM = 22;
 const PROFILE_BADGE_REWARD_CLEARANCE_PX = 8;
 // Extra upward shift for the badges container relative to its logo-anchored position.
 const PROFILE_BADGES_EXTRA_LIFT_PX = 20;
-const HERO_TITLE_LOGO_CLEARANCE_PX = 8;
 // Only needs to clear the floating name/title overlay now that the badge arc no longer renders here.
 const LOGO_ROW_TOP_REM = .0;
+// Fixed (non-computed) vertical offset for the logo unit. Previously this was recalculated on every
+// mount/data-change (title-overlap avoidance) via `heroContentOffsetPx` state, which caused a visible
+// jump/jank shortly after Home opened once title/badge/reward rects settled. Pinning it to a constant
+// removes that runtime re-layout entirely.
+const HERO_CONTENT_FIXED_OFFSET_PX = 0;
 
 const clampIndex = (index, size) => {
   if (!Number.isFinite(index) || size <= 0) return 0;
@@ -602,7 +606,6 @@ export default function HomeCollectionStripes({
   const [badgeLogoScale, setBadgeLogoScale] = useState(1);
   const [profileBadgesTopPx, setProfileBadgesTopPx] = useState(null);
   const [healthLogoReservedHeightPx, setHealthLogoReservedHeightPx] = useState(null);
-  const [heroContentOffsetPx, setHeroContentOffsetPx] = useState(0);
   const profileBadgesRef = useRef(/** @type {HTMLDivElement | null} */ (null));
   const badgeLogoScaleRef = useRef(1);
   // Remembers the scale (and its rendered pixel height) computed for the default (content-stack)
@@ -649,23 +652,6 @@ export default function HomeCollectionStripes({
       const nextTop = Math.max(0, Math.min(logoBottom, maxBadgeBottom));
       setProfileBadgesTopPx((previousTop) => (
         previousTop !== null && Math.abs(previousTop - nextTop) < 1.5 ? previousTop : nextTop
-      ));
-
-      const titleRect = heroTitleRef?.current?.getBoundingClientRect();
-      const badgesRect = profileBadgesRef.current?.getBoundingClientRect();
-      const rewardsRect = rewardCardsRef?.current?.getBoundingClientRect();
-      const titleOverlapsLogo = titleRect &&
-        titleRect.left < logoRect.right &&
-        titleRect.right > logoRect.left;
-      const requiredOffset = titleOverlapsLogo
-        ? Math.max(0, titleRect.bottom + HERO_TITLE_LOGO_CLEARANCE_PX - logoRect.top + heroContentOffsetPx)
-        : 0;
-      const availableOffset = badgesRect && rewardsRect
-        ? heroContentOffsetPx + Math.max(0, rewardsRect.top - badgesRect.bottom - PROFILE_BADGE_REWARD_CLEARANCE_PX)
-        : 0;
-      const nextHeroContentOffset = Math.min(requiredOffset, availableOffset);
-      setHeroContentOffsetPx((previousOffset) => (
-        Math.abs(previousOffset - nextHeroContentOffset) < 1.5 ? previousOffset : nextHeroContentOffset
       ));
     }
     // logoHeight/logoWidth: size of the logo button in unit-coordinate space (removes unit scale,
@@ -754,9 +740,9 @@ export default function HomeCollectionStripes({
     };
   }, [heroTitleRef, rewardCardsRef, updateBadgeLogoScale]);
 
-  // Intentionally excludes `badgeLogoScale`/`heroContentOffsetPx` from the deps below - those are
-  // OUTPUTS of updateBadgeLogoScale, not external inputs. Re-running this settle-pass whenever they
-  // change turned it into a feedback loop (state change -> effect -> recompute -> state change -> ...)
+  // Intentionally excludes `badgeLogoScale` from the deps below - it's an OUTPUT of
+  // updateBadgeLogoScale, not an external input. Re-running this settle-pass whenever it
+  // changes turned it into a feedback loop (state change -> effect -> recompute -> state change -> ...)
   // that manifested as a continuous jitter/shake of the logo and badges.
   useEffect(() => {
     let firstFrameId = null;
@@ -931,7 +917,7 @@ export default function HomeCollectionStripes({
       >
         <div
           className="absolute inset-0 flex justify-center items-start"
-          style={{ pointerEvents: "none", transform: `translateY(${heroContentOffsetPx}px)` }}
+          style={{ pointerEvents: "none", transform: `translateY(${HERO_CONTENT_FIXED_OFFSET_PX}px)` }}
         >
           <div
             ref={badgeLogoUnitRef}

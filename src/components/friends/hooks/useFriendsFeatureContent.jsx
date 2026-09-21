@@ -5,19 +5,19 @@ import { buildNotificationPayload } from "@/lib/story/storyDefinition";
 import { supabase } from "@/api/supabaseClient";
 import { sendFriendRequest, removeFriendship, respondToFriendRequest } from "@/api/friendService";
 import { trackAction } from "@/api/analyticsService";
-import { getCurrentUser, updateCurrentUserProfile } from "@/api/userApi";
+import { getCurrentUser } from "@/api/userApi";
 import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
-import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { UserPlus, Users, Loader2, Check, X, Bell, UserMinus, MapPlus, Leaf, Trophy, Share2, Plus, Heart, UserCheck, BookOpenText, Clock, Newspaper, Send, ChevronDown, Handshake, ExternalLink, Gift, CheckCircle } from "lucide-react";
+import { UserPlus, Users, Loader2, Check, X, Bell, UserMinus, MapPlus, Leaf, Trophy, Share2, Plus, Heart, UserCheck, BookOpenText, Clock, Newspaper, Handshake, ExternalLink } from "lucide-react";
 import { motion } from "framer-motion";
 import { checkAndUnlockAchievements } from "@/components/achievements/achievementChecker";
 import AchievementNotification from "@/components/achievements/AchievementNotification";
+import AchievementsFeatureRoot from "@/components/achievements/AchievementsFeatureRoot";
 import { AnimatePresence } from "framer-motion";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import MobileBackButton from "@/components/navigation/MobileBackButton";
@@ -26,7 +26,6 @@ import { de } from "date-fns/locale";
 import { useUiTheme } from "@/lib/UiThemeContext";
 import { encodeReferralCode } from "@/lib/referralCode";
 import { resolveEquippedLogoAssetsWithCatalog } from "@/lib/logoAccessoryAssets";
-import { resolveTitleValue } from "@/lib/profileCustomizationOptions";
 import CustomLogoAvatar from "@/components/profile/CustomLogoAvatar";
 import HomeShellBorderGlow from "@/components/effects/HomeShellBorderGlow";
 import GoldGradientCard from "@/components/home/GoldGradientCard";
@@ -225,8 +224,6 @@ export function useFriendsFeatureContent({
   const [newsFilter, setNewsFilter] = useState("activities");
   const [expandedNewsIds, setExpandedNewsIds] = useState(new Set());
   const [showAddFriendDialog, setShowAddFriendDialog] = useState(false);
-  const [selectedAchievement, setSelectedAchievement] = useState(null);
-  const [showTitleDialog, setShowTitleDialog] = useState(false);
   const autoMarkingNewsRef = useRef(false);
 
   useEffect(() => {
@@ -239,9 +236,9 @@ export function useFriendsFeatureContent({
 
 
   useEffect(() => {
-    const allowedTabs = new Set(["friends", "achievements", "explorer"]);
+    const allowedTabs = new Set(["friends", "leaderboard", "explorer"]);
     if (!allowedTabs.has(activeTab)) {
-      setActiveTab("explorer");
+      setActiveTab(activeTab === "achievements" ? "leaderboard" : "explorer");
     }
   }, [activeTab]);
 
@@ -687,53 +684,6 @@ export function useFriendsFeatureContent({
     queryKey: ['achievements'],
     queryFn: () => Query.Achievement.list('achievement_number')
   });
-
-  // Lade eigene Achievements des aktuellen Users
-  const { data: userAchievements = [] } = useQuery({
-    queryKey: ['userAchievements', user?.id],
-    queryFn: () => Query.UserAchievement.filter({ auth_id: user?.id }),
-    enabled: !!user?.id,
-  });
-
-  // Lade Belohnungen/Rewards für Titel
-  const { data: rewards = [] } = useQuery({
-    queryKey: ['rewards'],
-    queryFn: () => Query.Reward.list(),
-  });
-
-  const sortedAchievements = useMemo(() => {
-    return [...achievements].sort((a, b) => (a.achievement_number || 0) - (b.achievement_number || 0));
-  }, [achievements]);
-
-  const unlockedCount = useMemo(() => {
-    return achievements.filter((a) => userAchievements.some((ua) => ua.achievement_id === a.id)).length;
-  }, [achievements, userAchievements]);
-
-  const updateTitleMutation = useMutation({
-    mutationFn: (title) => updateCurrentUserProfile({ selected_title: title }),
-    onSuccess: async () => {
-      queryClient.invalidateQueries({ queryKey: ['user'] });
-      queryClient.invalidateQueries({ queryKey: ['shopCurrentUser'] });
-      const currentUser = await getCurrentUser();
-      setUser(currentUser);
-      setShowTitleDialog(false);
-    }
-  });
-
-  const handleSelectTitle = (achievement, reward) => {
-    setSelectedAchievement({ ...achievement, selectedReward: reward });
-    setShowTitleDialog(true);
-  };
-
-  const confirmTitleSelection = () => {
-    const normalizedTitle = resolveTitleValue(
-      selectedAchievement?.selectedReward?.value,
-      selectedAchievement?.selectedReward?.display_name
-    );
-    if (normalizedTitle) {
-      updateTitleMutation.mutate(normalizedTitle);
-    }
-  };
 
   const sendFriendRequestMutation = useMutation({
     mutationFn: async () => {
@@ -1566,52 +1516,18 @@ Viel Spaß beim Entdecken! 🌿`;
     ? "bg-[#8f6b22] text-white"
     : "border border-[#d6b665]/55 bg-[#2b2412]/72 text-[#f6e7b7]";
 
-  const achievementUnlockedCardClass = isLightUi
-    ? "border-amber-300 bg-gradient-to-br from-white/90 to-amber-50/90 backdrop-blur-md hover:shadow-md"
-    : "border-[#f0e5a5]/40 bg-gradient-to-br from-[#2d2418]/90 via-[#1c1710]/88 to-[#12100b]/92 backdrop-blur-md hover:shadow-[0_8px_20px_rgba(0,0,0,0.35)]";
-  const achievementLockedCardClass = isLightUi
-    ? "border-stone-200 bg-stone-50/80 backdrop-blur-sm opacity-60"
-    : "border-[#f0e5a5]/25 bg-black/35 backdrop-blur-sm opacity-70";
-  const achievementTitleClass = isLightUi ? "text-stone-900" : "text-stone-100";
-  const achievementMutedTextClass = isLightUi ? "text-stone-600" : "text-stone-300/90";
-  const achievementLockedTitleClass = isLightUi ? "text-stone-500" : "text-stone-400/75";
-  const achievementLockedMutedTextClass = isLightUi ? "text-stone-400" : "text-stone-500/75";
-  const achievementRewardClass = isLightUi
-    ? "bg-amber-50 text-amber-700"
-    : "bg-amber-400/10 text-amber-200";
-  const achievementLockedRewardClass = isLightUi
-    ? "bg-stone-100 text-stone-400"
-    : "bg-stone-700/35 text-stone-400";
-  const achievementsContentClass = embedded ? "mt-0 px-2 pb-20 flex-1 min-h-0 overflow-y-auto overflow-x-hidden" : "pt-36 px-2 pb-4";
-
-  const getRarityColor = (rarity) => {
-    switch (rarity) {
-      case "Ungewöhnlich": return "bg-green-500";
-      case "Selten": return "bg-blue-500";
-      case "Episch": return "bg-purple-500";
-      case "Legendär": return "bg-amber-500";
-      default: return "bg-gray-500";
-    }
-  };
-
   const moduleChips = [
     {
       id: "explorer",
       title: "Forscher Log",
-      active: explorerLogEntries.length,
-      total: explorerLogEntries.length,
     },
     {
-      id: "achievements",
-      title: "Erfolge",
-      active: unlockedCount,
-      total: achievements.length,
+      id: "leaderboard",
+      title: "Rangliste",
     },
     {
       id: "friends",
       title: "Freunde",
-      active: friends.length,
-      total: friends.length,
     },
   ];
 
@@ -1619,8 +1535,8 @@ Viel Spaß beim Entdecken! 🌿`;
     if (!embedded || typeof onHeaderMetaChange !== "function") return;
 
     onHeaderMetaChange({
-      title: activeTab === "friends" ? "Social" : activeTab === "achievements" ? "Erfolge" : "Forscher Log",
-      subtitle: activeTab === "explorer" ? "Scans der letzten 30 Tage" : activeTab === "achievements" ? "Dein Fortschritt im Überblick" : "Dein Freundesbereich",
+      title: activeTab === "friends" ? "Social" : activeTab === "leaderboard" ? "Rangliste" : "Forscher Log",
+      subtitle: activeTab === "explorer" ? "Scans der letzten 30 Tage" : activeTab === "leaderboard" ? "Scan-Insights und globaler Vergleich" : "Dein Freundesbereich",
     });
   }, [
     embedded,
@@ -1751,10 +1667,10 @@ Viel Spaß beim Entdecken! 🌿`;
                 <div className="px-4 pt-3 pb-2 flex items-center justify-between gap-3">
                   <div className="min-w-0">
                     <h1 className="text-xl sm:text-2xl font-bold text-stone-900 truncate">
-                      {activeTab === "friends" ? "Social" : activeTab === "achievements" ? "Erfolge" : "Forscher Log"}
+                      {activeTab === "friends" ? "Social" : activeTab === "leaderboard" ? "Rangliste" : "Forscher Log"}
                     </h1>
                     <p className="text-xs text-stone-600 truncate">
-                      {activeTab === "explorer" ? "Scans aus den letzten 30 Tagen" : activeTab === "achievements" ? "Dein Fortschritt im Überblick" : "Dein Freundesbereich"}
+                      {activeTab === "explorer" ? "Scans aus den letzten 30 Tagen" : activeTab === "leaderboard" ? "Scan-Insights und globaler Vergleich" : "Dein Freundesbereich"}
                     </p>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
@@ -1769,7 +1685,7 @@ Viel Spaß beim Entdecken! 🌿`;
                       </button>
                     )}
                     <Badge className="bg-stone-800 text-white text-[10px] px-2 py-1 shrink-0">
-                      {activeTab === "friends" ? `${friends.length} Freunde` : activeTab === "achievements" ? `${unlockedCount} / ${achievements.length}` : `${explorerLogEntries.length} Eintraege`}
+                      {activeTab === "friends" ? `${friends.length} Freunde` : activeTab === "leaderboard" ? "Rangliste" : `${explorerLogEntries.length} Eintraege`}
                     </Badge>
                   </div>
                 </div>
@@ -2171,93 +2087,9 @@ Viel Spaß beim Entdecken! 🌿`;
             </div>
           </TabsContent>
 
-          {/* Achievements Tab Content */}
-          <TabsContent value="achievements" className={achievementsContentClass} style={embeddedContentMaskStyle}>
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.4 }}
-              className="max-w-6xl mx-auto space-y-4"
-              style={embedded ? { paddingTop: listTopFadePx, paddingBottom: listBottomFadePx } : undefined}
-            >
-              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-                {sortedAchievements.map((achievement, index) => {
-                  const isUnlocked = userAchievements.some((ua) => ua.achievement_id === achievement.id);
-                  const achievementReward = achievement.reward_name ? rewards.find((r) => r.name === achievement.reward_name) : null;
-                  const rewardTitleValue = resolveTitleValue(achievementReward?.value, achievementReward?.display_name);
-                  const isCurrentTitle = achievementReward?.type === 'title' && resolveTitleValue(user?.selected_title) === rewardTitleValue;
-
-                  return (
-                    <motion.div
-                      key={achievement.id}
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: index * 0.03 }}
-                    >
-                      <Card className={`border shadow-sm transition-all duration-300 ${isUnlocked ? achievementUnlockedCardClass : achievementLockedCardClass}`}>
-                        <CardContent className="p-3">
-                          <div className="flex items-start gap-2">
-                            <div className={`text-2xl ${isUnlocked ? '' : 'grayscale opacity-30'} flex-shrink-0`}>
-                              {achievement.icon_emoji}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-1 mb-1">
-                                <Badge className={`${getRarityColor(achievement.rarity)} text-white font-semibold text-[10px] px-1 py-0`}>
-                                  {achievement.rarity}
-                                </Badge>
-                                {isUnlocked && <Trophy className="w-3 h-3 text-amber-500" />}
-                              </div>
-                              <h3 className={`text-sm font-bold mb-1 ${isUnlocked ? achievementTitleClass : achievementLockedTitleClass}`}>
-                                {achievement.title}
-                              </h3>
-                              <p className={`text-xs mb-1 ${isUnlocked ? achievementMutedTextClass : achievementLockedMutedTextClass}`}>
-                                {achievement.description}
-                              </p>
-
-                              {achievementReward && (
-                                <div className={`flex items-center gap-1 text-xs mt-2 px-2 py-1 rounded-lg ${isUnlocked ? achievementRewardClass : achievementLockedRewardClass}`}>
-                                  <Gift className="w-3 h-3" />
-                                  <span className="font-semibold">{achievementReward.display_name}</span>
-                                </div>
-                              )}
-
-                              {achievementReward && achievementReward.type === 'title' && isUnlocked && (
-                                <Button
-                                  onClick={() => handleSelectTitle(achievement, achievementReward)}
-                                  disabled={isCurrentTitle || updateTitleMutation.isPending}
-                                  className={`w-full text-[10px] h-6 mt-1 ${isCurrentTitle ? 'bg-green-600 hover:bg-green-600' : 'bg-purple-600 hover:bg-purple-700'}`}
-                                  size="sm"
-                                >
-                                  {isCurrentTitle ? (
-                                    <>
-                                      <CheckCircle className="w-2.5 h-2.5 mr-1" />
-                                      Aktiv
-                                    </>
-                                  ) : (
-                                    `Titel: ${rewardTitleValue}`
-                                  )}
-                                </Button>
-                              )}
-                            </div>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    </motion.div>
-                  );
-                })}
-
-                {sortedAchievements.length === 0 && (
-                  <Card className={`border-2 backdrop-blur-md ${isLightUi ? "border-stone-200 bg-white/80" : "border-[#f0e5a5]/25 bg-black/35"}`}>
-                    <CardContent className="p-12 text-center">
-                      <Trophy className={`w-16 h-16 mx-auto mb-4 ${isLightUi ? "text-stone-400" : "text-stone-500"}`} />
-                      <h3 className={`text-xl font-bold mb-2 ${isLightUi ? "text-stone-900" : "text-stone-100"}`}>
-                        Noch keine Erfolge verfügbar
-                      </h3>
-                    </CardContent>
-                  </Card>
-                )}
-              </div>
-            </motion.div>
+          {/* Leaderboard Tab Content */}
+          <TabsContent value="leaderboard" className="mt-0 px-0 pb-0 flex-1 min-h-0 overflow-hidden">
+            <AchievementsFeatureRoot embedded initialTab="leaderboard" showModuleHeader={false} />
           </TabsContent>
 
 
@@ -2552,39 +2384,6 @@ Viel Spaß beim Entdecken! 🌿`;
                 Einladungslink kopieren
               </Button>
             </div>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Title Selection Dialog */}
-      <Dialog open={showTitleDialog} onOpenChange={setShowTitleDialog}>
-        <DialogContent className={!isLightUi ? "bg-[#1a1d1a] border-[#f0e5a5]/20" : ""}>
-          <DialogHeader>
-            <DialogTitle className={!isLightUi ? "text-stone-100" : ""}>Titel ausrüsten</DialogTitle>
-          </DialogHeader>
-          <div className="py-4">
-            <p className={`mb-4 ${!isLightUi ? "text-stone-300" : "text-stone-700"}`}>
-              Möchtest du den Titel <strong className={!isLightUi ? "text-purple-300" : "text-purple-700"}>"{resolveTitleValue(selectedAchievement?.selectedReward?.value, selectedAchievement?.selectedReward?.display_name)}"</strong> ausrüsten?
-            </p>
-            <p className={`text-sm mb-6 ${!isLightUi ? "text-stone-400" : "text-stone-500"}`}>
-              Dieser Titel wird in deinem Profil und auf der Startseite angezeigt.
-            </p>
-            <div className="flex gap-3">
-              <Button
-                variant="outline"
-                onClick={() => setShowTitleDialog(false)}
-                className={`flex-1 ${!isLightUi ? "border-stone-600 text-stone-300 hover:bg-stone-800" : ""}`}
-              >
-                Abbrechen
-              </Button>
-              <Button
-                onClick={confirmTitleSelection}
-                disabled={updateTitleMutation.isPending}
-                className="flex-1 bg-purple-600 hover:bg-purple-700"
-              >
-                {updateTitleMutation.isPending ? 'Wird ausgerüstet...' : 'Ausrüsten'}
-              </Button>
             </div>
           </div>
         </DialogContent>
