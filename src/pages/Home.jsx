@@ -3915,7 +3915,7 @@ function HomeContent() {
                 ) : activePanel === "achievements" ? (
                   <AchievementsFeatureRoot
                     embedded
-                    initialTab="achievements"
+                    initialTab="quests"
                     onRequestClose={() => setActivePanel(null)}
                     onHeaderMetaChange={setEmbeddedHeaderMeta}
                     onUserUpdated={(freshUser) => setUser(freshUser)}
