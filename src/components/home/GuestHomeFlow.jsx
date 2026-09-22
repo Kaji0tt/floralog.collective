@@ -2,13 +2,12 @@
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Camera, Download, Mail, Lock, User, Loader2, AlertCircle, CheckCircle2, ArrowLeft, Info, FileText } from "lucide-react";
-import { signIn, signUp, signInWithGoogle, updatePassword, getUserProfile } from "@/api/authService";
+import { signIn, signUp, signInWithGoogle, updatePassword } from "@/api/authService";
 import { supabase } from "@/api/supabaseClient";
 import { checkApkVersion } from "@/lib/apkVersionService";
-import { Query } from "@/api/entities";
 import CustomLogoAvatar from "@/components/profile/CustomLogoAvatar";
 import GuestLogoCustomizerStep from "@/components/home/GuestLogoCustomizerStep";
-import { readLastSignedInUserSnapshot, persistLastSignedInUserSnapshot } from "@/lib/lastSignedInUserStorage";
+import { readLastSignedInUserSnapshot } from "@/lib/lastSignedInUserStorage";
 import { LOGO_ACCESSORY_DEFAULTS, resolveEquippedLogoAssets } from "@/lib/logoAccessoryAssets";
 import { readGuestLogoCustomizationDraft, persistGuestLogoCustomizationDraft } from "@/lib/guestLogoCustomizationStorage";
 import { fetchRemoteConfig } from "@/lib/remoteConfigService";
@@ -319,7 +318,7 @@ export default function GuestHomeFlow() {
   const [emailLoginOpen, setEmailLoginOpen] = useState(false);
   const [registerSuccess, setRegisterSuccess] = useState(/** @type {string | null} */ (null));
   const [isKeyboardOpen, setIsKeyboardOpen] = useState(false);
-  const [lastSignedInUserSnapshot, setLastSignedInUserSnapshot] = useState(() => readLastSignedInUserSnapshot());
+  const [lastSignedInUserSnapshot] = useState(() => readLastSignedInUserSnapshot());
   const [guestLogoDraft, setGuestLogoDraft] = useState(() => {
     const stored = readGuestLogoCustomizationDraft();
     return {
@@ -781,26 +780,8 @@ export default function GuestHomeFlow() {
       if (!signInResult?.session) {
         throw new Error("Anmeldung fehlgeschlagen. Bitte pruefe deine Zugangsdaten.");
       }
-
-      const authUser = signInResult.session.user;
-      if (authUser?.id) {
-        const [profile, logoAssetsCatalog] = await Promise.all([
-          getUserProfile(authUser.id),
-          Query.LogoAsset.list(),
-        ]);
-
-        const snapshot = persistLastSignedInUserSnapshot({
-          authUser,
-          profile,
-          logoAssetsCatalog,
-        });
-
-        if (snapshot) {
-          setLastSignedInUserSnapshot(snapshot);
-        }
-      }
-
-      window.location.assign("/");
+      // AuthContext reacts to SIGNED_IN and performs profile hydration. Reloading the
+      // native WebView here can terminate the app while that work is in flight.
     } catch (error) {
       const message = error instanceof Error
         ? error.message

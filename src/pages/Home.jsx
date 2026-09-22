@@ -794,7 +794,7 @@ function HomeContent() {
     queryFn: () => Query.UserAchievement.filter({ auth_id: user?.id }),
     enabled: !!user?.id,
     staleTime: Infinity,
-    refetchOnWindowFocus: false,
+    refetchOnWindowFocus: true,
     refetchOnReconnect: false,
   });
 
@@ -927,7 +927,7 @@ function HomeContent() {
     enabled: !!user?.id,
     initialData: [],
     staleTime: 5 * 60 * 1000,
-    refetchOnWindowFocus: false,
+    refetchOnWindowFocus: true,
   });
 
   const { data: highestScanResultsLeaderboard = [] } = useQuery({
@@ -1103,7 +1103,11 @@ function HomeContent() {
     queryClient.refetchQueries({ queryKey: ['explorerDiscoveries'] });
     queryClient.refetchQueries({ queryKey: ['robotPlantState'] });
     queryClient.refetchQueries({ queryKey: ['userWallet'] });
-    
+    queryClient.refetchQueries({ queryKey: ['userAchievements'] });
+    queryClient.refetchQueries({ queryKey: ['homeUniqueBadges'] });
+    queryClient.refetchQueries({ queryKey: ['userAlltimeSeedTotal'] });
+    queryClient.refetchQueries({ queryKey: ['homeAlltimeSeedLeaderboard'] });
+
     // NICHT mehr hier - Rewards werden nur beim Scannen/Quest-Completion geprüft
   };
 
@@ -1138,6 +1142,10 @@ function HomeContent() {
       queryClient.refetchQueries({ queryKey: ['explorerDiscoveries'] });
       queryClient.refetchQueries({ queryKey: ['robotPlantState'] });
       queryClient.refetchQueries({ queryKey: ['userWallet'] });
+      queryClient.refetchQueries({ queryKey: ['userAchievements'] });
+      queryClient.refetchQueries({ queryKey: ['homeUniqueBadges'] });
+      queryClient.refetchQueries({ queryKey: ['userAlltimeSeedTotal'] });
+      queryClient.refetchQueries({ queryKey: ['homeAlltimeSeedLeaderboard'] });
     };
 
     window.addEventListener('userUpdated', handleUserUpdate);
@@ -1390,6 +1398,21 @@ function HomeContent() {
     } else if (hasRandomRewards) {
       setRandomRewardQueue(navigationRandomRewards);
       setShowRandomReward(true);
+    }
+
+    // A finished scan changes seed totals + badge-relevant stats immediately -
+    // refresh them now instead of waiting for staleTime/window-focus so Home
+    // never shows the pre-scan seed count or stale badges right after return.
+    if (hasScanFeedback || hasScanZoneUnlocks || hasRandomRewards) {
+      queryClient.invalidateQueries({ queryKey: ['userAlltimeSeedTotal', user?.id] });
+      queryClient.invalidateQueries({ queryKey: ['userWallet', user?.id] });
+      queryClient.invalidateQueries({ queryKey: ['homeAlltimeSeedLeaderboard'] });
+      queryClient.invalidateQueries({ queryKey: ['homeSeasonSeedLeaderboard'] });
+      queryClient.invalidateQueries({ queryKey: ['homeHighestScanResultsLeaderboard'] });
+      queryClient.invalidateQueries({ queryKey: ['userAchievements', user?.id] });
+      queryClient.invalidateQueries({ queryKey: ['homeUniqueBadges', user?.id] });
+      queryClient.invalidateQueries({ queryKey: ['userDiscoveries'] });
+      queryClient.invalidateQueries({ queryKey: ['scanLikesAll'] });
     }
 
     if (shouldOpenSettings) {

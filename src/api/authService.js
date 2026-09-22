@@ -202,7 +202,12 @@ export const signInWithGoogle = async () => {
  */
 export const completeNativeOAuthSignIn = async (redirectUrl) => {
   try {
-    const { data, error } = await supabase.auth.exchangeCodeForSession(redirectUrl);
+    const authorizationCode = new URL(redirectUrl).searchParams.get('code');
+    if (!authorizationCode) {
+      throw new Error('Google-Anmeldung enthielt keinen Autorisierungscode.');
+    }
+
+    const { data, error } = await supabase.auth.exchangeCodeForSession(authorizationCode);
     if (error) throw error;
     return data;
   } catch (error) {

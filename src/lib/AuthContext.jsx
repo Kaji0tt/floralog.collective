@@ -220,14 +220,30 @@ export const AuthProvider = ({ children }) => {
     if (!Capacitor.isNativePlatform()) return undefined;
 
     let listenerHandle;
+    let handledOAuthUrl = null;
 
-    CapacitorApp.addListener('appUrlOpen', async ({ url }) => {
-      if (!url?.startsWith('floralog://open')) return;
+    const completeOAuthCallback = async (url) => {
+      if (!url?.startsWith('floralog://open') || url === handledOAuthUrl) return;
+
+      handledOAuthUrl = url;
       try {
         await completeNativeOAuthSignIn(url);
       } catch (error) {
+        handledOAuthUrl = null;
         console.error('[AuthContext] Native OAuth completion failed:', error);
       }
+    };
+
+    // A cold start receives the URL before appUrlOpen can be subscribed to.
+    // Read it explicitly so the OAuth exchange is not lost on the way back from Chrome.
+    CapacitorApp.getLaunchUrl().then(({ url }) => {
+      completeOAuthCallback(url);
+    }).catch((error) => {
+      console.error('[AuthContext] Failed to read native launch URL:', error);
+    });
+
+    CapacitorApp.addListener('appUrlOpen', ({ url }) => {
+      completeOAuthCallback(url);
     }).then((handle) => {
       listenerHandle = handle;
     });
