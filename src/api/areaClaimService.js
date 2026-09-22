@@ -1,19 +1,31 @@
 import { supabase } from "@/api/supabaseClient";
 
-const getCurrentAuthId = async () => {
+const AREA_CLAIMS_TIMEOUT_MS = 12000;
+
+const getCurrentAuthId = async (authId = null) => {
+  if (authId) return authId;
+
   const { data, error } = await supabase.auth.getUser();
   if (error) throw error;
 
-  const authId = data?.user?.id;
-  if (!authId) {
+  const currentAuthId = data?.user?.id;
+  if (!currentAuthId) {
     throw new Error("Authenticated user is required");
   }
 
-  return authId;
+  return currentAuthId;
 };
 
-export const getAreaClaims = async ({ latitude, longitude, radiusM = 1500 }) => {
-  const authId = await getCurrentAuthId();
+export const getAreaClaims = async ({ authId: providedAuthId = null, latitude, longitude, radiusM = 1500 }) => {
+  const timeoutPromise = new Promise((_, reject) => {
+    setTimeout(() => reject(new Error("Area-Claims konnten nicht rechtzeitig geladen werden.")), AREA_CLAIMS_TIMEOUT_MS);
+  });
+
+  return Promise.race([getAreaClaimsRequest({ authId: providedAuthId, latitude, longitude, radiusM }), timeoutPromise]);
+};
+
+const getAreaClaimsRequest = async ({ authId: providedAuthId, latitude, longitude, radiusM }) => {
+  const authId = await getCurrentAuthId(providedAuthId);
 
   const { data, error } = await supabase.functions.invoke("getAreaClaims", {
     body: {

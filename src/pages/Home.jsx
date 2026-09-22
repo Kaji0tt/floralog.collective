@@ -1929,6 +1929,7 @@ function HomeContent() {
     queryKey: ["areaClaims", user?.id, claimsCenterLat, claimsCenterLng],
     queryFn: () =>
       getAreaClaims({
+        authId: user.id,
         latitude: claimsCenterLat,
         longitude: claimsCenterLng,
         radiusM: NEARBY_DISCOVERY_RADIUS_METERS,
