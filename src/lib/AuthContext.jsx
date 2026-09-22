@@ -227,9 +227,22 @@ export const AuthProvider = ({ children }) => {
 
       handledOAuthUrl = url;
       try {
-        await completeNativeOAuthSignIn(url);
+        const authData = await completeNativeOAuthSignIn(url);
+        const sessionUser = authData?.session?.user || authData?.user || null;
+        if (sessionUser) {
+          setIsLoadingAuth(true);
+          await hydrateAuthenticatedState(sessionUser);
+          if (isMounted) {
+            setIsLoadingAuth(false);
+          }
+        } else {
+          await bootstrapCurrentSession();
+        }
       } catch (error) {
         handledOAuthUrl = null;
+        if (isMounted) {
+          setIsLoadingAuth(false);
+        }
         console.error('[AuthContext] Native OAuth completion failed:', error);
       }
     };
