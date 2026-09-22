@@ -1,4 +1,4 @@
-import React, { createContext, useState, useContext, useEffect } from 'react';
+import React, { createContext, useState, useContext, useEffect, useRef } from 'react';
 
 import { Capacitor } from '@capacitor/core';
 import { App as CapacitorApp } from '@capacitor/app';
@@ -48,6 +48,7 @@ const withAuthBootstrapTimeout = async (operation) => {
 };
 
 export const AuthProvider = ({ children }) => {
+  const bootstrapInFlightRef = useRef(false);
   const [user, setUser] = useState(null); // Current auth user
   const [profile, setProfile] = useState(null); // User profile from PublicProfile table
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -133,6 +134,12 @@ export const AuthProvider = ({ children }) => {
     };
 
     const bootstrapCurrentSession = async () => {
+      if (bootstrapInFlightRef.current) {
+        return;
+      }
+
+      bootstrapInFlightRef.current = true;
+
       try {
         const currentAuthUser = await withAuthBootstrapTimeout(() => getCurrentAuthUser());
         if (currentAuthUser) {
@@ -146,6 +153,7 @@ export const AuthProvider = ({ children }) => {
           clearAuthState();
         }
       } finally {
+        bootstrapInFlightRef.current = false;
         if (isMounted) {
           setIsLoadingAuth(false);
         }
