@@ -144,6 +144,21 @@ const ENERGY_GAIN_CONFIG = {
   maxPerDay: 15,
 };
 
+// Scan-Streak retention system (replaces the old login-streak sparks claim).
+const SCAN_STREAK_PFLEGE_BASE_OFFSET = 2;
+const SCAN_STREAK_PFLEGE_CAP = 10;
+const SCAN_STREAK_FUNKEN_CAP = 3;
+// Every streak (first one and every restart) starts with a full bank of grace days.
+const SCAN_STREAK_INITIAL_JOKER_COUNT = 3;
+const SCAN_STREAK_JOKER_GRANT_DAY = 3;
+const SCAN_STREAK_BOUNDARY_JOKER_GRANT = 2;
+const SCAN_STREAK_WEEK_BOUNDARY_START_DAY = 8;
+const SCAN_STREAK_WEEK_BOUNDARY_INTERVAL = 7;
+// Funken awarded on boundary days (week 1, 2, 3, 4+ completed), index = boundary occurrence k.
+const SCAN_STREAK_BOUNDARY_FUNKEN = [5, 10, 20, 30];
+const SCAN_STREAK_BOUNDARY_BERNSTEIN_FROM_INDEX = 3;
+const SCAN_STREAK_BOUNDARY_BERNSTEIN_AMOUNT = 5;
+
 const ROBOT_PLANT_DEFAULT_STATE = {
   data_quality: 65,
   care: 72,
@@ -164,21 +179,6 @@ const NORMALIZED_RARITY_MULTIPLIERS: Record<string, number> = {
 };
 
 const EARTH_RADIUS_M = 6371000;
-// Scan-Streak retention system (replaces the old login-streak sparks claim).
-const SCAN_STREAK_PFLEGE_BASE_OFFSET = 2;
-const SCAN_STREAK_PFLEGE_CAP = 10;
-const SCAN_STREAK_FUNKEN_CAP = 3;
-// Every streak (first one and every restart) starts with a full bank of grace days.
-const SCAN_STREAK_INITIAL_JOKER_COUNT = 3;
-const SCAN_STREAK_JOKER_GRANT_DAY = 3;
-const SCAN_STREAK_BOUNDARY_JOKER_GRANT = 2;
-const SCAN_STREAK_WEEK_BOUNDARY_START_DAY = 8;
-const SCAN_STREAK_WEEK_BOUNDARY_INTERVAL = 7;
-// Funken awarded on boundary days (week 1, 2, 3, 4+ completed), index = boundary occurrence k.
-const SCAN_STREAK_BOUNDARY_FUNKEN = [5, 10, 20, 30];
-const SCAN_STREAK_BOUNDARY_BERNSTEIN_FROM_INDEX = 3;
-const SCAN_STREAK_BOUNDARY_BERNSTEIN_AMOUNT = 5;
-
 // Minimum scans by one user on a area to claim it.
 // Lowered from 4 → 3: 3 scans at the same location are sufficient to claim.
 const CLAIM_THRESHOLD = 3;

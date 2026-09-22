@@ -12,7 +12,7 @@ import { getProfileBadgeIconComponent } from "@/lib/profileBadgeIcons";
 const getBadgeAccomplishment = (badge, badgeMetrics) => {
   const value = badgeMetrics?.[badge.metricKey];
   if (!badge.metricKey) return badge.description || "Profil-Abzeichen";
-  if (!Number.isFinite(Number(value))) return "Wert nicht verfügbar";
+  if (!Number.isFinite(Number(value))) return badge.description || "Profil-Abzeichen";
   return formatProfileBadgeMetricValue(badge, value);
 };
 
@@ -43,15 +43,31 @@ export default function PlayerInfoCard({ playerAuthId, fallbackName, logo, onNav
       blur
       rounded="2xl"
       className="w-[min(22rem,calc(100vw-1.5rem))]"
-      contentClassName="p-4"
+      contentClassName="overflow-hidden p-4"
       borderClassName="gold-gradient-border-mask-thin"
     >
+      {profile?.background_image_url && (
+        <div
+          aria-hidden="true"
+          className="absolute inset-0 bg-cover bg-center"
+          style={{ backgroundImage: `url(${profile.background_image_url})` }}
+        />
+      )}
+      {(profile?.background_image_url || profile?.background_color) && (
+        <div
+          aria-hidden="true"
+          className="absolute inset-0 bg-black/55"
+          style={!profile?.background_image_url && profile?.background_color
+            ? { background: `linear-gradient(160deg, ${profile.background_color}, rgba(0, 0, 0, 0.72))` }
+            : undefined}
+        />
+      )}
       {isLoading ? (
-        <div className="flex min-h-48 items-center justify-center">
+        <div className="relative z-10 flex min-h-48 items-center justify-center">
           <Loader2 className="h-6 w-6 animate-spin text-[#f0e5a5]" />
         </div>
       ) : (
-        <div className="space-y-3">
+        <div className="relative z-10 space-y-3">
           <div className="flex items-center gap-3">
             <div className="h-24 w-24 shrink-0">{logo}</div>
             <div className="min-w-0 flex-1">

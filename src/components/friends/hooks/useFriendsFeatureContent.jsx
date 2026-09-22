@@ -30,7 +30,6 @@ import CustomLogoAvatar from "@/components/profile/CustomLogoAvatar";
 import HomeShellBorderGlow from "@/components/effects/HomeShellBorderGlow";
 import GoldGradientCard from "@/components/home/GoldGradientCard";
 import { LockedTooltip } from "@/components/ui/locked-tooltip";
-import { getRgbaFromRgb } from "@/lib/friendColorUtils";
 import { getCurrentWeeklyQuest } from "@/components/quests/QuestRotationHelper";
 import { getConservationFromPlant } from "@/lib/conservationStatus";
 import { computeRarityLabel, getRarityAccentClasses } from "@/lib/plantRarity";
@@ -1495,6 +1494,16 @@ Viel Spaß beim Entdecken! 🌿`;
     WebkitMaskImage: `linear-gradient(to bottom, transparent 0px, black ${listTopFadePx}px, black calc(100% - ${listBottomFadePx}px), transparent 100%)`,
     maskImage: `linear-gradient(to bottom, transparent 0px, black ${listTopFadePx}px, black calc(100% - ${listBottomFadePx}px), transparent 100%)`,
   } : undefined;
+  const explorerContentMaskStyle = embedded ? {
+    WebkitMaskImage: "linear-gradient(to bottom, transparent 0px, black 16px, black calc(100% - 18px), transparent 100%)",
+    maskImage: "linear-gradient(to bottom, transparent 0px, black 16px, black calc(100% - 18px), transparent 100%)",
+    WebkitMaskPosition: "0 0",
+    maskPosition: "0 0",
+    WebkitMaskSize: "100% 100%",
+    maskSize: "100% 100%",
+    WebkitMaskRepeat: "no-repeat",
+    maskRepeat: "no-repeat",
+  } : undefined;
 
   const sectionSurfaceClass = isLightUi
     ? "rounded-[1.5rem] border border-[#d9c48a]/45 bg-white/72 backdrop-blur-xl shadow-[0_14px_32px_rgba(162,129,48,0.12)]"
@@ -1734,7 +1743,7 @@ Viel Spaß beim Entdecken! 🌿`;
           <TabsContent
             value="explorer"
             className={explorerContentClass}
-            style={embeddedContentMaskStyle}
+            style={explorerContentMaskStyle}
             ref={explorerContainerRef}
             onTouchStart={handleExplorerTouchStart}
             onTouchMove={handleExplorerTouchMove}
@@ -1881,26 +1890,12 @@ Viel Spaß beim Entdecken! 🌿`;
                       animate={{ opacity: 1, scale: 1 }}
                       transition={{ delay: Math.min(index, 10) * 0.02 }}
                     >
-                      <Card
-                        className={`${nestedCardClass} ${interactiveHoverClass} transition-all overflow-hidden relative`}
-                        style={{
-                          border: `1px solid ${entry.actorBorderColor}55`,
-                          ...(entry.actorBackgroundColor && !entry.actorBackgroundUrl
-                            ? { background: `linear-gradient(160deg, ${getRgbaFromRgb(entry.actorBackgroundColor, 0.55)} 0%, ${getRgbaFromRgb(entry.actorBackgroundColor, 0.28)} 100%)` }
-                            : {}),
-                        }}
-                      >
-                        {/* Profile background image */}
-                        {entry.actorBackgroundUrl && (
-                          <div
-                            className="absolute inset-0 z-0 bg-cover bg-center"
-                            style={{ backgroundImage: `url(${entry.actorBackgroundUrl})` }}
-                          />
-                        )}
-                        {/* Readability scrim – stronger so text stays legible */}
-                        {(entry.actorBackgroundUrl || entry.actorBackgroundColor) && (
-                          <div className="absolute inset-0 z-0 bg-black/55" />
-                        )}
+                      <div className="relative overflow-hidden rounded-2xl shadow-[inset_0_2px_8px_rgba(0,0,0,0.5)]">
+                        <div
+                          aria-hidden="true"
+                          className={`absolute inset-0 rounded-2xl backdrop-blur-sm ${isLightUi ? "bg-white/40" : "bg-black/20"}`}
+                        />
+                        <div className="relative overflow-hidden rounded-2xl bg-black/45 text-stone-100">
                         {/* Border glow effect */}
                         {entry.actorProfileEffect === "shell_border_glow" && (
                           <HomeShellBorderGlow active particleCount={5} />
@@ -1909,36 +1904,36 @@ Viel Spaß beim Entdecken! 🌿`;
                         <div className="relative z-10 px-3 pt-3 pb-1 flex items-center gap-2">
                           {/* Left: plant names */}
                           <div className="flex-1 min-w-0">
-                            <button
-                              type="button"
-                              className="text-left w-full"
-                              onClick={() => openExplorerDiscoveryInFriendCollection(entry)}
-                              onMouseDown={(e) => e.stopPropagation()}
-                            >
-                              <p className={`text-sm font-bold leading-tight truncate ${titleTextClass}`}>
-                                {entry.plant?.species_name || "Unbekannte Pflanze"}
-                              </p>
-                              {(entry.plant?.scientific_name || entry.plant?.aiData?.scientific_name) && (
-                                <p className={`text-[10px] italic truncate mt-0.5 ${mutedTextClass}`}>
-                                  {entry.plant.scientific_name || entry.plant.aiData?.scientific_name}
+                            <div className="min-w-0">
+                              <button
+                                type="button"
+                                className="text-left w-full"
+                                onClick={() => openExplorerDiscoveryInFriendCollection(entry)}
+                                onMouseDown={(e) => e.stopPropagation()}
+                              >
+                                <p className={`text-sm font-bold leading-tight truncate ${titleTextClass}`}>
+                                  {entry.plant?.species_name || "Unbekannte Pflanze"}
                                 </p>
+                              </button>
+                              {(entry.plant?.scientific_name || entry.plant?.aiData?.scientific_name) && (
+                                <div className="flex items-center gap-1 min-w-0 mt-0.5">
+                                  <p className={`text-[10px] italic truncate ${mutedTextClass}`}>
+                                    {entry.plant.scientific_name || entry.plant.aiData?.scientific_name}
+                                  </p>
+                                  <a
+                                    href={buildExplorerNaturaDbUrl(entry.plant)}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    onClick={(e) => e.stopPropagation()}
+                                    onMouseDown={(e) => e.stopPropagation()}
+                                    className="flex-shrink-0 text-emerald-400 transition-colors hover:text-emerald-300"
+                                    aria-label="NaturaDB öffnen"
+                                  >
+                                    <ExternalLink className="w-2.5 h-2.5" />
+                                  </a>
+                                </div>
                               )}
-                            </button>
-                            {(entry.plant?.scientific_name || entry.plant?.aiData?.scientific_name) && (
-                              <div className="flex items-center gap-1 min-w-0 mt-0.5">
-                                <a
-                                  href={buildExplorerNaturaDbUrl(entry.plant)}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  onClick={(e) => e.stopPropagation()}
-                                  onMouseDown={(e) => e.stopPropagation()}
-                                  className={`flex-shrink-0 transition-colors ${isLightUi ? "text-stone-400 hover:text-amber-600" : "text-stone-500 hover:text-amber-300"}`}
-                                  aria-label="NaturaDB öffnen"
-                                >
-                                  <ExternalLink className="w-2.5 h-2.5" />
-                                </a>
-                              </div>
-                            )}
+                            </div>
                           </div>
                           {/* Right: custom logo – clickable to profile */}
                           <button
@@ -2069,7 +2064,18 @@ Viel Spaß beim Entdecken! 🌿`;
                             )}
                           </div>
                         </CardContent>
-                      </Card>
+                        </div>
+                        <div
+                          aria-hidden="true"
+                          className="gold-gradient-border-mask"
+                          style={{
+                            padding: "1px",
+                            background: isLightUi
+                              ? "linear-gradient(to bottom right, #3f3b32, #272625, rgba(143,107,34,0.7))"
+                              : "linear-gradient(to bottom right, #5d574b, rgba(70, 67, 58, 0.85), #8f6b22)",
+                          }}
+                        />
+                      </div>
                     </motion.div>
                   ))}
                 </div>

@@ -15,6 +15,8 @@ export default function GoldGradientCard({
   tinted = true,
   rounded = "3xl",
   shadow = true,
+  borderMask = true,
+  style = {},
   children,
   ...rest
 }) {
@@ -28,10 +30,12 @@ export default function GoldGradientCard({
   const borderGradient = isLightUi
     ? "linear-gradient(to bottom right, #e8d9a8, #c8ac62, rgba(143,107,34,0.7))"
     : "linear-gradient(to bottom right, #f0e5a5, rgba(200,172,98,0.85), #8f6b22)";
+  const rootStyle = borderMask ? style : { background: borderGradient, ...style };
 
   return (
     <Component
-      className={`relative ${roundedClass} ${shadowClass} ${className}`}
+      className={`relative ${roundedClass} ${shadowClass} ${!borderMask ? "p-[1.5px]" : ""} ${className}`}
+      style={rootStyle}
       {...rest}
     >
       {blur && tinted && (
@@ -42,6 +46,7 @@ export default function GoldGradientCard({
           className={`absolute inset-0 ${roundedClass} backdrop-blur-xl ${
             isLightUi ? "bg-white/45" : "bg-black/35"
           }`}
+          style={!borderMask ? { inset: "1.5px" } : undefined}
         />
       )}
       <div
@@ -61,11 +66,13 @@ export default function GoldGradientCard({
       >
         {children}
       </div>
-      <div
-        aria-hidden="true"
-        className={`gold-gradient-border-mask ${borderClassName}`}
-        style={{ background: borderGradient }}
-      />
+      {borderMask && (
+        <div
+          aria-hidden="true"
+          className={`gold-gradient-border-mask ${borderClassName}`}
+          style={{ background: borderGradient }}
+        />
+      )}
     </Component>
   );
 }
