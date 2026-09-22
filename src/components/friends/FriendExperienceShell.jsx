@@ -146,11 +146,9 @@ export default function FriendExperienceShell({
         <div
           className="absolute inset-0"
           style={bgUser?.background_image_url ? {
-            backgroundImage: isLightUi
-              ? `linear-gradient(180deg, rgba(255,246,210,0.65) 0%, rgba(244,230,181,0.75) 100%), url(${bgUser.background_image_url})`
-              : `linear-gradient(180deg, rgba(19,37,24,0.42) 0%, rgba(12,20,15,0.66) 100%), url(${bgUser.background_image_url})`,
-            backgroundSize: "cover",
-            backgroundPosition: "center",
+            background: isLightUi
+              ? "linear-gradient(180deg, rgba(255,246,210,0.32) 0%, rgba(244,230,181,0.42) 100%)"
+              : "linear-gradient(180deg, rgba(19,37,24,0.22) 0%, rgba(12,20,15,0.36) 100%)",
           } : bgUser?.background_color ? {
             background: isLightUi
               ? `linear-gradient(180deg, ${getRgbaFromRgb(bgUser.background_color, 0.25)} 0%, rgba(255, 249, 225, 0.9) 100%)`

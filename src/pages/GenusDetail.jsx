@@ -1067,7 +1067,7 @@ export default function GenusDetail() {
   const backUrl = friendEmail 
     ? createPageUrl(`FriendCollection?email=${encodeURIComponent(friendEmail)}`)
     : createPageUrl("Home");
-  const backLabel = friendEmail ? "Zurück zum Freundes-PlantDex" : "Zurück zur Sammlung";
+  const backLabel = "Zurück zur Sammlung";
   const backState = friendEmail
     ? null
     : {
@@ -1096,7 +1096,7 @@ export default function GenusDetail() {
     const notFoundBackUrl = friendEmail
       ? createPageUrl(`FriendCollection?email=${encodeURIComponent(friendEmail)}`)
       : createPageUrl("Collection");
-    const notFoundBackLabel = friendEmail ? "Zurück zum Freundes-Floralog" : "Zurück zur Sammlung";
+    const notFoundBackLabel = "Zurück zur Sammlung";
 
     return (
       <div className="flex flex-col items-center justify-center min-h-screen p-4">

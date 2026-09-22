@@ -26,6 +26,7 @@ import { resolveOwnedUniqueBadges } from "@/lib/profileUniqueBadges";
 import { LockedTooltip } from "@/components/ui/locked-tooltip";
 import { getActiveSeason } from "@/lib/seasonConfig";
 import { parseDiscoveryCoordinates, calculateDistanceMetersRaw } from "@/lib/discoveryMap";
+import { createPageUrl } from "@/utils";
 
 const VALID_FRIEND_TABS = ["profile", "collection", "achievements", "friends"];
 
@@ -898,7 +899,7 @@ export default function FriendProfile() {
   const showNoFriendAccessHint = !isFriend && !hasPendingRequest && !isLoading;
   const contentAccessDenied = activeTab === "friends" && !canViewFriends && !isLoading;
 
-  if (hasLegacyEmailAccess) {
+  if (hasLegacyEmailAccess && !isLoading && !friendUser?.auth_id) {
     return <Navigate replace to={createPageUrl("Friends")} />;
   }
 

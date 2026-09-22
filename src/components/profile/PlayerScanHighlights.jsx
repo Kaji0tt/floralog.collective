@@ -11,14 +11,14 @@ export default function PlayerScanHighlights({ highlights, compact = false, clas
   const items = [
     {
       id: "top-plant",
-      label: "Häufigste Pflanze",
+      label: "Top-Pflanze",
       value: topPlant?.name || "Noch keine Scans",
       detail: topPlant ? `${formatCount(topPlant.scan_count)} Scans` : null,
       Icon: Sprout,
     },
     {
       id: "top-genus",
-      label: "Häufigste Gattung",
+      label: "Top-Gattung",
       value: topGenus?.name || "Noch keine Gattung",
       detail: topGenus ? `${formatCount(topGenus.scan_count)} Scans` : null,
       Icon: Trees,
@@ -32,7 +32,7 @@ export default function PlayerScanHighlights({ highlights, compact = false, clas
     },
     {
       id: "latest-scan",
-      label: "Letzter Scan",
+      label: "Letzter",
       value: latestScan?.plant_name || "Noch kein Scan",
       detail: latestScan ? `${formatCount(latestScan.seeds)} Samen` : null,
       Icon: ScanLine,
@@ -50,16 +50,14 @@ export default function PlayerScanHighlights({ highlights, compact = false, clas
     >
       <div className={compact ? "space-y-2" : "grid grid-cols-2 gap-3 sm:gap-4"}>
         {items.map(({ id, label, value, detail, Icon }) => (
-          <div key={id} className="flex min-w-0 items-center gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#f0e5a5]/30 bg-black/25">
-              <Icon className="h-5 w-5 text-[#f0e5a5]" />
+          <div key={id} className="flex min-w-0 items-center gap-2.5">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[#f0e5a5]/30 bg-black/25">
+              <Icon className="h-4.5 w-4.5 text-[#f0e5a5]" />
             </div>
             <div className="min-w-0 flex-1">
-              <p className="text-[10px] font-medium uppercase tracking-[0.12em] text-stone-400">{label}</p>
-              <div className="mt-0.5 flex min-w-0 items-baseline gap-1.5">
-                <p className="truncate text-sm font-semibold sm:text-base">{value}</p>
-                {detail && <span className="shrink-0 text-[10px] text-stone-400">{detail}</span>}
-              </div>
+              <p className="truncate text-[9px] font-semibold uppercase tracking-[0.06em] text-stone-400">{label}</p>
+              <p className="mt-0.5 truncate text-sm font-semibold sm:text-base" title={value}>{value}</p>
+              {detail && <p className="mt-0.5 truncate text-[10px] leading-none text-stone-400">{detail}</p>}
             </div>
           </div>
         ))}
