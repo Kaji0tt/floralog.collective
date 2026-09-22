@@ -386,6 +386,7 @@ function HomeContent() {
     hasCalledZoneGenerationToday,
     setZoneGenerationDayForUser,
     user: authUser,
+    profile: authProfile,
   } = useAuth();
   const [user, setUser] = useState(null);
   const botName = user?.bot_name || null;
@@ -876,6 +877,7 @@ function HomeContent() {
   } = useQuery({
     queryKey: ['allUsers'],
     queryFn: () => Query.PublicProfile.list(),
+    enabled: !!authUser?.id,
     initialData: [],
     staleTime: 5 * 60 * 1000,
     // Custom logo/avatar changes by other players must show up on re-entering Home.
@@ -1085,8 +1087,10 @@ function HomeContent() {
 
 
   const loadUserData = async () => {
-    const currentUser = await getCurrentUser();
-    setUser(currentUser || authUser);
+    const currentUser = authUser
+      ? { ...authUser, ...(authProfile || {}), id: authUser.id, auth_id: authUser.id }
+      : null;
+    setUser(currentUser);
     setIsLoadingUser(false);
     // Refetch alle Queries um Stats sofort zu aktualisieren
     queryClient.refetchQueries({ queryKey: ['userDiscoveries'] });
@@ -1104,7 +1108,11 @@ function HomeContent() {
   };
 
   useEffect(() => {
-    if (!authUser?.id) return undefined;
+    if (!authUser?.id) {
+      setUser(null);
+      setIsLoadingUser(false);
+      return undefined;
+    }
 
     loadUserData();
 
@@ -1138,7 +1146,7 @@ function HomeContent() {
       unsubscribe();
       window.removeEventListener('userUpdated', handleUserUpdate);
     };
-  }, [authUser?.id]);
+  }, [authUser?.id, authProfile]);
 
   // Referral-Code aus localStorage verarbeiten, sobald User eingeloggt ist (einmalig)
   useEffect(() => {
