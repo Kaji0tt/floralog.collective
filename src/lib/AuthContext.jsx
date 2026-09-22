@@ -49,6 +49,7 @@ const withAuthBootstrapTimeout = async (operation) => {
 
 export const AuthProvider = ({ children }) => {
   const bootstrapInFlightRef = useRef(false);
+  const initialSessionSettledRef = useRef(false);
   const [user, setUser] = useState(null); // Current auth user
   const [profile, setProfile] = useState(null); // User profile from PublicProfile table
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -139,6 +140,7 @@ export const AuthProvider = ({ children }) => {
       }
 
       bootstrapInFlightRef.current = true;
+      initialSessionSettledRef.current = true;
 
       try {
         const currentAuthUser = await withAuthBootstrapTimeout(() => getCurrentAuthUser());
@@ -160,18 +162,17 @@ export const AuthProvider = ({ children }) => {
       }
     };
 
-    // Fallback timeout: if auth doesn't respond in 3 seconds, bootstrap via getCurrentAuthUser.
-    const timeoutId = setTimeout(() => {
-      console.log('[AuthContext] Auth timeout - running session bootstrap');
-      bootstrapCurrentSession();
-    }, 3000);
-
-    // Bootstrap once on mount to avoid relying solely on auth events.
-    bootstrapCurrentSession();
+    let timeoutId;
 
     // Listen to auth state changes
     const { data: { subscription } } = onAuthChange(async (event, session) => {
       console.log('Auth event:', event);
+
+      if (event === 'INITIAL_SESSION') {
+        if (initialSessionSettledRef.current) return;
+        initialSessionSettledRef.current = true;
+      }
+
       clearTimeout(timeoutId); // Clear timeout if auth responds
 
       // Recovery session: user clicked the password-reset email link.
@@ -198,6 +199,13 @@ export const AuthProvider = ({ children }) => {
         setIsLoadingAuth(false);
       }
     });
+
+    // Fallback timeout: if auth does not emit INITIAL_SESSION, query it once directly.
+    timeoutId = setTimeout(() => {
+      if (initialSessionSettledRef.current) return;
+      console.log('[AuthContext] Auth timeout - running session bootstrap');
+      bootstrapCurrentSession();
+    }, 3000);
 
     // Cleanup subscription on unmount
     return () => {

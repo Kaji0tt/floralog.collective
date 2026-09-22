@@ -1,6 +1,5 @@
-import { useState, useEffect } from "react";
-import { getCurrentUser } from "@/api/userApi";
-import { onAuthChange } from "@/api/authService";
+import { useEffect } from "react";
+import { useAuth } from "@/lib/AuthContext";
 import { encodeReferralCode } from "@/lib/referralCode";
 import NotificationManager from "./components/notifications/NotificationManager";
 import ToastNotificationManager from "./components/notifications/ToastNotificationManager";
@@ -12,44 +11,12 @@ import { Toaster } from "@/components/ui/toaster";
 
 
 export default function Layout({ children, currentPageName }) {
-  const [user, setUser] = useState(null);
-
-  const loadUser = async () => {
-    try {
-      console.log("[Layout] Lade User-Daten...");
-      const currentUser = await getCurrentUser();
-      if (!currentUser) {
-        setUser(null);
-        return;
-      }
-      console.log("[Layout] User geladen:", {
-        email: currentUser.email,
-        display_name: currentUser.display_name,
-        full_name: currentUser.full_name
-      });
-      setUser(currentUser);
-      console.log("[Layout] User State aktualisiert");
-      
-      // Trigger Custom Event für andere Komponenten (z.B. Home)
-      console.log("[Layout] Triggere userUpdated Event");
-      window.dispatchEvent(new CustomEvent('userUpdated', { detail: currentUser }));
-    } catch (error) {
-      setUser(null);
-      console.log("[Layout] User nicht authentifiziert:", error);
-    }
-  };
+  const { user: authUser, profile } = useAuth();
+  const user = authUser
+    ? { ...authUser, ...(profile || {}), id: authUser.id, auth_id: authUser.id }
+    : null;
 
   useEffect(() => {
-    loadUser();
-
-    const { data: { subscription } } = onAuthChange(async (_event, session) => {
-      if (session?.user) {
-        await loadUser();
-      } else {
-        setUser(null);
-      }
-    });
-    
     // Referral-Code aus URL extrahieren und speichern
     const urlParams = new URLSearchParams(window.location.search);
     const referralCode = urlParams.get('ref');
@@ -75,9 +42,6 @@ export default function Layout({ children, currentPageName }) {
       console.log('[Referral] Kein referral_code in URL gefunden');
     }
 
-    return () => {
-      subscription?.unsubscribe();
-    };
   }, []);
 
   return (
