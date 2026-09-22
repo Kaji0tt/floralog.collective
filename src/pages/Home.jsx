@@ -1986,8 +1986,8 @@ function HomeContent() {
     !dismissedMilestoneIdsRef.current.has(seasonStartIntroScopedId)
   );
   const questUnlockThreshold = FLORABOT_MILESTONES.find((milestone) => milestone.navHighlight === "quests")?.threshold ?? 1000;
-  const isQuestButtonUnlocked = playerSeeds >= questUnlockThreshold;
-  const isShopUnlocked = playerSeeds >= 5000;
+  const isQuestButtonUnlocked = allTimeSeeds >= questUnlockThreshold;
+  const isShopUnlocked = allTimeSeeds >= 5000;
   const resolvePublicProfileLabel = (email) => {
     if (!email) return null;
     const profile = allUsers.find((entry) => entry?.user_email?.toLowerCase() === String(email).toLowerCase());
@@ -3915,7 +3915,7 @@ function HomeContent() {
                 ) : activePanel === "achievements" ? (
                   <AchievementsFeatureRoot
                     embedded
-                    initialTab="quests"
+                    initialTab="achievements"
                     onRequestClose={() => setActivePanel(null)}
                     onHeaderMetaChange={setEmbeddedHeaderMeta}
                     onUserUpdated={(freshUser) => setUser(freshUser)}
