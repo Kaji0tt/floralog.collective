@@ -230,7 +230,7 @@ const buildZonePopupHtml = (props, isLightUi) => {
       </div>
       <div style="font-size:12px;color:${bodyColor};line-height:1.55;">
         <div style="margin-bottom:4px;">
-          <span style="font-weight:700;">Multiplikator:</span> x${zoneMultiplier.toFixed(2)}
+          <span style="font-weight:700;">Multiplikator:</span> x ${zoneMultiplier.toFixed(1).replace(".", ",")}
         </div>
         <div style="margin-bottom:4px;color:${mutedColor};">
           Start bei x1.50, sinkt pro weiterem Scan in dieser Zone.

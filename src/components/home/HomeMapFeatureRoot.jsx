@@ -228,7 +228,12 @@ export default function HomeMapFeatureRoot({
         const zoneTitle = String(zone?.title || zone?.zoneTitle || zone?.name || themeMeta.label).trim();
         const scansToday = Number(zone?.scansToday ?? zone?.scans_today ?? zone?.scanCountToday ?? zone?.scan_count_today ?? 0);
         const scanProgress = Number.isFinite(scansToday) ? Math.max(0, Math.min(ZONE_SCAN_TARGET, scansToday)) : 0;
-        const zoneMultiplier = computeZoneMultiplierFromScanCount(scanProgress);
+        const configuredZoneMultiplier = Number(
+          zone?.bonusMultiplier ?? zone?.zoneBonusMultiplier ?? zone?.zone_bonus_multiplier
+        );
+        const zoneMultiplier = Number.isFinite(configuredZoneMultiplier) && configuredZoneMultiplier > 0
+          ? configuredZoneMultiplier
+          : computeZoneMultiplierFromScanCount(scanProgress);
         const rewardProgress = zoneRewardProgressByTheme.get(themeKey) || { unlocked: 0, total: 0 };
         const accessoryUnlocked = Math.max(0, Number(rewardProgress.unlocked) || 0);
         const accessoryTotal = Math.max(0, Number(rewardProgress.total) || 0);
@@ -781,7 +786,7 @@ export default function HomeMapFeatureRoot({
                               <div className="mt-2 flex items-center justify-between text-[9px] font-semibold uppercase tracking-[0.14em] text-stone-400">
                                 <span>Multiplikator</span>
                                 <span className="tabular-nums text-stone-200">
-                                  x{zone.zoneMultiplier.toFixed(2)}
+                                  x {zone.zoneMultiplier.toFixed(1).replace(".", ",")}
                                 </span>
                               </div>
                             </button>

@@ -68,7 +68,7 @@ export default function ZoneDetailSheet({ zone, isLightUi, onClose, onOpenScans,
         </div>
 
         {/* Middle column: title, scan progress, multiplier - stacked in reading order, no forced spacing */}
-        <div className="flex min-w-0 flex-1 flex-col gap-2 py-0.5">
+        <div className="flex min-w-0 flex-1 flex-col gap-2 overflow-hidden py-0.5">
           <h3 className="truncate text-base font-bold leading-tight">{zone.title}</h3>
 
           <div className="grid gap-1">
@@ -103,7 +103,7 @@ export default function ZoneDetailSheet({ zone, isLightUi, onClose, onOpenScans,
           }`}>
             <span>Multiplikator</span>
             <span className={`tabular-nums ${isLightUi ? "text-stone-700" : "text-stone-200"}`}>
-              x{Number(zone.zoneMultiplier || 1).toFixed(2)}
+              x{Number(zone.zoneMultiplier || 1).toFixed(1).replace(".", ",")}
             </span>
           </div>
 
@@ -169,32 +169,36 @@ export default function ZoneDetailSheet({ zone, isLightUi, onClose, onOpenScans,
             </button>
           </div>
 
-          <div className="flex flex-col gap-1.5">
-            <button
-              type="button"
-              onClick={onOpenScans}
-              className={`relative rounded-xl px-2 py-1.5 text-[11px] font-semibold leading-tight transition-colors ${
-                isLightUi
-                  ? "bg-white/70 text-emerald-800 hover:bg-white/90"
-                  : "bg-black/35 text-emerald-100 hover:bg-black/55"
-              }`}
-            >
-              Scans
-              <span aria-hidden="true" className="gold-gradient-border-mask" style={{ background: scansBorderGradient }} />
-            </button>
-            <button
-              type="button"
-              onClick={onShare}
-              className={`relative flex items-center justify-center gap-1 rounded-xl px-2 py-1.5 text-[11px] font-semibold leading-tight transition-colors ${
-                isLightUi
-                  ? "bg-white/70 text-amber-800 hover:bg-white/90"
-                  : "bg-black/35 text-amber-100 hover:bg-black/55"
-              }`}
-            >
-              <Share2 className="h-3 w-3" />
-              Teilen
-              <span aria-hidden="true" className="gold-gradient-border-mask" style={{ background: shareBorderGradient }} />
-            </button>
+          <div className="flex min-w-0 flex-col gap-1.5">
+            <div className="w-full min-w-0">
+              <button
+                type="button"
+                onClick={onOpenScans}
+                className={`relative w-full min-w-0 rounded-xl px-2 py-1.5 text-[11px] font-semibold leading-tight transition-colors ${
+                  isLightUi
+                    ? "bg-white/70 text-emerald-800 hover:bg-white/90"
+                    : "bg-black/35 text-emerald-100 hover:bg-black/55"
+                }`}
+              >
+                Scans
+                <span aria-hidden="true" className="gold-gradient-border-mask" style={{ background: scansBorderGradient }} />
+              </button>
+            </div>
+            <div className="w-full min-w-0">
+              <button
+                type="button"
+                onClick={onShare}
+                className={`relative flex w-full min-w-0 items-center justify-center gap-1 rounded-xl px-2 py-1.5 text-[11px] font-semibold leading-tight transition-colors ${
+                  isLightUi
+                    ? "bg-white/70 text-amber-800 hover:bg-white/90"
+                    : "bg-black/35 text-amber-100 hover:bg-black/55"
+                }`}
+              >
+                <Share2 className="h-3 w-3 shrink-0" />
+                <span className="truncate">Teilen</span>
+                <span aria-hidden="true" className="gold-gradient-border-mask" style={{ background: shareBorderGradient }} />
+              </button>
+            </div>
           </div>
         </div>
       </div>
