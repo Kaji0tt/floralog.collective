@@ -41,28 +41,20 @@ export default function FlorabotLogo({
       aria-label="Florabot"
     >
       <div className={`relative w-full h-full ${padding}`}>
-        <div className="absolute inset-0 overflow-hidden">
-          <div
-            className="absolute inset-0"
-            style={{ transform: `translateY(-${LOGO_LAYER_TOP_MARGIN_PERCENT}%)` }}
-          >
+        <div
+          className="absolute inset-0"
+          style={{ transform: `translateY(-${LOGO_LAYER_TOP_MARGIN_PERCENT}%)` }}
+        >
+          <div className="absolute inset-0 z-0 overflow-hidden">
             {hasAnyLayer && (
               <div className="absolute left-1/2 top-1/2 h-[72%] w-[72%] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[radial-gradient(circle,rgba(0,0,0,0.35)_0%,rgba(0,0,0,0.3)_42%,rgba(0,0,0,0)_70%)]" />
-            )}
-            {assets.plant?.imageUrl && (
-              <img
-                src={assets.plant.imageUrl}
-                alt=""
-                aria-hidden="true"
-                className="absolute inset-0 w-full h-full object-contain"
-              />
             )}
             {assets.border?.imageUrl && (
               <img
                 src={assets.border.imageUrl}
                 alt=""
                 aria-hidden="true"
-                className="absolute inset-0 w-full h-full object-contain"
+                className="absolute inset-0 z-0 w-full h-full object-contain"
                 style={
                   assets.borderColor
                     ? {
@@ -72,26 +64,33 @@ export default function FlorabotLogo({
                 }
               />
             )}
+          </div>
+          {/* Kept outside the clipped image layers so blur and shadow can bleed past the crop box. */}
+          <div className="absolute inset-0 z-10">
+            <HomeRarityBorderGlow
+              active={safeProfile.selected_logo_effect === "rarity_border_glow"}
+              borderColor={assets.borderColor}
+              borderImageUrl={assets.border?.imageUrl}
+            />
+          </div>
+          <div className="absolute inset-0 z-20 overflow-hidden">
+            {assets.plant?.imageUrl && (
+              <img
+                src={assets.plant.imageUrl}
+                alt=""
+                aria-hidden="true"
+                className="absolute inset-0 z-20 w-full h-full object-contain"
+              />
+            )}
             {assets.face?.imageUrl && (
               <img
                 src={assets.face.imageUrl}
                 alt=""
                 aria-hidden="true"
-                className="absolute inset-0 w-full h-full object-contain"
+                className="absolute inset-0 z-30 w-full h-full object-contain"
               />
             )}
           </div>
-        </div>
-        {/* Rendered outside the clipped image layer so the glow's blur/box-shadow can bleed past the crop box. */}
-        <div
-          className="absolute inset-0"
-          style={{ transform: `translateY(-${LOGO_LAYER_TOP_MARGIN_PERCENT}%)` }}
-        >
-          <HomeRarityBorderGlow
-            active={safeProfile.selected_logo_effect === "rarity_border_glow"}
-            borderColor={assets.borderColor}
-            borderImageUrl={assets.border?.imageUrl}
-          />
         </div>
       </div>
     </div>

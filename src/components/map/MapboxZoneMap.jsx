@@ -41,7 +41,7 @@ const GRID_LINE_COLOR_MAJOR = "rgba(94, 234, 212, 0.32)";
 
 // Free, tokenless vector areas (OpenFreeMap, community-hosted OpenMapAreas schema) used purely as a
 // faint silhouette (coastline/water/roads) underneath the sonar grid — no buildings, no 3D, no labels.
-const OPENFREEMAP_SOURCE_URL = "https://areas.openfreemap.org/planet";
+const OPENFREEMAP_SOURCE_URL = "https://tiles.openfreemap.org/planet";
 
 // Dark echo-lot/sonar basemap: near-black background, glowing teal water/roads, no labels or 3D buildings.
 const SONAR_MAP_STYLE = {
@@ -969,8 +969,13 @@ export default function MapboxZoneMap({
 
     map.on("error", (event) => {
       const status = event?.error?.status;
-      if (status && status >= 400) {
-        onTokenErrorRef.current?.("Kartenkacheln konnten nicht geladen werden. Bitte spaeter erneut versuchen.");
+      const message = String(event?.error?.message || "");
+      if ((status && status >= 400) || message) {
+        console.warn("[MapboxZoneMap] Basemap source error", {
+          status: status || null,
+          message: message || "unknown map error",
+        });
+        onTokenErrorRef.current?.("Kartendaten konnten nicht geladen werden. Bitte spaeter erneut versuchen.");
       }
     });
 

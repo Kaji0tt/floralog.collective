@@ -67,9 +67,11 @@ export default function ZoneDetailSheet({ zone, isLightUi, onClose, onOpenScans,
           />
         </div>
 
-        {/* Middle column: title, scan progress, multiplier - stacked in reading order, no forced spacing */}
-        <div className="flex min-w-0 flex-1 flex-col gap-2 overflow-hidden py-0.5">
-          <h3 className="truncate text-base font-bold leading-tight">{zone.title}</h3>
+        {/* Shared content wrapper: progress, rewards and actions share the available width. */}
+        <div className="flex min-w-0 flex-1 items-stretch gap-3">
+          {/* Main column: title, scan progress, multiplier and three evenly sized rewards. */}
+          <div className="flex min-w-0 flex-1 flex-col gap-2 overflow-hidden py-0.5">
+            <h3 className="truncate text-base font-bold leading-tight">{zone.title}</h3>
 
           <div className="grid gap-1">
             <div className={`flex items-center justify-between text-[10px] font-semibold uppercase tracking-[0.14em] ${
@@ -101,54 +103,53 @@ export default function ZoneDetailSheet({ zone, isLightUi, onClose, onOpenScans,
           <div className={`flex items-center justify-between text-[10px] font-semibold uppercase tracking-[0.14em] ${
             isLightUi ? "text-stone-500" : "text-stone-400"
           }`}>
-            <span>Multiplikator</span>
             <span className={`tabular-nums ${isLightUi ? "text-stone-700" : "text-stone-200"}`}>
               x{Number(zone.zoneMultiplier || 1).toFixed(1).replace(".", ",")}
             </span>
           </div>
 
-          {targetPlants.length > 0 && (
-            <div className="flex gap-3">
-              {targetPlants.map((targetPlant) => (
-                <div key={targetPlant.rewardId} className="flex w-14 shrink-0 flex-col items-center gap-1">
-                  <div className={`relative h-10 w-10 overflow-hidden rounded-full border ${
-                    isLightUi ? "border-stone-300/70" : "border-[#f0e5a5]/20"
-                  }`}>
-                    {targetPlant.rewardImageUrl ? (
-                      <img
-                        src={targetPlant.rewardImageUrl}
-                        alt={targetPlant.rewardName || targetPlant.label}
-                        className="h-full w-full origin-center scale-[1.5] object-contain translate-y-[15%]"
-                      />
-                    ) : (
-                      <div className={`flex h-full w-full items-center justify-center ${
-                        isLightUi ? "bg-stone-200 text-stone-500" : "bg-black/40 text-stone-400"
-                      }`}>
-                        <span className="text-xs font-bold">?</span>
-                      </div>
-                    )}
-                    {targetPlant.unlocked && (
-                      <>
-                        <div className="absolute inset-0 bg-black/45" />
-                        <span className="absolute inset-0 flex items-center justify-center text-emerald-400">
-                          <CheckCircle2 className="h-4 w-4" />
-                        </span>
-                      </>
-                    )}
+            {targetPlants.length > 0 && (
+              <div className="grid min-w-0 grid-cols-3 gap-2">
+                {targetPlants.slice(0, 3).map((targetPlant) => (
+                  <div key={targetPlant.rewardId} className="flex min-w-0 flex-col items-center gap-1">
+                    <div className={`relative h-10 w-10 max-w-full overflow-hidden rounded-full border ${
+                      isLightUi ? "border-stone-300/70" : "border-[#f0e5a5]/20"
+                    }`}>
+                      {targetPlant.rewardImageUrl ? (
+                        <img
+                          src={targetPlant.rewardImageUrl}
+                          alt={targetPlant.rewardName || targetPlant.label}
+                          className="h-full w-full origin-center scale-[1.5] object-contain translate-y-[15%]"
+                        />
+                      ) : (
+                        <div className={`flex h-full w-full items-center justify-center ${
+                          isLightUi ? "bg-stone-200 text-stone-500" : "bg-black/40 text-stone-400"
+                        }`}>
+                          <span className="text-xs font-bold">?</span>
+                        </div>
+                      )}
+                      {targetPlant.unlocked && (
+                        <>
+                          <div className="absolute inset-0 bg-black/45" />
+                          <span className="absolute inset-0 flex items-center justify-center text-emerald-400">
+                            <CheckCircle2 className="h-4 w-4" />
+                          </span>
+                        </>
+                      )}
+                    </div>
+                    <span className={`w-full truncate text-center text-[9px] font-medium ${
+                      isLightUi ? "text-stone-600" : "text-stone-300"
+                    }`}>
+                      {targetPlant.label}
+                    </span>
                   </div>
-                  <span className={`w-full truncate text-center text-[9px] font-medium ${
-                    isLightUi ? "text-stone-600" : "text-stone-300"
-                  }`}>
-                    {targetPlant.label}
-                  </span>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+                ))}
+              </div>
+            )}
+          </div>
 
-        {/* Right column: distance + close aligned with the title row, actions stacked below */}
-        <div className="flex w-20 shrink-0 flex-col gap-1.5 py-0.5 sm:w-24">
+          {/* Action column: width follows the shared wrapper and remains available on narrow screens. */}
+          <div className="flex w-[clamp(5rem,24%,6rem)] shrink-0 flex-col gap-1.5 py-0.5">
           <div className="flex items-center justify-end gap-2">
             <span className={`text-right text-[10px] font-semibold uppercase tracking-[0.1em] tabular-nums ${
               isLightUi ? "text-stone-600" : "text-stone-300"
@@ -200,6 +201,7 @@ export default function ZoneDetailSheet({ zone, isLightUi, onClose, onOpenScans,
               </button>
             </div>
           </div>
+        </div>
         </div>
       </div>
       </GoldGradientCard>

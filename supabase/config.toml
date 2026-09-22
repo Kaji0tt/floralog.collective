@@ -64,6 +64,11 @@ enabled = true
 verify_jwt = false
 entrypoint = "./functions/backfillAreaClaims/index.ts"
 
+[functions.getAreaClaims]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/getAreaClaims/index.ts"
+
 [functions.robotPlantGrantReward]
 enabled = true
 verify_jwt = false
