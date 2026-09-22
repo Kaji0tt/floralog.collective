@@ -67,115 +67,69 @@ export default function ZoneDetailSheet({ zone, isLightUi, onClose, onOpenScans,
           />
         </div>
 
-        {/* Shared content wrapper: progress, rewards and actions share the available width. */}
-        <div className="flex min-w-0 flex-1 items-stretch gap-3">
-          {/* Main column: title, scan progress, multiplier and three evenly sized rewards. */}
-          <div className="flex min-w-0 flex-1 flex-col gap-2 overflow-hidden py-0.5">
-            <h3 className="truncate text-base font-bold leading-tight">{zone.title}</h3>
+        <div className="flex min-w-0 flex-1 flex-col gap-3">
+          <div className="flex min-w-0 items-start gap-3">
+            <div className="min-w-0 flex-1 py-0.5">
+              <h3 className="truncate text-base font-bold leading-tight">{zone.title}</h3>
 
-          <div className="grid gap-1">
-            <div className={`flex items-center justify-between text-[10px] font-semibold uppercase tracking-[0.14em] ${
-              isLightUi ? "text-stone-500" : "text-stone-400"
-            }`}>
-              <span>Scans</span>
-              <span className="tabular-nums">{zone.scanLabel}</span>
-            </div>
-            <div className="grid grid-cols-5 gap-1">
-              {Array.from({ length: 5 }).map((_, stepIndex) => {
-                const isFilled = stepIndex < zone.scanProgressCount;
-                return (
-                  <span
-                    key={`${zone.key}-detail-scan-step-${stepIndex}`}
-                    className={`h-2 rounded-full border ${isFilled
-                      ? isLightUi
-                        ? "border-emerald-500/35 bg-emerald-500/85"
-                        : "border-emerald-300/30 bg-emerald-400/85"
-                      : isLightUi
-                        ? "border-stone-300/70 bg-stone-200/70"
-                        : "border-[#f0e5a5]/12 bg-black/25"
-                    }`}
-                  />
-                );
-              })}
-            </div>
-          </div>
-
-          <div className={`flex items-center justify-between text-[10px] font-semibold uppercase tracking-[0.14em] ${
-            isLightUi ? "text-stone-500" : "text-stone-400"
-          }`}>
-            <span className={`tabular-nums ${isLightUi ? "text-stone-700" : "text-stone-200"}`}>
-              x{Number(zone.zoneMultiplier || 1).toFixed(1).replace(".", ",")}
-            </span>
-          </div>
-
-            {targetPlants.length > 0 && (
-              <div className="grid min-w-0 grid-cols-3 gap-2">
-                {targetPlants.slice(0, 3).map((targetPlant) => (
-                  <div key={targetPlant.rewardId} className="flex min-w-0 flex-col items-center gap-1">
-                    <div className={`relative h-10 w-10 max-w-full overflow-hidden rounded-full border ${
-                      isLightUi ? "border-stone-300/70" : "border-[#f0e5a5]/20"
-                    }`}>
-                      {targetPlant.rewardImageUrl ? (
-                        <img
-                          src={targetPlant.rewardImageUrl}
-                          alt={targetPlant.rewardName || targetPlant.label}
-                          className="h-full w-full origin-center scale-[1.5] object-contain translate-y-[15%]"
-                        />
-                      ) : (
-                        <div className={`flex h-full w-full items-center justify-center ${
-                          isLightUi ? "bg-stone-200 text-stone-500" : "bg-black/40 text-stone-400"
-                        }`}>
-                          <span className="text-xs font-bold">?</span>
-                        </div>
-                      )}
-                      {targetPlant.unlocked && (
-                        <>
-                          <div className="absolute inset-0 bg-black/45" />
-                          <span className="absolute inset-0 flex items-center justify-center text-emerald-400">
-                            <CheckCircle2 className="h-4 w-4" />
-                          </span>
-                        </>
-                      )}
-                    </div>
-                    <span className={`w-full truncate text-center text-[9px] font-medium ${
-                      isLightUi ? "text-stone-600" : "text-stone-300"
-                    }`}>
-                      {targetPlant.label}
-                    </span>
-                  </div>
-                ))}
+              <div className="mt-2 grid gap-1">
+                <div className={`flex items-center justify-between text-[10px] font-semibold uppercase tracking-[0.14em] ${
+                  isLightUi ? "text-stone-500" : "text-stone-400"
+                }`}>
+                  <span>Scans</span>
+                  <span className="tabular-nums">{zone.scanLabel}</span>
+                </div>
+                <div className="grid grid-cols-5 gap-1">
+                  {Array.from({ length: 5 }).map((_, stepIndex) => {
+                    const isFilled = stepIndex < zone.scanProgressCount;
+                    return (
+                      <span
+                        key={`${zone.key}-detail-scan-step-${stepIndex}`}
+                        className={`h-2 rounded-full border ${isFilled
+                          ? isLightUi
+                            ? "border-emerald-500/35 bg-emerald-500/85"
+                            : "border-emerald-300/30 bg-emerald-400/85"
+                          : isLightUi
+                            ? "border-stone-300/70 bg-stone-200/70"
+                            : "border-[#f0e5a5]/12 bg-black/25"
+                        }`}
+                      />
+                    );
+                  })}
+                </div>
               </div>
-            )}
-          </div>
 
-          {/* Action column: width follows the shared wrapper and remains available on narrow screens. */}
-          <div className="flex w-[clamp(5rem,24%,6rem)] shrink-0 flex-col gap-1.5 py-0.5">
-          <div className="flex items-center justify-end gap-2">
-            <span className={`text-right text-[10px] font-semibold uppercase tracking-[0.1em] tabular-nums ${
-              isLightUi ? "text-stone-600" : "text-stone-300"
-            }`}>
-              {zone.distanceLabel}
-            </span>
-            <button
-              type="button"
-              onClick={onClose}
-              aria-label="Schließen"
-              className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border ${
-                isLightUi
-                  ? "border-stone-300/70 bg-white/80 text-stone-700 hover:bg-white"
-                  : "border-[#f0e5a5]/25 bg-black/40 text-stone-200 hover:bg-black/60"
-              }`}
-            >
-              <X className="h-3.5 w-3.5" />
-            </button>
-          </div>
+              <div className={`mt-2 flex items-center justify-between text-[10px] font-semibold uppercase tracking-[0.14em] ${
+                isLightUi ? "text-stone-500" : "text-stone-400"
+              }`}>
+                <span className={`tabular-nums ${isLightUi ? "text-stone-700" : "text-stone-200"}`}>
+                  x{Number(zone.zoneMultiplier || 1).toFixed(1).replace(".", ",")}
+                </span>
+              </div>
+            </div>
 
-          <div className="flex min-w-0 flex-col gap-1.5">
-            <div className="w-full min-w-0">
+            <div className="flex w-[clamp(5rem,32%,7rem)] shrink-0 flex-col gap-1.5 py-0.5">
+              <div className="flex items-center justify-end gap-2">
+                <span className="text-right text-[10px] font-semibold uppercase tracking-[0.1em] tabular-nums text-stone-300">
+                  {zone.distanceLabel}
+                </span>
+                <button
+                  type="button"
+                  onClick={onClose}
+                  aria-label="Schließen"
+                  className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border ${
+                    isLightUi
+                      ? "border-stone-300/70 bg-white/80 text-stone-700 hover:bg-white"
+                      : "border-[#f0e5a5]/25 bg-black/40 text-stone-200 hover:bg-black/60"
+                  }`}
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
               <button
                 type="button"
                 onClick={onOpenScans}
-                className={`relative w-full min-w-0 rounded-xl px-2 py-1.5 text-[11px] font-semibold leading-tight transition-colors ${
+                className={`relative w-full rounded-xl px-2 py-1.5 text-[11px] font-semibold leading-tight transition-colors ${
                   isLightUi
                     ? "bg-white/70 text-emerald-800 hover:bg-white/90"
                     : "bg-black/35 text-emerald-100 hover:bg-black/55"
@@ -184,12 +138,10 @@ export default function ZoneDetailSheet({ zone, isLightUi, onClose, onOpenScans,
                 Scans
                 <span aria-hidden="true" className="gold-gradient-border-mask" style={{ background: scansBorderGradient }} />
               </button>
-            </div>
-            <div className="w-full min-w-0">
               <button
                 type="button"
                 onClick={onShare}
-                className={`relative flex w-full min-w-0 items-center justify-center gap-1 rounded-xl px-2 py-1.5 text-[11px] font-semibold leading-tight transition-colors ${
+                className={`relative flex w-full items-center justify-center gap-1 rounded-xl px-2 py-1.5 text-[11px] font-semibold leading-tight transition-colors ${
                   isLightUi
                     ? "bg-white/70 text-amber-800 hover:bg-white/90"
                     : "bg-black/35 text-amber-100 hover:bg-black/55"
@@ -201,7 +153,45 @@ export default function ZoneDetailSheet({ zone, isLightUi, onClose, onOpenScans,
               </button>
             </div>
           </div>
-        </div>
+
+          {targetPlants.length > 0 && (
+            <div className="grid min-w-0 grid-cols-3 gap-2">
+              {targetPlants.slice(0, 3).map((targetPlant) => (
+                <div key={targetPlant.rewardId} className="flex min-w-0 flex-col items-center gap-1">
+                  <div className={`relative h-10 w-10 max-w-full overflow-hidden rounded-full border ${
+                    isLightUi ? "border-stone-300/70" : "border-[#f0e5a5]/20"
+                  }`}>
+                    {targetPlant.rewardImageUrl ? (
+                      <img
+                        src={targetPlant.rewardImageUrl}
+                        alt={targetPlant.rewardName || targetPlant.label}
+                        className="h-full w-full origin-center scale-[1.5] object-contain translate-y-[15%]"
+                      />
+                    ) : (
+                      <div className={`flex h-full w-full items-center justify-center ${
+                        isLightUi ? "bg-stone-200 text-stone-500" : "bg-black/40 text-stone-400"
+                      }`}>
+                        <span className="text-xs font-bold">?</span>
+                      </div>
+                    )}
+                    {targetPlant.unlocked && (
+                      <>
+                        <div className="absolute inset-0 bg-black/45" />
+                        <span className="absolute inset-0 flex items-center justify-center text-emerald-400">
+                          <CheckCircle2 className="h-4 w-4" />
+                        </span>
+                      </>
+                    )}
+                  </div>
+                  <span className={`w-full truncate text-center text-[9px] font-medium ${
+                    isLightUi ? "text-stone-600" : "text-stone-300"
+                  }`}>
+                    {targetPlant.label}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
       </GoldGradientCard>

@@ -975,7 +975,6 @@ export default function MapboxZoneMap({
           status: status || null,
           message: message || "unknown map error",
         });
-        onTokenErrorRef.current?.("Kartendaten konnten nicht geladen werden. Bitte spaeter erneut versuchen.");
       }
     });
 
