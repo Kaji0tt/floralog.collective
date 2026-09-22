@@ -27,6 +27,25 @@ const dispatchUserUpdatedEvent = (detail) => {
 
 
 const AuthContext = createContext(null);
+const AUTH_BOOTSTRAP_TIMEOUT_MS = 8000;
+
+const withAuthBootstrapTimeout = async (operation) => {
+  const timeoutPromise = new Promise((_, reject) => {
+    const timeoutId = setTimeout(() => {
+      reject(new Error('Auth bootstrap timed out'));
+    }, AUTH_BOOTSTRAP_TIMEOUT_MS);
+
+    const originalThen = operation?.then;
+    if (typeof originalThen === 'function') {
+      operation.then(
+        () => clearTimeout(timeoutId),
+        () => clearTimeout(timeoutId)
+      );
+    }
+  });
+
+  return Promise.race([Promise.resolve().then(operation), timeoutPromise]);
+};
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null); // Current auth user
@@ -59,9 +78,9 @@ export const AuthProvider = ({ children }) => {
       setZoneGenerationDay(storedZoneDay || null);
 
       try {
-        let userProfile = await getUserProfile(sessionUser.id);
+        let userProfile = await withAuthBootstrapTimeout(() => getUserProfile(sessionUser.id));
         if (!userProfile) {
-          userProfile = await ensureUserProfileExists(sessionUser);
+          userProfile = await withAuthBootstrapTimeout(() => ensureUserProfileExists(sessionUser));
         }
 
         if (!isMounted) return;
@@ -76,11 +95,11 @@ export const AuthProvider = ({ children }) => {
 
           if (profileStillAtDefaults) {
             try {
-              const updatedProfile = await updateCurrentUserProfile({
+              const updatedProfile = await withAuthBootstrapTimeout(() => updateCurrentUserProfile({
                 selected_face_asset: pendingGuestLogoDraft.selected_face_asset,
                 selected_border_asset: pendingGuestLogoDraft.selected_border_asset,
                 selected_border_color: pendingGuestLogoDraft.selected_border_color ?? null,
-              });
+              }));
               userProfile = { ...userProfile, ...updatedProfile };
             } catch (error) {
               console.error('[AuthContext] Failed to apply guest logo customization draft:', error);
@@ -92,7 +111,7 @@ export const AuthProvider = ({ children }) => {
 
         setProfile(userProfile);
 
-        const logoAssetsCatalog = await Query.LogoAsset.list();
+        const logoAssetsCatalog = await withAuthBootstrapTimeout(() => Query.LogoAsset.list());
         persistLastSignedInUserSnapshot({
           authUser: sessionUser,
           profile: userProfile,
@@ -107,19 +126,25 @@ export const AuthProvider = ({ children }) => {
         });
       } catch (error) {
         console.error('Error loading user profile:', error);
+        if (isMounted) {
+          clearAuthState();
+        }
       }
     };
 
     const bootstrapCurrentSession = async () => {
       try {
-        const currentAuthUser = await getCurrentAuthUser();
+        const currentAuthUser = await withAuthBootstrapTimeout(() => getCurrentAuthUser());
         if (currentAuthUser) {
           await hydrateAuthenticatedState(currentAuthUser);
         } else {
           clearAuthState();
         }
       } catch (error) {
-        console.error('[AuthContext] Session bootstrap failed:', error);
+        console.warn('[AuthContext] Session bootstrap timed out or failed:', error);
+        if (isMounted) {
+          clearAuthState();
+        }
       } finally {
         if (isMounted) {
           setIsLoadingAuth(false);
@@ -149,10 +174,15 @@ export const AuthProvider = ({ children }) => {
         setIsLoadingAuth(false);
         return;
       }
-      
-      if (session?.user) {
-        await hydrateAuthenticatedState(session.user);
-      } else {
+
+      try {
+        if (session?.user) {
+          await withAuthBootstrapTimeout(() => hydrateAuthenticatedState(session.user));
+        } else {
+          clearAuthState();
+        }
+      } catch (error) {
+        console.warn('[AuthContext] Auth event hydration timed out or failed:', error);
         clearAuthState();
       }
 
