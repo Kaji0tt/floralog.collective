@@ -215,15 +215,19 @@ async function completeZoneForPlayer(
   zone: { id: string; center_lat: number | null; center_lng: number | null },
   requiredScanCount: number,
 ): Promise<void> {
-  const { error: deactivateError } = await adminClient
+  const { data: deactivatedZone, error: deactivateError } = await adminClient
     .from("RobotPlantZone")
     .update({ is_active: false })
     .eq("id", zone.id)
-    .eq("is_active", true);
+    .eq("is_active", true)
+    .select("id")
+    .maybeSingle();
 
   if (deactivateError) {
     console.warn("[grantScanZoneUnlocks] Zone deactivation failed:", deactivateError.message);
   }
+
+  if (!deactivatedZone?.id) return;
 
   const centerLat = Number(zone.center_lat);
   const centerLng = Number(zone.center_lng);
@@ -470,7 +474,6 @@ Deno.serve(async (req) => {
         const nextScanCount = Number(scanCount ?? 0);
         const requiredScanCount = Number(matchedZone.required_scan_count) || 5;
         const completionEligible = nextScanCount >= requiredScanCount;
-        const justCompleted = previousScanCount < requiredScanCount && completionEligible;
 
         zoneProgress = {
           zoneId: matchedZone.id,
@@ -482,7 +485,7 @@ Deno.serve(async (req) => {
           claimKey: `zone-lootbox:${authId}:${matchedZone.id}:${dayKey}`,
         };
 
-        if (justCompleted) {
+        if (completionEligible) {
           await completeZoneForPlayer(adminClient, authId, matchedZone, requiredScanCount);
         }
 

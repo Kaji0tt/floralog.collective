@@ -1370,6 +1370,9 @@ function HomeContent() {
     const navigationRandomRewards = Array.isArray(location.state.randomRewards)
       ? location.state.randomRewards.filter(Boolean)
       : [];
+    const completedZoneId = navigationUnlocks?.zoneProgress?.completed
+      ? navigationUnlocks.zoneProgress.zoneId
+      : null;
     const hasScanZoneUnlocks = navigationUnlocks.length > 0;
     const hasRandomRewards = navigationRandomRewards.length > 0;
     const shouldOpenSettings = Boolean(location.state.openSettings);
@@ -1377,6 +1380,13 @@ function HomeContent() {
     const openCollectionId = location.state.collectionId || "global";
 
     if (!hasScanFeedback && !hasScanZoneUnlocks && !hasRandomRewards && !shouldOpenSettings && !shouldOpenCollection) return;
+
+    if (completedZoneId && user?.id) {
+      const remainingZones = heroZones.filter((zone) => zone.id !== completedZoneId);
+      persistDailyZoneSnapshot(user.id, remainingZones, zoneRerollsRemaining);
+      setHeroZones(remainingZones);
+      setActiveZone((currentZone) => (currentZone?.id === completedZoneId ? null : currentZone));
+    }
 
     if (hasScanFeedback && !blockNavigationFeedbackRef.current) {
       safeSetScanFeedback(location.state.scanFeedback);
