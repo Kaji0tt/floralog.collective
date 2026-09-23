@@ -376,18 +376,18 @@ Deno.serve(async (req) => {
         console.error("[grantScanZoneUnlocks] Failed to record zone scan:", zoneStateError);
       } else {
         const nextScanCount = Number(scanCount ?? 0);
-        const justCompleted = previousScanCount < 5 && nextScanCount >= 5;
+        const completionEligible = nextScanCount >= 5;
 
         zoneProgress = {
           zoneId: matchedZone.id,
           zoneTheme: matchedZone.theme,
           scanCount: nextScanCount,
           previousScanCount,
-          completed: justCompleted,
+          completed: completionEligible,
           claimKey: `zone-lootbox:${authId}:${matchedZone.id}:${dayKey}`,
         };
 
-        console.log(`[grantScanZoneUnlocks] Recorded zone scan ${discovery.id}; count=${nextScanCount}; justCompleted=${justCompleted}`);
+        console.log(`[grantScanZoneUnlocks] Recorded zone scan ${discovery.id}; count=${nextScanCount}; completionEligible=${completionEligible}`);
       }
     }
 

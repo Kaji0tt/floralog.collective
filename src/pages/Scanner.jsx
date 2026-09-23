@@ -973,7 +973,7 @@ export default function Scanner() {
       });
 
       const zoneCompletion = scanZoneUnlocks?.zoneProgress;
-      if (zoneCompletion?.completed) {
+      if (Number(zoneCompletion?.scanCount ?? 0) >= 5) {
         try {
           const lootboxResult = await claimZoneLootbox({
             zoneTheme: zoneCompletion.zoneTheme,
@@ -1147,7 +1147,7 @@ export default function Scanner() {
         });
 
         const zoneCompletion = scanZoneUnlocks?.zoneProgress;
-        if (zoneCompletion?.completed) {
+        if (Number(zoneCompletion?.scanCount ?? 0) >= 5) {
           try {
             const lootboxResult = await claimZoneLootbox({
               zoneTheme: zoneCompletion.zoneTheme,
