@@ -34,7 +34,7 @@ const MULTIPLIER_STEP_TOOLTIPS = {
   novelty: "Bonus fuer neue oder lange nicht bestaetigte Entdeckungen.",
   care: "Bonus durch die Pflege deines Florabots (Scan-Streak, erhaltene Likes).",
   firstScan: "Bonus fuer deinen ersten Scan des heutigen Tages.",
-  areas: "Bonus durch beanspruchte Kartenkacheln in deiner Zone.",
+  areaSeedBonus: "Fester Samen-Bonus fuer jede Area (Kartenkachel), die dir gehoert.",
 };
 
 // Nativ (Android/iOS) via Capacitor Haptics vibrieren, im Browser per Vibration API.
@@ -55,13 +55,6 @@ function buildRewardSteps(rewardDetails, isInActiveZone) {
   if (!rewardDetails) return [];
   let runningReward = rewardDetails.baseReward ?? 0;
   const preStreakSteps = [];
-  const formatAreaBonusLabel = (multiplier) => {
-    const bonusPercent = Math.max(0, (Number(multiplier) - 1) * 100);
-    const roundedPercent = Number.isInteger(bonusPercent)
-      ? bonusPercent
-      : Math.round(bonusPercent * 10) / 10;
-    return `+ ${roundedPercent}% durch Areas`;
-  };
 
   function pushPreStreakStep(id, label, multiplier) {
     if (multiplier === 1) return;
@@ -100,22 +93,14 @@ function buildRewardSteps(rewardDetails, isInActiveZone) {
   }
   const steps = [...preStreakSteps];
 
-  const currentReward = rewardDetails.preStreakReward;
-
-  if (rewardDetails.areaClaimMultiplier && rewardDetails.areaClaimMultiplier !== 1) {
-    const preAreaReward =
-      typeof rewardDetails.preAreaClaimReward === "number"
-        ? rewardDetails.preAreaClaimReward
-        : currentReward;
-
+  if (rewardDetails.areaOwnershipSeedBonus) {
     steps.push({
-      id: "areas",
-      label: "Areas",
-      multiplier: rewardDetails.areaClaimMultiplier,
+      id: "areaSeedBonus",
+      label: "Areale",
+      delta: rewardDetails.areaOwnershipSeedBonus,
       result: rewardDetails.finalReward,
-      positive: rewardDetails.areaClaimMultiplier > 1,
-      displayValue: formatAreaBonusLabel(rewardDetails.areaClaimMultiplier),
-      from: preAreaReward,
+      positive: true,
+      displayValue: `+${rewardDetails.areaOwnershipSeedBonus}`,
     });
   }
   return steps;

@@ -54,7 +54,11 @@ export default function ZoneLootboxNotification({ reward, onComplete }) {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="fixed inset-0 z-[135] flex items-end justify-center p-4 md:items-center"
+        className="fixed inset-0 z-[135] flex items-center justify-center px-4"
+        style={{
+          paddingTop: "max(1rem, env(safe-area-inset-top))",
+          paddingBottom: "max(1rem, env(safe-area-inset-bottom))",
+        }}
       >
         <div className="absolute inset-0 bg-[#07120d]/90 backdrop-blur-md" />
 
@@ -63,7 +67,7 @@ export default function ZoneLootboxNotification({ reward, onComplete }) {
           animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={{ opacity: 0, y: 18, scale: 0.98 }}
           transition={{ type: "spring", damping: 25, stiffness: 220 }}
-          className="relative w-full max-w-md overflow-hidden rounded-3xl border border-emerald-200/30 bg-[#10261b]/95 p-6 text-stone-100 shadow-[0_24px_100px_rgba(0,0,0,0.7)]"
+          className="relative max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto overscroll-contain rounded-3xl border border-emerald-200/30 bg-[#10261b]/95 p-6 text-stone-100 shadow-[0_24px_100px_rgba(0,0,0,0.7)]"
         >
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_20%,rgba(163,230,53,0.25),transparent_52%),linear-gradient(160deg,rgba(16,185,129,0.2),transparent_58%)]" />
 

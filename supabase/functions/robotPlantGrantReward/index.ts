@@ -66,6 +66,7 @@ type RewardBreakdown = {
   preAreaClaimReward?: number;
   areaClaimMultiplier?: number;
   claimedAreasCount?: number;
+  areaOwnershipSeedBonus?: number;
   preStreakReward: number;
   finalReward: number;
 };
@@ -1102,19 +1103,22 @@ Deno.serve(async (req) => {
       );
 
       const baseFinalReward = Math.max(1, Math.round(Number(rewardDetails.finalReward || 0)));
-      const areaClaimMultiplier = Number(areaClaimResolution?.areaClaimMultiplier || 1);
       const claimedAreasCount = Math.max(0, Number(areaClaimResolution?.claimedAreasCountForAuth || 0));
-      const multipliedFinalReward = Math.max(1, Math.round(baseFinalReward * areaClaimMultiplier));
+      // Fester Samen-Bonus fuer zukuenftige Scans: +1 Samen pro Area, die dem Spieler gehoert.
+      // Kein %-Multiplikator mehr - nur dieser flache Bonus zaehlt.
+      const areaOwnershipSeedBonus = claimedAreasCount;
+      const finalRewardWithAreaBonus = baseFinalReward + areaOwnershipSeedBonus;
 
       rewardDetails = {
         ...rewardDetails,
         preAreaClaimReward: baseFinalReward,
-        areaClaimMultiplier: roundMultiplier(areaClaimMultiplier),
+        areaClaimMultiplier: 1,
         claimedAreasCount,
-        finalReward: multipliedFinalReward,
+        areaOwnershipSeedBonus,
+        finalReward: finalRewardWithAreaBonus,
       };
 
-      effectiveAmount = multipliedFinalReward;
+      effectiveAmount = finalRewardWithAreaBonus;
       effectiveEnergyDelta = scanContext.derivedEnergyDelta;
       effectiveDataQualityDelta = scanContext.derivedDataQualityDelta;
       effectiveCareDelta = scanContext.derivedCareDelta;

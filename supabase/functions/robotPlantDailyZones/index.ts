@@ -465,6 +465,9 @@ const pickZoneRadius = (energyValue: number, rng: () => number): number => {
   return Math.round(base * (1 + safeEnergy / 100));
 };
 
+// Zufaellig 3, 4 oder 5 Scans, damit nicht jede Zone gleich lange braucht.
+const pickRequiredScanCount = (rng: () => number): number => 3 + Math.floor(rng() * 3);
+
 const scoreZoneSet = (zones: GeneratedZone[], centerLat: number, centerLng: number): number => {
   if (zones.length === 0) return -Infinity;
   const themes = new Set(zones.map((zone) => zone.theme));
@@ -1061,6 +1064,7 @@ Deno.serve(async (req) => {
         .from("RobotPlantZone")
         .select("*")
         .eq("day_generated", dayKey)
+        .eq("is_active", true)
         .like("zone_key", `%:${authKeySuffix}`)
         .in("theme", zoneThemes);
 
@@ -1093,6 +1097,7 @@ Deno.serve(async (req) => {
             radiusM: z.radius_m,
             zoneKey: z.zone_key,
             bonusMultiplier: z.zone_bonus_multiplier || 1.0,
+            requiredScanCount: z.required_scan_count || 5,
             scansToday: scanCountsByZoneId.get(z.id) || 0,
           })),
         });
@@ -1187,19 +1192,23 @@ Deno.serve(async (req) => {
     });
 
     // Insert generated zones into RobotPlantZone table
-    const zoneRecords = selectedZones.map((zone) => ({
-      zone_key: `${zone.zoneKey}:${authKeySuffix}`,
-      title: `${zone.theme.charAt(0).toUpperCase() + zone.theme.slice(1)} Zone`,
-      theme: zone.theme,
-      center_lat: zone.centerLat,
-      center_lng: zone.centerLng,
-      radius_m: zone.radiusM,
-      zone_bonus_multiplier: zone.bonusMultiplier,
-      is_active: true,
-      valid_from: new Date().toISOString(),
-      valid_to: new Date(Date.now() + 86400000).toISOString(),
-      day_generated: dayKey,
-    }));
+    const zoneRecords = selectedZones.map((zone, zoneIndex) => {
+      const scanCountRng = createSeededRng(regenerationSeed + zoneIndex * 7919 + 1);
+      return {
+        zone_key: `${zone.zoneKey}:${authKeySuffix}`,
+        title: `${zone.theme.charAt(0).toUpperCase() + zone.theme.slice(1)} Zone`,
+        theme: zone.theme,
+        center_lat: zone.centerLat,
+        center_lng: zone.centerLng,
+        radius_m: zone.radiusM,
+        zone_bonus_multiplier: zone.bonusMultiplier,
+        required_scan_count: pickRequiredScanCount(scanCountRng),
+        is_active: true,
+        valid_from: new Date().toISOString(),
+        valid_to: new Date(Date.now() + 86400000).toISOString(),
+        day_generated: dayKey,
+      };
+    });
 
     console.log(`[robotPlantDailyZones] Inserting ${zoneRecords.length} zone records`);
     const { data: insertedZones, error: insertError } = await adminClient
@@ -1298,6 +1307,7 @@ Deno.serve(async (req) => {
         radiusM: z.radius_m,
         zoneKey: z.zone_key,
         bonusMultiplier: z.zone_bonus_multiplier || 1.0,
+        requiredScanCount: z.required_scan_count || 5,
         scansToday: scanCountsByZoneId.get(z.id) || 0,
       })),
     });

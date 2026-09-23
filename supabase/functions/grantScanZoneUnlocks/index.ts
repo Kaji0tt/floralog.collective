@@ -43,6 +43,7 @@ type ZoneRow = {
   center_lat: number | null;
   center_lng: number | null;
   radius_m: number | null;
+  required_scan_count: number | null;
 };
 
 type RewardRow = {
@@ -198,6 +199,96 @@ function getAreaFromLatLng(lat: number, lng: number): { areaX: number; areaY: nu
   return { areaX: Math.floor(Number(x) / AREA_SIZE_M), areaY: Math.floor(Number(y) / AREA_SIZE_M) };
 }
 
+function shuffleInPlace<T>(arr: T[]): void {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+}
+
+// Beim Abschluss einer Zone: Zone deaktivieren (verschwindet von der Karte) und dem Spieler
+// die Ursprungs-Area im Zonenzentrum plus 1-2 zufaellige Nachbar-Areas gutschreiben (max. 3 gesamt).
+// Bereits von anderen Spielern beanspruchte Areas werden dabei nicht ueberschrieben.
+async function completeZoneForPlayer(
+  adminClient: ReturnType<typeof createClient>,
+  authId: string,
+  zone: { id: string; center_lat: number | null; center_lng: number | null },
+  requiredScanCount: number,
+): Promise<void> {
+  const { error: deactivateError } = await adminClient
+    .from("RobotPlantZone")
+    .update({ is_active: false })
+    .eq("id", zone.id)
+    .eq("is_active", true);
+
+  if (deactivateError) {
+    console.warn("[grantScanZoneUnlocks] Zone deactivation failed:", deactivateError.message);
+  }
+
+  const centerLat = Number(zone.center_lat);
+  const centerLng = Number(zone.center_lng);
+  if (!Number.isFinite(centerLat) || !Number.isFinite(centerLng)) return;
+
+  const center = getAreaFromLatLng(centerLat, centerLng);
+  const neighborOffsets = [
+    [1, 0], [0, 1], [-1, 0], [0, -1], [1, 1], [-1, 1], [1, -1], [-1, -1],
+  ];
+  shuffleInPlace(neighborOffsets);
+  const extraAreaCount = 1 + Math.floor(Math.random() * 2); // 1 oder 2 zusaetzliche Areas
+  const candidateOffsets = [[0, 0], ...neighborOffsets.slice(0, extraAreaCount)];
+
+  let grantedCount = 0;
+  for (const [offsetX, offsetY] of candidateOffsets) {
+    const areaX = center.areaX + offsetX;
+    const areaY = center.areaY + offsetY;
+
+    const { data: existingClaim } = await adminClient
+      .from("AreaClaim")
+      .select("owner_auth_id")
+      .eq("area_x", areaX)
+      .eq("area_y", areaY)
+      .maybeSingle();
+
+    if (existingClaim && existingClaim.owner_auth_id !== authId) continue;
+
+    const { error: claimError } = await adminClient
+      .from("AreaClaim")
+      .upsert(
+        {
+          area_x: areaX,
+          area_y: areaY,
+          owner_auth_id: authId,
+          owner_scan_count: requiredScanCount,
+          claim_group_name: "Geo-Zone",
+          claimed_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "area_x,area_y" },
+      );
+
+    if (claimError) {
+      console.warn("[grantScanZoneUnlocks] Area grant failed:", claimError.message);
+      continue;
+    }
+
+    grantedCount += 1;
+  }
+
+  if (grantedCount > 0) {
+    const { count } = await adminClient
+      .from("AreaClaim")
+      .select("area_x", { count: "exact", head: true })
+      .eq("owner_auth_id", authId);
+
+    await adminClient
+      .from("RobotPlant")
+      .update({ claimed_areas_count: Math.max(0, Number(count ?? 0)) })
+      .eq("auth_id", authId);
+  }
+
+  console.log(`[grantScanZoneUnlocks] Zone ${zone.id} completed; granted ${grantedCount} area(s) to ${authId}`);
+}
+
 function normalizeText(value: string | null | undefined): string {
   return String(value || "")
     .trim()
@@ -316,7 +407,7 @@ Deno.serve(async (req) => {
 
     const { data: zones, error: zoneError } = await adminClient
       .from("RobotPlantZone")
-      .select("id, theme, center_lat, center_lng, radius_m")
+      .select("id, theme, center_lat, center_lng, radius_m, required_scan_count")
       .eq("is_active", true)
       .eq("day_generated", dayKey)
       .like("zone_key", `%:${authKeySuffix}`);
@@ -347,6 +438,7 @@ Deno.serve(async (req) => {
       zoneTheme: string | null;
       scanCount: number;
       previousScanCount: number;
+      requiredScanCount: number;
       completed: boolean;
       claimKey: string;
     } | null = null;
@@ -376,18 +468,25 @@ Deno.serve(async (req) => {
         console.error("[grantScanZoneUnlocks] Failed to record zone scan:", zoneStateError);
       } else {
         const nextScanCount = Number(scanCount ?? 0);
-        const completionEligible = nextScanCount >= 5;
+        const requiredScanCount = Number(matchedZone.required_scan_count) || 5;
+        const completionEligible = nextScanCount >= requiredScanCount;
+        const justCompleted = previousScanCount < requiredScanCount && completionEligible;
 
         zoneProgress = {
           zoneId: matchedZone.id,
           zoneTheme: matchedZone.theme,
           scanCount: nextScanCount,
           previousScanCount,
+          requiredScanCount,
           completed: completionEligible,
           claimKey: `zone-lootbox:${authId}:${matchedZone.id}:${dayKey}`,
         };
 
-        console.log(`[grantScanZoneUnlocks] Recorded zone scan ${discovery.id}; count=${nextScanCount}; completionEligible=${completionEligible}`);
+        if (justCompleted) {
+          await completeZoneForPlayer(adminClient, authId, matchedZone, requiredScanCount);
+        }
+
+        console.log(`[grantScanZoneUnlocks] Recorded zone scan ${discovery.id}; count=${nextScanCount}/${requiredScanCount}; completionEligible=${completionEligible}`);
       }
     }
 
