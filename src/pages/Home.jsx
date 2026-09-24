@@ -2279,6 +2279,12 @@ function HomeContent() {
     return !!uq.completed;
   };
 
+  const isRedeemedStatus = (uq) => {
+    if (!uq) return false;
+    if (uq.status) return uq.status === 'redeemed';
+    return !!uq.redeemed;
+  };
+
   const activeRegularQuests = quests
     .filter(q => {
       const userQuest = userQuests.find(uq => uq.quest_id === q.id);
