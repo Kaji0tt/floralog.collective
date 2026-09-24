@@ -190,7 +190,7 @@ const tables = [
   'UserActionEvent',
   // Robot Plant core loop
   'RobotPlant', 'RobotPlantWalletLedger', 'RobotPlantZone',
-  'RobotPlantZoneScan', 'RobotPlantUserZoneState', 'RobotPlantDailyChallenge', 'RobotPlantUserDailyChallenge',
+  'RobotPlantZoneScan', 'RobotPlantZoneCompletion', 'RobotPlantUserZoneState', 'RobotPlantDailyChallenge', 'RobotPlantUserDailyChallenge',
   'RobotPlantShopItem', 'RobotPlantUserInventory', 'RobotPlantActiveEffect',
   'PlantQuiz', 'PlantQuizSlotRoll', 'PlantQuizExcludedDiscovery',
   // Community tag knowledge layer

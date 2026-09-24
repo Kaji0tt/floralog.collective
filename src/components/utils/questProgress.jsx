@@ -17,7 +17,8 @@ export async function updateQuestProgress(user) {
       userDiscoveries,
       plants,
       genera,
-      zoneScans
+      zoneScans,
+      zoneCompletions
     ] = await Promise.all([
       Query.Quest.list(),
       Query.UserQuest.filter({ auth_id: user.id }),
@@ -27,11 +28,16 @@ export async function updateQuestProgress(user) {
       // listAll() - quest target species can be any plant, list() truncates at 1000 rows.
       Query.Plant.listAll(),
       Query.PlantGenus.list(),
-      Query.RobotPlantZoneScan.filter({ auth_id: user.id })
+      Query.RobotPlantZoneScan.filter({ auth_id: user.id }),
+      Query.RobotPlantZoneCompletion.filter({ auth_id: user.id })
     ]);
     // Hilfsfunktion: Berechne Fortschritt für eine Quest
     const calculateProgress = (quest, discoveries, plants, genera) => {
       if (!quest.required_discoveries) return 0;
+
+      if (quest.requires_zone_completion) {
+        return zoneCompletions.length;
+      }
 
       let matchingDiscoveries = discoveries;
 

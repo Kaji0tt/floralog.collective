@@ -212,7 +212,7 @@ function shuffleInPlace<T>(arr: T[]): void {
 async function completeZoneForPlayer(
   adminClient: ReturnType<typeof createClient>,
   authId: string,
-  zone: { id: string; center_lat: number | null; center_lng: number | null },
+  zone: { id: string; theme: string | null; center_lat: number | null; center_lng: number | null },
   requiredScanCount: number,
 ): Promise<void> {
   const { data: deactivatedZone, error: deactivateError } = await adminClient
@@ -228,6 +228,22 @@ async function completeZoneForPlayer(
   }
 
   if (!deactivatedZone?.id) return;
+
+  const { error: completionError } = await adminClient
+    .from("RobotPlantZoneCompletion")
+    .upsert(
+      {
+        zone_id: zone.id,
+        auth_id: authId,
+        zone_theme: String(zone.theme || "") || null,
+        completed_at: new Date().toISOString(),
+      },
+      { onConflict: "zone_id", ignoreDuplicates: true },
+    );
+
+  if (completionError) {
+    console.warn("[grantScanZoneUnlocks] Zone completion tracking failed:", completionError.message);
+  }
 
   const centerLat = Number(zone.center_lat);
   const centerLng = Number(zone.center_lng);
