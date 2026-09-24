@@ -56,7 +56,7 @@ import HomeCollectionStripes from "@/components/home/HomeCollectionStripes";
 import HomeHeroSideNav from "@/components/home/HomeHeroSideNav";
 import HomeProfileBadgesPanel from "@/components/home/HomeProfileBadgesPanel";
 import RewardCardWrapper from "@/components/home/RewardCardWrapper";
-import HomeEventStripe from "@/components/home/HomeEventStripe";
+import HomeEventStripeContent from "@/components/home/HomeEventStripeContent";
 import HomeScanInfoRow from "@/components/home/HomeScanInfoRow";
 import HomeCurrencyInfoRow from "@/components/home/HomeCurrencyInfoRow";
 import PlantHeroHealthPanel from "@/components/home/PlantHeroHealthPanel";
@@ -2328,47 +2328,8 @@ function HomeContent() {
   const currentMonthlyUserQuest = currentMonthlyQuest ?
     userMonthlyQuests.find(umq => umq.monthly_quest_id === currentMonthlyQuest.id) : null;
   const activeMonthlyQuest = currentMonthlyQuest && currentMonthlyUserQuest && isActiveOrCompleted(currentMonthlyUserQuest) && !(currentMonthlyUserQuest.status === 'redeemed' || currentMonthlyUserQuest.redeemed) ?
-    { ...currentMonthlyQuest, isCompleted: currentMonthlyUserQuest.completed || false } : null;
+    { ...currentMonthlyQuest, isCompleted: currentMonthlyUserQuest.completed || isCompletedStatus(currentMonthlyUserQuest) } : null;
   const availableMonthlyQuest = currentMonthlyQuest && !currentMonthlyUserQuest;
-
-  // Zeitlich begrenzte Events/Aufgaben (Wochen-/Monatsquest, später Community Events),
-  // gerendert im rotierenden HomeEventStripe.
-  const homeEventStripeItems = [];
-  if (displayedWeeklyQuest && !activeWeeklyQuest?.isCompleted) {
-    const weeklyQuestTargetLabel = displayedWeeklyQuest.target_species_name
-      || displayedWeeklyQuest.target_genus_name
-      || displayedWeeklyQuest.title;
-    homeEventStripeItems.push({
-      id: `weekly-quest-${displayedWeeklyQuest.id}`,
-      kind: "weekly",
-      title: weeklyQuestTargetLabel,
-      description: displayedWeeklyQuest.description,
-      progressCurrent: Number(currentWeeklyUserQuest?.progress || 0),
-      progressTarget: Number(displayedWeeklyQuest.required_discoveries || 0),
-      isCompleted: activeWeeklyQuest?.isCompleted || false,
-      isAvailable: Boolean(availableWeeklyQuest),
-      onClick: () => {
-        trackAction("home_event_stripe_weekly", { sourcePage: "Home" });
-        setActivePanel("achievements");
-      },
-    });
-  }
-  if (currentMonthlyQuest && !activeMonthlyQuest?.isCompleted) {
-    homeEventStripeItems.push({
-      id: `monthly-quest-${currentMonthlyQuest.id}`,
-      kind: "monthly",
-      title: currentMonthlyQuest.title,
-      description: currentMonthlyQuest.description,
-      progressCurrent: Number(currentMonthlyUserQuest?.progress || 0),
-      progressTarget: Number(currentMonthlyQuest.required_discoveries || 0),
-      isCompleted: activeMonthlyQuest?.isCompleted || false,
-      isAvailable: Boolean(availableMonthlyQuest),
-      onClick: () => {
-        trackAction("home_event_stripe_monthly", { sourcePage: "Home" });
-        setActivePanel("achievements");
-      },
-    });
-  }
 
   const activeCollectionQuests = collectionQuests
     .filter(quest => {
@@ -4205,7 +4166,19 @@ function HomeContent() {
               <div className={`${activePanel === null ? "pt-0" : "pt-[clamp(0.35rem,0.9vh,0.7rem)]"} pb-[clamp(0.15rem,0.5vh,0.35rem)] flex shrink-0 flex-col`}>
                 {activePanel === null && !showHealthStatsPanel && !showShopStack ? (
                   <div ref={eventStripeContainerRef} className="mb-[clamp(0.35rem,0.8vh,0.55rem)]">
-                    <HomeEventStripe isLightUi={isLightUi} events={homeEventStripeItems} />
+                    <HomeEventStripeContent
+                      isLightUi={isLightUi}
+                      displayedWeeklyQuest={displayedWeeklyQuest}
+                      currentWeeklyUserQuest={currentWeeklyUserQuest}
+                      activeWeeklyQuest={activeWeeklyQuest}
+                      availableWeeklyQuest={availableWeeklyQuest}
+                      currentMonthlyQuest={currentMonthlyQuest}
+                      currentMonthlyUserQuest={currentMonthlyUserQuest}
+                      activeMonthlyQuest={activeMonthlyQuest}
+                      availableMonthlyQuest={availableMonthlyQuest}
+                      isRedeemedStatus={isRedeemedStatus}
+                      onOpenAchievements={() => setActivePanel("achievements")}
+                    />
                   </div>
                 ) : null}
                 {activePanel === null ? (

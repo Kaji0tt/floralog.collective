@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { CalendarDays, CalendarRange, ChevronRight, Users } from "lucide-react";
+import { CalendarDays, CalendarRange, Check, ChevronRight, Info, MapPinned, Users } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import BadgeCircleIcon, {
   MUTED_CIRCLE_BACKGROUND_GRADIENT,
   MUTED_CIRCLE_BORDER_GRADIENT,
@@ -11,16 +12,19 @@ const EVENT_KIND_ICONS = {
   weekly: CalendarDays,
   monthly: CalendarRange,
   community: Users,
+  "geo-info": MapPinned,
 };
 
 const EVENT_KIND_LABELS = {
   weekly: "Wochenquest",
   monthly: "Monatsquest",
   community: "Community Event",
+  "geo-info": "Geozonen",
 };
 
 const ROTATION_INTERVAL_MS = 6000;
 const SWIPE_THRESHOLD_PX = 36;
+const DISMISSED_INFO_STORAGE_KEY = "home-event-stripe-dismissed-info";
 
 /**
  * Full-width stripe (same visual language as RewardCard) for time-limited content
@@ -28,7 +32,17 @@ const SWIPE_THRESHOLD_PX = 36;
  * inside the same container - old content fades out, next one fades in.
  */
 export default function HomeEventStripe({ events = [], isLightUi = false, className = "" }) {
-  const safeEvents = Array.isArray(events) ? events.filter(Boolean) : [];
+  const [dismissedInfoIds, setDismissedInfoIds] = useState(() => {
+    try {
+      const storedIds = JSON.parse(localStorage.getItem(DISMISSED_INFO_STORAGE_KEY) || "[]");
+      return Array.isArray(storedIds) ? storedIds : [];
+    } catch {
+      return [];
+    }
+  });
+  const [isInfoDialogOpen, setIsInfoDialogOpen] = useState(false);
+  const allEvents = Array.isArray(events) ? events.filter(Boolean) : [];
+  const safeEvents = allEvents.filter((event) => !event.dismissible || !dismissedInfoIds.includes(event.id));
   const [activeIndex, setActiveIndex] = useState(0);
   const swipeStartXRef = useRef(null);
   const didSwipeRef = useRef(false);
@@ -46,6 +60,7 @@ export default function HomeEventStripe({ events = [], isLightUi = false, classN
   }, [safeEvents.length]);
 
   const activeEvent = safeEvents[activeIndex];
+  const activeInfoEvent = activeEvent?.kind === "geo-info" ? activeEvent : null;
 
   const borderGradient = isLightUi
     ? "linear-gradient(to bottom right, #000000, #272625, rgba(143,107,34,0.7))"
@@ -58,7 +73,9 @@ export default function HomeEventStripe({ events = [], isLightUi = false, classN
 
   if (!activeEvent) return null;
 
-  const TypeIcon = EVENT_KIND_ICONS[activeEvent.kind] || CalendarDays;
+  const TypeIcon = activeEvent.isCompleted
+    ? Check
+    : EVENT_KIND_ICONS[activeEvent.kind] || CalendarDays;
   const kindLabel = activeEvent.label || EVENT_KIND_LABELS[activeEvent.kind] || "Zeitlich begrenzt";
 
   const showRelativeEvent = (offset) => {
@@ -88,6 +105,18 @@ export default function HomeEventStripe({ events = [], isLightUi = false, classN
       return;
     }
     activeEvent.onClick?.();
+  };
+
+  const handleDismissInfo = () => {
+    if (!activeInfoEvent) return;
+    const nextDismissedInfoIds = [...new Set([...dismissedInfoIds, activeInfoEvent.id])];
+    setDismissedInfoIds(nextDismissedInfoIds);
+    setIsInfoDialogOpen(false);
+    try {
+      localStorage.setItem(DISMISSED_INFO_STORAGE_KEY, JSON.stringify(nextDismissedInfoIds));
+    } catch {
+      // Dismissing still works for the current session when storage is unavailable.
+    }
   };
 
   return (
@@ -121,7 +150,7 @@ export default function HomeEventStripe({ events = [], isLightUi = false, classN
                 backgroundGradient={MUTED_CIRCLE_BACKGROUND_GRADIENT}
                 shadow={MUTED_CIRCLE_SHADOW}
               >
-                <TypeIcon className="h-4 w-4 text-stone-200" />
+                <TypeIcon className={`h-4 w-4 ${activeEvent.isCompleted ? "text-emerald-300" : "text-stone-200"}`} />
               </BadgeCircleIcon>
               <div className="min-w-0 flex-1">
                 <p className={`text-[9px] font-medium uppercase tracking-wide ${isLightUi ? "text-stone-500" : "text-stone-400/70"}`}>
@@ -132,13 +161,42 @@ export default function HomeEventStripe({ events = [], isLightUi = false, classN
                   {activeEvent.title || "Aufgabe"}
                 </p>
               </div>
-              {activeEvent.onClick && (
+              {activeInfoEvent ? (
+                <div className="ml-auto flex shrink-0 items-center gap-1">
+                  <button
+                    type="button"
+                    aria-label="Vollständige Geozonen-Info anzeigen"
+                    title="Vollständige Info anzeigen"
+                    className={`inline-flex h-7 w-7 items-center justify-center rounded-full transition-colors ${isLightUi ? "text-stone-500 hover:bg-black/10 hover:text-stone-800" : "text-stone-300/75 hover:bg-white/10 hover:text-white"}`}
+                    onPointerDown={(event) => event.stopPropagation()}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      setIsInfoDialogOpen(true);
+                    }}
+                  >
+                    <Info className="h-4 w-4" />
+                  </button>
+                  <button
+                    type="button"
+                    aria-label="Geozonen-Info ausblenden"
+                    title="Info ausblenden"
+                    className={`inline-flex h-7 w-7 items-center justify-center rounded-full transition-colors ${isLightUi ? "text-emerald-700/70 hover:bg-emerald-500/10 hover:text-emerald-800" : "text-emerald-300/75 hover:bg-emerald-400/10 hover:text-emerald-200"}`}
+                    onPointerDown={(event) => event.stopPropagation()}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      handleDismissInfo();
+                    }}
+                  >
+                    <Check className="h-4 w-4" />
+                  </button>
+                </div>
+              ) : activeEvent.onClick ? (
                 <ChevronRight className={`h-3.5 w-3.5 shrink-0 opacity-30 ${isLightUi ? "text-stone-500" : "text-stone-300"}`} />
-              )}
+              ) : null}
             </div>
 
             {activeEvent.description && (
-              <p className={`line-clamp-2 text-[9.5px] leading-snug ${isLightUi ? "text-stone-500" : "text-stone-400/80"}`}>
+              <p className={`${activeEvent.kind === "geo-info" ? "line-clamp-3" : "line-clamp-2"} text-[9.5px] leading-snug ${isLightUi ? "text-stone-500" : "text-stone-400/80"}`}>
                 {activeEvent.isCompleted ? "Abgeschlossen." : activeEvent.description}
               </p>
             )}
@@ -160,6 +218,19 @@ export default function HomeEventStripe({ events = [], isLightUi = false, classN
         </AnimatePresence>
       </div>
       <div aria-hidden="true" className="gold-gradient-border-mask gold-gradient-border-mask-thin" style={{ background: borderGradient }} />
+      <Dialog open={isInfoDialogOpen} onOpenChange={setIsInfoDialogOpen}>
+        <DialogContent className={`max-h-[calc(100vh-2rem)] max-w-lg overflow-y-auto rounded-2xl ${isLightUi ? "border-stone-900/15 bg-white text-stone-900" : "border-amber-100/20 bg-[#111713] text-stone-100"}`}>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 pr-6 text-base">
+              <MapPinned className="h-5 w-5 shrink-0 text-emerald-400" />
+              {activeInfoEvent?.title || "Geozonen"}
+            </DialogTitle>
+          </DialogHeader>
+          <p className={`text-sm leading-relaxed ${isLightUi ? "text-stone-600" : "text-stone-300"}`}>
+            {activeInfoEvent?.description}
+          </p>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
