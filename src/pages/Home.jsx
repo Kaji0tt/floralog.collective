@@ -194,6 +194,24 @@ const extractScopeMilestoneIds = (seenIds, scopeKey) => {
   return scopedIds;
 };
 
+// Progress-milestone thresholds are evaluated against ALL-TIME seeds (never reset per season),
+// so "seen" state for them must also be read across every scope they were ever written under
+// (older entries may carry a stale `season:<id>:` prefix from before a season rollover). Only
+// the season-start intro (checked separately) actually wants a per-season scope.
+const extractMilestoneSeenIdsAnyScope = (seenIds) => {
+  const ids = new Set();
+
+  (Array.isArray(seenIds) ? seenIds : []).forEach((entry) => {
+    const value = String(entry || "").trim();
+    if (!value) return;
+    const lastColonIndex = value.lastIndexOf(":");
+    const rawMilestoneId = lastColonIndex >= 0 ? value.slice(lastColonIndex + 1).trim() : value;
+    if (rawMilestoneId) ids.add(rawMilestoneId);
+  });
+
+  return ids;
+};
+
 const DESKTOP_BROWSER_MEDIA_QUERY = "(hover: hover) and (pointer: fine)";
 
 const readDesktopBrowser = () => {
@@ -490,6 +508,11 @@ function HomeContent() {
     [persistedStorySeenMilestoneIds, localSeenMilestoneIds]
   );
   const seenMilestonesInScope = useMemo(
+    () => extractMilestoneSeenIdsAnyScope(mergedSeenMilestoneIds),
+    [mergedSeenMilestoneIds]
+  );
+  // Season-start intro alone should reset per season, so it keeps a strictly scoped check.
+  const seenSeasonScopedIds = useMemo(
     () => extractScopeMilestoneIds(mergedSeenMilestoneIds, milestoneScopeKey),
     [mergedSeenMilestoneIds, milestoneScopeKey]
   );
@@ -2024,7 +2047,7 @@ function HomeContent() {
     !storyCreatedThisSession &&
     !introDismissedThisSessionRef.current &&
     seasonStartIntroScopedId &&
-    !seenMilestonesInScope.has(FLORABOT_SEASON_START_INTRO.id) &&
+    !seenSeasonScopedIds.has(FLORABOT_SEASON_START_INTRO.id) &&
     !dismissedMilestoneIdsRef.current.has(seasonStartIntroScopedId)
   );
   const questUnlockThreshold = FLORABOT_MILESTONES.find((milestone) => milestone.navHighlight === "quests")?.threshold ?? 1000;
@@ -2097,7 +2120,7 @@ function HomeContent() {
 
       if (reachedMilestoneIds.length > 0) {
         const mergedScopedSeenIds = mergeSeenMilestoneIds(mergedSeenMilestoneIds, reachedMilestoneIds);
-        seenIds = extractScopeMilestoneIds(mergedScopedSeenIds, milestoneScopeKey);
+        seenIds = extractMilestoneSeenIdsAnyScope(mergedScopedSeenIds);
 
         updateUserStory(user.id, {
           seen_milestone_ids: mergedScopedSeenIds,

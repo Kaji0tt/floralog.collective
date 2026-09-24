@@ -1,5 +1,18 @@
 // Recursive glob so files inside design/legacy/ (not just design/ root) are bundled and resolvable.
-const designAssetUrls = import.meta.glob("../../design/**/*.png", { eager: true, query: "?url", import: "default" });
+// Excludes design/background + the unused border_bush/border_plant/border_sammler/border_tree
+// variant folders: none of their files are referenced by any fileName above, but they account for
+// ~44MB of the ~63MB design/ tree, so an unfiltered glob was bloating every production bundle.
+const designAssetUrls = import.meta.glob(
+  [
+    "../../design/**/*.png",
+    "!../../design/background/**",
+    "!../../design/border_bush/**",
+    "!../../design/border_plant/**",
+    "!../../design/border_sammler/**",
+    "!../../design/border_tree/**",
+  ],
+  { eager: true, query: "?url", import: "default" }
+);
 
 const buildAssetUrl = (fileName) => {
   const entry = Object.entries(designAssetUrls).find(([path]) => path.endsWith(`/design/${fileName}`));
