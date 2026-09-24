@@ -18,6 +18,7 @@ import {
   Leaf,
   Frame,
   ShoppingCart,
+  Info,
 } from "lucide-react";
 import { HexColorPicker } from "react-colorful";
 import { Query } from "@/api/entities";
@@ -26,6 +27,7 @@ import { getCurrentUser, updateCurrentUserProfile } from "@/api/userApi";
 import { getUserWallet } from "@/api/walletService";
 import { useUiTheme } from "@/lib/UiThemeContext";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useToast } from "@/components/ui/use-toast";
 import { LockedTooltip } from "@/components/ui/locked-tooltip";
 import CollectionCategoryEntryCard from "@/components/collection/CollectionCategoryEntryCard";
@@ -195,6 +197,46 @@ const getBadgeCardSurfaceClassName = (rankKey, isLightUi) => {
     : "border-white/15 bg-black/30";
 };
 
+const RewardDescriptionInfo = ({ title, description, isLightUi, compact = false }) => {
+  const normalizedDescription = String(description || "").trim();
+  if (!normalizedDescription) return null;
+
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <span
+          role="button"
+          tabIndex={0}
+          aria-label={`${title || "Belohnung"} Info`}
+          onClick={(event) => event.stopPropagation()}
+          onPointerDown={(event) => event.stopPropagation()}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" || event.key === " ") {
+              event.preventDefault();
+              event.currentTarget.click();
+            }
+          }}
+          className={`inline-flex ${compact ? "h-6 w-6" : "h-4 w-4"} shrink-0 items-center justify-center rounded-full border ${compact ? "text-xs" : "text-[10px]"} font-bold leading-none transition-colors ${
+            isLightUi
+              ? "border-[#8f6b22]/55 bg-white/75 text-[#8f6b22] hover:bg-white"
+              : "border-[#f0e5a5]/55 bg-black/45 text-[#f0e5a5] hover:bg-black/65"
+          }`}
+        >
+          <Info className={compact ? "h-3.5 w-3.5" : "h-2.5 w-2.5"} />
+        </span>
+      </PopoverTrigger>
+      <PopoverContent
+        side="top"
+        align="end"
+        className={`z-[260] w-64 rounded-xl p-3 text-xs shadow-xl ${isLightUi ? "border-[#c8ac62]/45 bg-white text-stone-700" : "border-[#f0e5a5]/30 bg-[#1a1d1a] text-stone-200"}`}
+      >
+        <div className={`font-bold ${isLightUi ? "text-stone-900" : "text-stone-100"}`}>{title || "Belohnung"}</div>
+        <div className="mt-1 whitespace-pre-wrap leading-relaxed">{normalizedDescription}</div>
+      </PopoverContent>
+    </Popover>
+  );
+};
+
 const getCategoryOptionCount = (category, predicate = null) => {
   if (!category?.sections?.length) return 0;
   return category.sections.reduce((sum, section) => {
@@ -348,6 +390,11 @@ const BackgroundOptionCard = ({ option, user, isLightUi, isPending, isSelected =
           <img src={option.value} alt={option.label} className="h-full w-full object-cover" />
         )}
       </div>
+      {compact && (
+        <div className="absolute left-1.5 top-1.5 z-[2]">
+          <RewardDescriptionInfo title={option.label} description={option.customDescription} isLightUi={isLightUi} compact />
+        </div>
+      )}
       {isLocked && <div className="absolute inset-0 bg-black/45" />}
       {compact && isLocked && !isPurchasable && (
         <Lock className={`absolute bottom-1.5 right-1.5 z-[1] h-5 w-5 ${isLightUi ? "text-white" : "text-stone-100"}`} />
@@ -370,7 +417,8 @@ const BackgroundOptionCard = ({ option, user, isLightUi, isPending, isSelected =
             : "border-white/10 bg-black/45 text-stone-100"
         }`}>
           <div className="flex items-center justify-between gap-2">
-            <span className="truncate text-xs font-semibold">{option.label}</span>
+            <span className="min-w-0 truncate text-xs font-semibold">{option.label}</span>
+            <RewardDescriptionInfo title={option.label} description={option.customDescription} isLightUi={isLightUi} />
             {isLocked ? (
               isPurchasable ? (
                 <Sparkles className={`h-3.5 w-3.5 shrink-0 ${isLightUi ? "text-[#8f6b22]" : "text-[#f0e5a5]"}`} />
@@ -425,7 +473,10 @@ const TitleOptionRow = ({ option, user, isLightUi, isPending, isSelected = false
     >
       <div className="flex items-center justify-between gap-2">
         <div className="min-w-0">
-          <div className={`${compact ? "text-xs" : "text-sm"} truncate font-semibold`}>{option.label}</div>
+          <div className="flex min-w-0 items-center gap-1.5">
+            <div className={`${compact ? "text-xs" : "text-sm"} min-w-0 truncate font-semibold`}>{option.label}</div>
+            <RewardDescriptionInfo title={option.label} description={option.customDescription} isLightUi={isLightUi} />
+          </div>
           <div className={`${compact ? "mt-0.5" : "mt-1"} text-[11px] ${isLightUi ? "text-stone-500" : "text-stone-300/75"}`}>
             {option.source === "achievement" ? "Freigeschaltet durch Erfolg" : "Freigeschaltet als Belohnung"}
           </div>
@@ -489,6 +540,11 @@ const AccessoryOptionCard = ({ option, user, isLightUi, isPending, isSelected = 
           style={isFaceAccessory ? { transform: "translateY(-28%) scale(1.4)", transformOrigin: "center center" } : undefined}
         />
       </div>
+      {compact && (
+        <div className="absolute left-1.5 top-1.5 z-[2]">
+          <RewardDescriptionInfo title={option.rewardDisplayName || option.label} description={option.customDescription} isLightUi={isLightUi} compact />
+        </div>
+      )}
       {isLocked && <div className="absolute inset-0 bg-black/45" />}
       {compact && isLocked && !isPurchasable && (
         <Lock className={`absolute bottom-1.5 right-1.5 z-[1] h-5 w-5 ${isLightUi ? "text-white" : "text-stone-100"}`} />
@@ -511,7 +567,8 @@ const AccessoryOptionCard = ({ option, user, isLightUi, isPending, isSelected = 
             : "border-white/10 bg-black/45 text-stone-100"
         }`}>
           <div className="flex items-center justify-between gap-2">
-            <span className="truncate text-xs font-semibold">{option.label}</span>
+            <span className="min-w-0 truncate text-xs font-semibold">{option.label}</span>
+            <RewardDescriptionInfo title={option.rewardDisplayName || option.label} description={option.customDescription} isLightUi={isLightUi} />
             {isLocked ? (
               isPurchasable ? (
                 <Sparkles className={`h-3.5 w-3.5 shrink-0 ${isLightUi ? "text-[#8f6b22]" : "text-[#f0e5a5]"}`} />
@@ -583,6 +640,11 @@ const ProfileEffectOptionCard = ({ option, user, isLightUi, isPending, isSelecte
           </span>
         </div>}
       </div>
+      {compact && (
+        <div className="absolute left-1.5 top-1.5 z-[2]">
+          <RewardDescriptionInfo title={option.label} description={option.customDescription} isLightUi={isLightUi} compact />
+        </div>
+      )}
       {isLocked && <div className="absolute inset-0 bg-black/45" />}
       {compact && isLocked && !isPurchasable && (
         <Lock className={`absolute bottom-1.5 right-1.5 z-[1] h-5 w-5 ${isLightUi ? "text-white" : "text-stone-100"}`} />
@@ -605,7 +667,8 @@ const ProfileEffectOptionCard = ({ option, user, isLightUi, isPending, isSelecte
             : "border-white/10 bg-black/45 text-stone-100"
         }`}>
           <div className="flex items-center justify-between gap-2">
-            <span className="truncate text-xs font-semibold">{option.label}</span>
+            <span className="min-w-0 truncate text-xs font-semibold">{option.label}</span>
+            <RewardDescriptionInfo title={option.label} description={option.customDescription} isLightUi={isLightUi} />
             {isLocked ? (
               isPurchasable ? (
                 <Sparkles className={`h-3.5 w-3.5 shrink-0 ${isLightUi ? "text-[#8f6b22]" : "text-[#f0e5a5]"}`} />

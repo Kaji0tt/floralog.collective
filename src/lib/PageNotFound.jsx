@@ -7,7 +7,7 @@ import { PAGES } from '@/pages.config';
 const ADMIN_PAGES = new Set([
     'AdminBackup', 'AdminBlumenList', 'AdminCategoryFix', 'AdminFixDuplicateGenusNumbers',
     'AdminFixSalix', 'AdminPlantImporter', 'AdminPlantNames', 'AdminQuestCreator',
-    'AdminScanOfTheWeek', 'AdminWeeklyReport', 'KPIAdmin', 'NewsAdmin', 'ProjectIssueAdmin',
+    'AdminScanOfTheWeek', 'AdminWeeklyReport', 'KPIAdmin', 'LootAdmin', 'NewsAdmin', 'ProjectIssueAdmin',
     'DebugDiscoveries', 'ResetAccount', 'ResetToLevel5', 'XPMigration', 'QuestNotificationTemplate',
 ]);
 

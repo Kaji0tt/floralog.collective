@@ -35,6 +35,54 @@ export const getZoneRewardRequirementDescription = (reward, { genera = [], plant
   return plantName && zoneName ? `Scanne ${plantName} in einer ${zoneName}.` : null;
 };
 
+const normalizeLootboxChance = (weight, totalWeight) => {
+  const numericWeight = Number(weight);
+  const numericTotal = Number(totalWeight);
+
+  if (!Number.isFinite(numericWeight) || !Number.isFinite(numericTotal) || numericTotal <= 0) {
+    return null;
+  }
+
+  const percent = (numericWeight / numericTotal) * 100;
+  if (!Number.isFinite(percent) || percent <= 0) {
+    return null;
+  }
+
+  return percent;
+};
+
+const normalizeLootboxDisplayName = (value) => {
+  const text = String(value || "").trim();
+  if (!text) return "Knospe";
+
+  return text
+    .replace(/\s*[-–]\s*Entdecker-Knospe$/i, "-Knospe")
+    .replace(/\s*Lootbox$/i, "Knospe")
+    .replace(/\s*Entdecker-Knospe$/i, "Knospe")
+    .replace(/^Allgemeine\s+Knospe$/i, "Allgemeine Knospe")
+    .trim();
+};
+
+export const describeLootboxSource = (lootboxMetadata = []) => {
+  const entries = Array.isArray(lootboxMetadata) ? lootboxMetadata : [];
+  if (entries.length === 0) return null;
+
+  const preferredEntry = entries
+    .filter((entry) => entry?.poolName || entry?.name)
+    .sort((left, right) => Number(right?.weight ?? 0) - Number(left?.weight ?? 0))[0];
+
+  if (!preferredEntry) return null;
+
+  const poolName = normalizeLootboxDisplayName(preferredEntry.poolName || preferredEntry.name || "Knospe");
+  const totalWeight = Number(preferredEntry.totalWeight ?? 0);
+  const probability = normalizeLootboxChance(preferredEntry.weight, totalWeight || preferredEntry.totalWeight || preferredEntry.weight);
+  if (probability === null) {
+    return `Erhältlich aus der ${poolName}.`;
+  }
+
+  return `Erhältlich aus der ${poolName}. Chance ca. ${Number(probability.toFixed(2)).toLocaleString("de-DE", { maximumFractionDigits: 2 })}%.`;
+};
+
 const getQuestRequirementDescription = (quest) => {
   if (!quest) return null;
 
@@ -63,10 +111,17 @@ export const buildRewardUnlockDescription = (
     achievements = [],
     genera = [],
     plants = [],
+    lootboxMetadata = [],
     fallback = "Noch nicht freigeschaltet.",
   } = {}
 ) => {
   if (!reward) return fallback;
+
+  const customDescription = String(reward.custom_description || "").trim();
+  if (customDescription) return customDescription;
+
+  const lootboxDescription = describeLootboxSource(lootboxMetadata);
+  if (lootboxDescription) return lootboxDescription;
 
   const specificQuest = quests.find((quest) => quest.id === reward.requires_quest);
   if (specificQuest) return getQuestRequirementDescription(specificQuest);

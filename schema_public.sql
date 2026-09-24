@@ -1609,6 +1609,7 @@ CREATE TABLE public."Rewards" (
     requires_plant_species_id text,
     spark_price integer,
     amber_price integer,
+    custom_description text,
     CONSTRAINT rewards_amber_price_non_negative CHECK (((amber_price IS NULL) OR (amber_price >= 0))),
     CONSTRAINT rewards_spark_price_non_negative CHECK (((spark_price IS NULL) OR (spark_price >= 0)))
 );

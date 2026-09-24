@@ -203,6 +203,7 @@ export const getUnlockedProfileEffectOptions = ({ rewards = [], userRewards = []
         type: "profile_effect",
         value: String(reward.value),
         label: reward.display_name || reward.value,
+        customDescription: reward.custom_description || null,
         profileField: "selected_profile_effect",
         purchaseKind: "profile_effect",
         source: "reward",
@@ -236,6 +237,7 @@ export const getUnlockedLogoEffectOptions = ({ rewards = [], userRewards = [], a
         type: "logo_effect",
         value: String(reward.value),
         label: reward.display_name || reward.value,
+        customDescription: reward.custom_description || null,
         profileField: "selected_logo_effect",
         purchaseKind: "logo_effect",
         source: "reward",
@@ -290,6 +292,7 @@ export const getUnlockedTitleOptions = ({
         type: "title",
         value: title,
         label: title,
+        customDescription: linkedRewardType === "title" ? (linkedReward?.custom_description || null) : null,
         source: "achievement",
       };
     })
@@ -321,6 +324,7 @@ export const getUnlockedTitleOptions = ({
         type: "title",
         value,
         label,
+        customDescription: reward.custom_description || null,
         source: "reward",
       };
     })
@@ -361,6 +365,7 @@ export const getUnlockedPresetBackgrounds = ({ rewards = [], userRewards = [], a
         type: "preset",
         value: reward.value,
         label: reward.display_name || reward.value,
+        customDescription: reward.custom_description || null,
         previewColor: reward.color || null,
         source: "reward",
         isLocked,
@@ -476,6 +481,13 @@ const getAccessoryUnlockCondition = (accessoryId, rewards = [], genera = [], pla
   return null;
 };
 
+const getAccessoryCustomDescription = (accessoryId, rewards = []) => {
+  const matchingReward = (Array.isArray(rewards) ? rewards : [])
+    .find((reward) => rewardMatchesAccessory(reward, accessoryId) && String(reward?.custom_description || "").trim());
+
+  return matchingReward?.custom_description || null;
+};
+
 const getAccessoryPurchaseMeta = (accessoryId, rewards = []) => {
   const matchingRewards = (Array.isArray(rewards) ? rewards : [])
     .filter((reward) => rewardMatchesAccessory(reward, accessoryId));
@@ -530,6 +542,9 @@ const buildFallbackAccessorySections = ({ rewardUnlockedIds = new Set(), rewards
           ...option,
           isLocked: !isUnlocked,
           unlockCondition,
+          customDescription: getAccessoryCustomDescription(option.value, rewards),
+          rewardDisplayName: (Array.isArray(rewards) ? rewards : [])
+            .find((reward) => rewardMatchesAccessory(reward, option.value))?.display_name || null,
           ...(purchaseMeta || {}),
         };
       })
@@ -585,6 +600,8 @@ export const getAccessorySections = ({ logoAssets = [], rewards = [], userReward
       isLocked: !isUnlocked,
       isLegacy,
       unlockCondition,
+      customDescription: matchingReward?.custom_description || null,
+      rewardDisplayName: matchingReward?.display_name || null,
       ...(purchaseMeta || {}),
     });
   }

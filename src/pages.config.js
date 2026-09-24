@@ -73,6 +73,7 @@ import GenusDetail from './pages/GenusDetail';
 import Home from './pages/Home';
 import Impressum from './pages/Impressum';
 import KPIAdmin from './pages/KPIAdmin';
+import LootAdmin from './pages/LootAdmin';
 import Map from './pages/Map';
 import News from './pages/News';
 import NewsAdmin from './pages/NewsAdmin';
@@ -115,6 +116,7 @@ export const PAGES = {
     "Home": Home,
     "Impressum": Impressum,
     "KPIAdmin": KPIAdmin,
+    "LootAdmin": LootAdmin,
     "Map": Map,
     "News": News,
     "NewsAdmin": NewsAdmin,
