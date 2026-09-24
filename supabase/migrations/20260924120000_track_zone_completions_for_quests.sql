@@ -46,6 +46,7 @@ SELECT
 FROM public."RobotPlantUserZoneState" state
 JOIN public."RobotPlantZone" zone ON zone.id = state.zone_id
 WHERE state.scans_in_zone >= COALESCE(zone.required_scan_count, 5)
+	AND state.last_scan_at >= timestamptz '2026-09-21 00:00:00+00'
 ON CONFLICT (zone_id) DO NOTHING;
 
 ALTER TABLE public."Quest"

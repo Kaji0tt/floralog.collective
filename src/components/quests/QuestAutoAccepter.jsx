@@ -2,6 +2,7 @@ import React, { useEffect } from "react";
 import { Query } from "@/api/entities";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { getWeekNumber, getMonthString, getCurrentWeeklyQuest, getCurrentMonthlyQuest } from "@/components/quests/QuestRotationHelper";
+import { updateQuestProgress } from "@/components/utils/questProgress";
 
 /**
  * Auto-Accept Component für Quests
@@ -98,7 +99,10 @@ export default function QuestAutoAccepter({ user }) {
         });
       }
     },
-    onSuccess: () => {
+    onSuccess: async (_result, variables) => {
+      if (variables.questType === 'regular') {
+        await updateQuestProgress(user);
+      }
       queryClient.invalidateQueries({ queryKey: ['userQuests'] });
       queryClient.invalidateQueries({ queryKey: ['userWeeklyQuests'] });
       queryClient.invalidateQueries({ queryKey: ['userMonthlyQuests'] });
