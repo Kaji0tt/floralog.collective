@@ -206,29 +206,15 @@ function shuffleInPlace<T>(arr: T[]): void {
   }
 }
 
-// Beim Abschluss einer Zone: Zone deaktivieren (verschwindet von der Karte) und dem Spieler
-// die Ursprungs-Area im Zonenzentrum plus 1-2 zufaellige Nachbar-Areas gutschreiben (max. 3 gesamt).
-// Bereits von anderen Spielern beanspruchte Areas werden dabei nicht ueberschrieben.
+// Beim Abschluss einer Zone: Completion und Areas verarbeiten und die Zone erst
+// danach deaktivieren. Bereits von anderen Spielern beanspruchte Areas werden
+// dabei nicht ueberschrieben.
 async function completeZoneForPlayer(
   adminClient: ReturnType<typeof createClient>,
   authId: string,
   zone: { id: string; theme: string | null; center_lat: number | null; center_lng: number | null },
   requiredScanCount: number,
 ): Promise<void> {
-  const { data: deactivatedZone, error: deactivateError } = await adminClient
-    .from("RobotPlantZone")
-    .update({ is_active: false })
-    .eq("id", zone.id)
-    .eq("is_active", true)
-    .select("id")
-    .maybeSingle();
-
-  if (deactivateError) {
-    console.warn("[grantScanZoneUnlocks] Zone deactivation failed:", deactivateError.message);
-  }
-
-  if (!deactivatedZone?.id) return;
-
   const { error: completionError } = await adminClient
     .from("RobotPlantZoneCompletion")
     .upsert(
@@ -247,66 +233,85 @@ async function completeZoneForPlayer(
 
   const centerLat = Number(zone.center_lat);
   const centerLng = Number(zone.center_lng);
-  if (!Number.isFinite(centerLat) || !Number.isFinite(centerLng)) return;
-
-  const center = getAreaFromLatLng(centerLat, centerLng);
-  const neighborOffsets = [
-    [1, 0], [0, 1], [-1, 0], [0, -1], [1, 1], [-1, 1], [1, -1], [-1, -1],
-  ];
-  shuffleInPlace(neighborOffsets);
-  const extraAreaCount = 1 + Math.floor(Math.random() * 2); // 1 oder 2 zusaetzliche Areas
-  const candidateOffsets = [[0, 0], ...neighborOffsets.slice(0, extraAreaCount)];
-
   let grantedCount = 0;
-  for (const [offsetX, offsetY] of candidateOffsets) {
-    const areaX = center.areaX + offsetX;
-    const areaY = center.areaY + offsetY;
+  if (Number.isFinite(centerLat) && Number.isFinite(centerLng)) {
+    const center = getAreaFromLatLng(centerLat, centerLng);
+    const neighborOffsets = [
+      [1, 0], [0, 1], [-1, 0], [0, -1], [1, 1], [-1, 1], [1, -1], [-1, -1],
+    ];
+    shuffleInPlace(neighborOffsets);
+    const extraAreaCount = 1 + Math.floor(Math.random() * 2);
+    const candidateOffsets = [[0, 0], ...neighborOffsets.slice(0, extraAreaCount)];
 
-    const { data: existingClaim } = await adminClient
-      .from("AreaClaim")
-      .select("owner_auth_id")
-      .eq("area_x", areaX)
-      .eq("area_y", areaY)
-      .maybeSingle();
+    for (const [offsetX, offsetY] of candidateOffsets) {
+      const areaX = center.areaX + offsetX;
+      const areaY = center.areaY + offsetY;
 
-    if (existingClaim && existingClaim.owner_auth_id !== authId) continue;
+      const { data: existingClaim } = await adminClient
+        .from("AreaClaim")
+        .select("owner_auth_id")
+        .eq("area_x", areaX)
+        .eq("area_y", areaY)
+        .maybeSingle();
 
-    const { error: claimError } = await adminClient
-      .from("AreaClaim")
-      .upsert(
-        {
-          area_x: areaX,
-          area_y: areaY,
-          owner_auth_id: authId,
-          owner_scan_count: requiredScanCount,
-          claim_group_name: "Geo-Zone",
-          claimed_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: "area_x,area_y" },
-      );
+      if (existingClaim && existingClaim.owner_auth_id !== authId) continue;
 
-    if (claimError) {
-      console.warn("[grantScanZoneUnlocks] Area grant failed:", claimError.message);
-      continue;
+      const { error: claimError } = await adminClient
+        .from("AreaClaim")
+        .upsert(
+          {
+            area_x: areaX,
+            area_y: areaY,
+            owner_auth_id: authId,
+            owner_scan_count: requiredScanCount,
+            claim_group_name: "Geo-Zone",
+            claimed_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: "area_x,area_y" },
+        );
+
+      if (claimError) {
+        console.warn("[grantScanZoneUnlocks] Area grant failed:", claimError.message);
+        continue;
+      }
+
+      grantedCount += 1;
     }
 
-    grantedCount += 1;
+    if (grantedCount > 0) {
+      const { count } = await adminClient
+        .from("AreaClaim")
+        .select("area_x", { count: "exact", head: true })
+        .eq("owner_auth_id", authId);
+
+      await adminClient
+        .from("RobotPlant")
+        .update({ claimed_areas_count: Math.max(0, Number(count ?? 0)) })
+        .eq("auth_id", authId);
+    }
   }
 
-  if (grantedCount > 0) {
-    const { count } = await adminClient
-      .from("AreaClaim")
-      .select("area_x", { count: "exact", head: true })
-      .eq("owner_auth_id", authId);
+  console.log(`[grantScanZoneUnlocks] Zone ${zone.id} calculations completed; granted ${grantedCount} area(s) to ${authId}`);
+}
 
-    await adminClient
-      .from("RobotPlant")
-      .update({ claimed_areas_count: Math.max(0, Number(count ?? 0)) })
-      .eq("auth_id", authId);
+async function deactivateCompletedZone(
+  adminClient: ReturnType<typeof createClient>,
+  zoneId: string,
+): Promise<void> {
+  const { data: deactivatedZone, error: deactivateError } = await adminClient
+    .from("RobotPlantZone")
+    .update({ is_active: false })
+    .eq("id", zoneId)
+    .eq("is_active", true)
+    .select("id")
+    .maybeSingle();
+
+  if (deactivateError) {
+    console.warn("[grantScanZoneUnlocks] Zone deactivation failed:", deactivateError.message);
+  } else if (!deactivatedZone?.id) {
+    console.warn(`[grantScanZoneUnlocks] Zone ${zoneId} was already inactive before finalization`);
   }
-
-  console.log(`[grantScanZoneUnlocks] Zone ${zone.id} completed; granted ${grantedCount} area(s) to ${authId}`);
 }
 
 function normalizeText(value: string | null | undefined): string {
@@ -609,6 +614,7 @@ Deno.serve(async (req) => {
 
     const rewardIds = Array.from(new Set(rewardsToConsider.map((reward) => reward.id)));
     if (rewardIds.length === 0) {
+      if (zoneProgress?.completed) await deactivateCompletedZone(adminClient, zoneProgress.zoneId);
       return jsonResponse({ success: true, unlocked: [], zoneProgress });
     }
     const { data: existingUserRewards } = await adminClient
@@ -621,6 +627,7 @@ Deno.serve(async (req) => {
     const rewardsToInsert = rewardsToConsider.filter((reward) => !unlockedIds.has(reward.id));
 
     if (rewardsToInsert.length === 0) {
+      if (zoneProgress?.completed) await deactivateCompletedZone(adminClient, zoneProgress.zoneId);
       return jsonResponse({ success: true, unlocked: [], zoneProgress });
     }
 
@@ -647,6 +654,8 @@ Deno.serve(async (req) => {
     if (insertError) {
       return jsonResponse({ success: false, error: insertError.message }, 500);
     }
+
+    if (zoneProgress?.completed) await deactivateCompletedZone(adminClient, zoneProgress.zoneId);
 
     return jsonResponse({
       success: true,

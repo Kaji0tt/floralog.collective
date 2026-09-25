@@ -11,7 +11,6 @@ import { createZoneSharedInvite } from "@/api/zoneSharedInviteService";
 import { createUserNotification } from "@/api/notificationService";
 
 const AREA_HALF_SIZE_M = 50;
-const ZONE_SCAN_TARGET = 5;
 
 const ZONE_THEME_META = {
   forest: { label: "Waldzone", summaryLabel: "Forest", order: 2, icon: Leaf, iconClass: "text-emerald-300" },
@@ -226,8 +225,9 @@ export default function HomeMapFeatureRoot({
         const themeKey = String(zone?.theme || zone?.zoneTheme || "meadow").trim().toLowerCase();
         const themeMeta = ZONE_THEME_META[themeKey] || ZONE_THEME_META.meadow;
         const zoneTitle = String(zone?.title || zone?.zoneTitle || zone?.name || themeMeta.label).trim();
+        const requiredScanCount = Math.min(5, Math.max(3, Number(zone?.requiredScanCount ?? zone?.required_scan_count) || 5));
         const scansToday = Number(zone?.scansToday ?? zone?.scans_today ?? zone?.scanCountToday ?? zone?.scan_count_today ?? 0);
-        const scanProgress = Number.isFinite(scansToday) ? Math.max(0, Math.min(ZONE_SCAN_TARGET, scansToday)) : 0;
+        const scanProgress = Number.isFinite(scansToday) ? Math.max(0, Math.min(requiredScanCount, scansToday)) : 0;
         const configuredZoneMultiplier = Number(
           zone?.bonusMultiplier ?? zone?.zoneBonusMultiplier ?? zone?.zone_bonus_multiplier
         );
@@ -251,8 +251,9 @@ export default function HomeMapFeatureRoot({
           targetPlants: zoneTargetPlantsByTheme.get(themeKey) || [],
           zoneMultiplier,
           distanceLabel: formatDistanceMeters(distanceM),
-          scanLabel: `${scanProgress}/${ZONE_SCAN_TARGET}`,
+          scanLabel: `${scanProgress}/${requiredScanCount}`,
           scanProgressCount: scanProgress,
+          requiredScanCount,
           accessoryLabel: `${Math.max(0, accessoryUnlocked)}/${accessoryTotal}`,
           accessoryUnlockedCount: Math.max(0, accessoryUnlocked),
           accessoryTotalCount: accessoryTotal,
@@ -767,8 +768,11 @@ export default function HomeMapFeatureRoot({
                                   <span>Scans</span>
                                   <span className="tabular-nums">{zone.scanLabel}</span>
                                 </div>
-                                <div className="grid grid-cols-5 gap-1">
-                                  {Array.from({ length: ZONE_SCAN_TARGET }).map((_, stepIndex) => {
+                                <div
+                                  className="grid gap-1"
+                                  style={{ gridTemplateColumns: `repeat(${zone.requiredScanCount}, minmax(0, 1fr))` }}
+                                >
+                                  {Array.from({ length: zone.requiredScanCount }).map((_, stepIndex) => {
                                     const isFilled = stepIndex < zone.scanProgressCount;
                                     return (
                                       <span
