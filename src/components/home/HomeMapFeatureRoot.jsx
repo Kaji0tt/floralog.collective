@@ -1,9 +1,10 @@
-import { Building2, CircleHelp, Droplet, EyeOff, Leaf, Loader2, RefreshCw, Sprout, User, Users, X } from "lucide-react";
+import { Building2, CircleHelp, Droplet, EyeOff, Leaf, Loader2, PackageOpen, RefreshCw, Sprout, User, Users, X } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 import MapboxZoneMap from "@/components/map/MapboxZoneMap";
 import MapPinDetailOverlay from "@/components/map/MapPinDetailOverlay";
 import ZoneDetailSheet from "@/components/home/ZoneDetailSheet";
 import ZoneInfoDialog from "@/components/home/ZoneInfoDialog";
+import ZoneLootboxInfoDialog from "@/components/home/ZoneLootboxInfoDialog";
 import GoldGradientCard from "@/components/home/GoldGradientCard";
 import { calculateDistanceMetersRaw } from "@/lib/discoveryMap";
 import { computeZoneMultiplierFromScanCount } from "@/lib/robotPlantEconomy";
@@ -137,6 +138,7 @@ export default function HomeMapFeatureRoot({
   const [isZoneOverviewExpanded, setIsZoneOverviewExpanded] = useState(false);
   const [selectedZoneForDetail, setSelectedZoneForDetail] = useState(null);
   const [isZoneInfoOpen, setIsZoneInfoOpen] = useState(false);
+  const [isLootboxInfoOpen, setIsLootboxInfoOpen] = useState(false);
   const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
   const [isSendingShare, setIsSendingShare] = useState(false);
 
@@ -652,6 +654,20 @@ export default function HomeMapFeatureRoot({
             >
               <CircleHelp className="h-3.5 w-3.5" />
             </button>
+
+            <button
+              type="button"
+              onClick={() => setIsLootboxInfoOpen(true)}
+              aria-label="Knospen-Inhalt anzeigen"
+              title="Knospen-Inhalt anzeigen"
+              className={`flex h-8 w-8 items-center justify-center rounded-xl border text-[11px] md:text-xs font-semibold transition-colors ${
+                isLightUi
+                  ? "border-[#c8ac62]/55 bg-white/90 text-stone-800 hover:bg-white"
+                  : "border-[#f0e5a5]/45 bg-black/72 text-stone-100 hover:bg-black/85"
+              }`}
+            >
+              <PackageOpen className="h-3.5 w-3.5" />
+            </button>
           </div>
 
           {(zoneMapError || areaClaimError) && (
@@ -816,6 +832,13 @@ export default function HomeMapFeatureRoot({
         open={isZoneInfoOpen}
         isLightUi={isLightUi}
         onClose={() => setIsZoneInfoOpen(false)}
+      />
+
+      <ZoneLootboxInfoDialog
+        open={isLootboxInfoOpen}
+        isLightUi={isLightUi}
+        logoAssetCatalog={logoAssetCatalog}
+        onClose={() => setIsLootboxInfoOpen(false)}
       />
 
       {isShareDialogOpen && selectedZoneForDetail && (

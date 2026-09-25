@@ -32,6 +32,32 @@ export const getActiveZoneLootboxPool = async ({ zoneTheme = null, poolId = null
   return data;
 };
 
+export const listActiveZoneLootboxPools = async () => {
+  const { data, error } = await supabase
+    .from("ZoneLootboxPool")
+    .select(`
+      id,
+      zone_theme,
+      name,
+      description,
+      entries:ZoneLootboxEntry(
+        id,
+        reward_id,
+        weight,
+        selection_group,
+        shared_only,
+        currency_code,
+        currency_amount,
+        sync_key,
+        reward:Rewards(id, name, display_name, type, value, image_url)
+      )
+    `)
+    .eq("is_active", true)
+    .order("name", { ascending: true });
+  if (error) throw error;
+  return data || [];
+};
+
 export const claimZoneLootbox = async ({ poolId = null, zoneTheme = null, zoneId = null, claimKey = null } = {}) => {
   const authId = await getCurrentAuthId();
 
