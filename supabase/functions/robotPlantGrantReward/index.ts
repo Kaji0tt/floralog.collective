@@ -745,6 +745,31 @@ const computeScanRewardBreakdown = ({
   };
 };
 
+const applyFlatRewardBonusBeforeMultipliers = (
+  reward: RewardBreakdown,
+  flatBonus: number,
+): RewardBreakdown => {
+  const adjustedBaseReward = reward.adjustedBaseReward + flatBonus;
+  const rawPreStreak =
+    adjustedBaseReward *
+    reward.zoneMultiplier *
+    reward.rarityMultiplier *
+    reward.noveltyMultiplier *
+    reward.careMultiplier *
+    reward.firstScanOfDayMultiplier;
+  const preStreakReward = Math.max(
+    REWARD_FORMULA_CONFIG.absoluteMinReward,
+    Math.round(rawPreStreak),
+  );
+
+  return {
+    ...reward,
+    adjustedBaseReward,
+    preStreakReward,
+    finalReward: preStreakReward,
+  };
+};
+
 async function tryResolveScanRewardContext(
   adminClient: ReturnType<typeof createClient>,
   authId: string,
@@ -1107,18 +1132,17 @@ Deno.serve(async (req) => {
       // Fester Samen-Bonus fuer zukuenftige Scans: +1 Samen pro Area, die dem Spieler gehoert.
       // Kein %-Multiplikator mehr - nur dieser flache Bonus zaehlt.
       const areaOwnershipSeedBonus = claimedAreasCount;
-      const finalRewardWithAreaBonus = baseFinalReward + areaOwnershipSeedBonus;
+      const rewardWithAreaBonus = applyFlatRewardBonusBeforeMultipliers(rewardDetails, areaOwnershipSeedBonus);
 
       rewardDetails = {
-        ...rewardDetails,
+        ...rewardWithAreaBonus,
         preAreaClaimReward: baseFinalReward,
         areaClaimMultiplier: 1,
         claimedAreasCount,
         areaOwnershipSeedBonus,
-        finalReward: finalRewardWithAreaBonus,
       };
 
-      effectiveAmount = finalRewardWithAreaBonus;
+      effectiveAmount = rewardDetails.finalReward;
       effectiveEnergyDelta = scanContext.derivedEnergyDelta;
       effectiveDataQualityDelta = scanContext.derivedDataQualityDelta;
       effectiveCareDelta = scanContext.derivedCareDelta;

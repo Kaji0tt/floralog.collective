@@ -14,13 +14,13 @@ export default function ZoneInfoDialog({ open, isLightUi, onClose }) {
   return (
     <div className="absolute inset-0 z-[1450] flex items-end justify-center bg-black/50 px-4 pb-4">
       <div
-        className={`w-full max-w-md rounded-3xl border p-5 ${
+        className={`flex h-[min(70dvh,32rem)] max-h-[calc(100%-1rem)] w-full max-w-md flex-col overflow-hidden rounded-3xl border p-5 ${
           isLightUi
             ? "border-[#c8ac62]/50 bg-white/95 text-stone-800"
             : "border-[#f0e5a5]/25 bg-[#0c0e11]/95 text-stone-100"
         }`}
       >
-        <div className="mb-3 flex items-center justify-between">
+        <div className="mb-3 flex shrink-0 items-center justify-between">
           <h3 className="text-base font-bold">Wie funktionieren Zonen?</h3>
           <button
             type="button"
@@ -36,7 +36,7 @@ export default function ZoneInfoDialog({ open, isLightUi, onClose }) {
           </button>
         </div>
 
-        <div className="space-y-4 text-sm leading-relaxed">
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain space-y-4 text-sm leading-relaxed">
           <p>
             Anzahl <em>(Energie)</em>, Größe <em>(Datenqualität)</em> und verfügbare Re-Rolls <em>(Pflege)</em> errechnen sich aus dem <strong>Zustand deines Florabots</strong>, den du jederzeit über das Overlay, das du mit einem Klick auf deinen Florabot in Home öffnest, einsehen kannst.
           </p>
