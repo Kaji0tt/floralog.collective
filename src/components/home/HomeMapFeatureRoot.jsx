@@ -264,8 +264,7 @@ export default function HomeMapFeatureRoot({
           themeIcon: themeMeta.icon,
           themeIconClass: themeMeta.iconClass,
         };
-      })
-      .slice(0, 6);
+      });
   }, [cachedLocation?.lat, cachedLocation?.lng, heroMapCenter, heroZones, zoneRewardProgressByTheme, zoneTargetPlantsByTheme]);
 
   const zoneThemeSummaries = useMemo(() => {

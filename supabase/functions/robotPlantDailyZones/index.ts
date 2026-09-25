@@ -1297,7 +1297,11 @@ Deno.serve(async (req) => {
       cached: false,
       rasterBased: false,
       osmSlimBased: true,
-      rerollsRemainingToday: isAdmin ? null : Math.max(0, (rerollsGrantedToday ?? totalRerollsGrantedToday) - (rerollsUsedToday + 1)),
+      rerollsRemainingToday: isAdmin
+        ? null
+        : forceRegenerate
+          ? Math.max(0, (rerollsGrantedToday ?? totalRerollsGrantedToday) - (rerollsUsedToday + 1))
+          : rerollsRemaining,
       queryDurationMs: queryDuration,
       zones: (insertedZones || []).map((z) => ({
         id: z.id,
