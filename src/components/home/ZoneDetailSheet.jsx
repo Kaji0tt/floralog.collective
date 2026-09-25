@@ -79,8 +79,11 @@ export default function ZoneDetailSheet({ zone, isLightUi, onClose, onOpenScans,
                   <span>Scans</span>
                   <span className="tabular-nums">{zone.scanLabel}</span>
                 </div>
-                <div className="grid grid-cols-5 gap-1">
-                  {Array.from({ length: 5 }).map((_, stepIndex) => {
+                <div
+                  className="grid gap-1"
+                  style={{ gridTemplateColumns: `repeat(${zone.requiredScanCount}, minmax(0, 1fr))` }}
+                >
+                  {Array.from({ length: zone.requiredScanCount }).map((_, stepIndex) => {
                     const isFilled = stepIndex < zone.scanProgressCount;
                     return (
                       <span

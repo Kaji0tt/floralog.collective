@@ -215,6 +215,7 @@ const buildZonePopupHtml = (props, isLightUi) => {
   const radiusDisplay = props.radiusM ? `${Math.round(props.radiusM)} m` : "";
   const zoneMultiplier = Number(props.zoneMultiplier || 1.5);
   const scanCount = Math.max(0, Number(props.scansToday || 0));
+  const requiredScanCount = Math.min(5, Math.max(3, Number(props.requiredScanCount) || 5));
 
   const cardBg = isLightUi ? "rgba(255,255,255,0.92)" : "rgba(12,14,17,0.86)";
   const cardBorder = isLightUi ? "rgba(200,172,98,0.5)" : "rgba(240,229,165,0.35)";
@@ -235,7 +236,7 @@ const buildZonePopupHtml = (props, isLightUi) => {
         <div style="margin-bottom:4px;color:${mutedColor};">
           Start bei x1.50, sinkt pro weiterem Scan in dieser Zone.
         </div>
-        <div style="margin-bottom:4px;"><span style="font-weight:700;">Scans:</span> ${scanCount}/5</div>
+        <div style="margin-bottom:4px;"><span style="font-weight:700;">Scans:</span> ${scanCount}/${requiredScanCount}</div>
         ${radiusDisplay ? `<div style="color:${mutedColor};">Radius: ${radiusDisplay}</div>` : ""}
       </div>
     </div>
@@ -1146,6 +1147,7 @@ export default function MapboxZoneMap({
           );
           const zoneMultiplier = Number.isFinite(zoneMultiplierCandidate) ? zoneMultiplierCandidate : 1.5;
           const scansToday = Math.max(0, Number(zone.scansToday ?? zone.scans_today ?? 0) || 0);
+          const requiredScanCount = Math.min(5, Math.max(3, Number(zone.requiredScanCount ?? zone.required_scan_count) || 5));
 
           return {
             type: "Feature",
@@ -1161,6 +1163,7 @@ export default function MapboxZoneMap({
               radiusM,
               zoneMultiplier,
               scansToday,
+              requiredScanCount,
               centerLat: lat,
               centerLng: lng,
             },
@@ -1215,34 +1218,6 @@ export default function MapboxZoneMap({
         });
 
         map.on("click", "hero-zones-hit", (event) => {
-          const claimHit = map.queryRenderedFeatures(
-            [
-              [event.point.x - 8, event.point.y - 8],
-              [event.point.x + 8, event.point.y + 8],
-            ],
-            {
-              layers: ["hero-claims-fill", "hero-claims-borders", "hero-claims-pulse"].filter((layerId) => map.getLayer(layerId)),
-            }
-          );
-
-          if (claimHit.length > 0) {
-            return;
-          }
-
-          const discoveryLayers = ["hero-discovery-hit", "hero-discovery-points"].filter((layerId) => map.getLayer(layerId));
-          if (discoveryLayers.length > 0) {
-            const discoveryNearClick = map.queryRenderedFeatures(
-              [
-                [event.point.x - 8, event.point.y - 8],
-                [event.point.x + 8, event.point.y + 8],
-              ],
-              { layers: discoveryLayers }
-            );
-            if (discoveryNearClick.length > 0) {
-              return;
-            }
-          }
-
           const feature = event.features?.[0];
           if (!feature) return;
 
@@ -1384,6 +1359,22 @@ export default function MapboxZoneMap({
         });
 
         map.on("click", "hero-claims-fill", (event) => {
+          const zoneFeature = map.queryRenderedFeatures(event.point, {
+            layers: map.getLayer("hero-zones-hit") ? ["hero-zones-hit"] : [],
+          })[0];
+
+          if (zoneFeature && onZoneSelectRef.current) {
+            const zoneProps = zoneFeature.properties || {};
+            onZoneSelectRef.current({
+              zoneId: zoneProps.id,
+              centerLat: Number(zoneProps.centerLat),
+              centerLng: Number(zoneProps.centerLng),
+              radiusM: Number(zoneProps.radiusM),
+              themeLabel: zoneProps.themeLabel || zoneProps.theme || "Zone",
+            });
+            return;
+          }
+
           const feature = event.features?.[0];
           if (!feature) return;
           const props = feature.properties || {};
