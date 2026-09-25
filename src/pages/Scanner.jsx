@@ -946,24 +946,8 @@ export default function Scanner() {
 
     queryClient.invalidateQueries({ queryKey: ['userDiscoveries'] });
 
-    const newlyUnlocked = await checkAndUnlockAchievements(user, { triggerDiscoveryId: newDiscovery.id });
-    if (newlyUnlocked.length > 0) {
-      setNewAchievements(newlyUnlocked);
-      setCurrentAchievementIndex(0);
-    }
-
-    const completedWeeklyQuest = await getCompletedWeeklyQuestForDiscovery(newDiscovery.id);
-    queryClient.invalidateQueries({ queryKey: ['userWeeklyQuests'] });
-
-    // Prüfe zufällige Rewards
-    const { checkRandomRewards } = await import('../components/rewards/randomRewardChecker');
+    // Zone grant runs before the unguarded achievement/quest steps so their failures cannot skip it.
     let randomRewards = [];
-    try {
-      randomRewards = await checkRandomRewards(user, 'scan');
-    } catch (randomRewardError) {
-      console.error("Fehler beim Prüfen zufälliger Rewards:", randomRewardError);
-    }
-
     let scanZoneUnlocks = [];
     try {
       scanZoneUnlocks = await grantScanZoneUnlocks({
@@ -1006,6 +990,23 @@ export default function Scanner() {
       }
     } catch (error) {
       console.error("Fehler bei scan-basierten Zonen-Freischaltungen:", error);
+    }
+
+    const newlyUnlocked = await checkAndUnlockAchievements(user, { triggerDiscoveryId: newDiscovery.id });
+    if (newlyUnlocked.length > 0) {
+      setNewAchievements(newlyUnlocked);
+      setCurrentAchievementIndex(0);
+    }
+
+    const completedWeeklyQuest = await getCompletedWeeklyQuestForDiscovery(newDiscovery.id);
+    queryClient.invalidateQueries({ queryKey: ['userWeeklyQuests'] });
+
+    // Prüfe zufällige Rewards
+    const { checkRandomRewards } = await import('../components/rewards/randomRewardChecker');
+    try {
+      randomRewards = [...(await checkRandomRewards(user, 'scan')), ...randomRewards];
+    } catch (randomRewardError) {
+      console.error("Fehler beim Prüfen zufälliger Rewards:", randomRewardError);
     }
 
     // Der Zonen-Grant schreibt zuerst den Scan in RobotPlantZoneScan.
@@ -1120,24 +1121,7 @@ export default function Scanner() {
       queryClient.invalidateQueries({ queryKey: ['userDiscoveries'] });
       queryClient.invalidateQueries({ queryKey: ['plants'] });
 
-      const newlyUnlocked = await checkAndUnlockAchievements(user, { triggerDiscoveryId: newDiscoveryId });
-      if (newlyUnlocked.length > 0) {
-        setNewAchievements(newlyUnlocked);
-        setCurrentAchievementIndex(0);
-      }
-
-      const completedWeeklyQuest = await getCompletedWeeklyQuestForDiscovery(newDiscoveryId);
-      queryClient.invalidateQueries({ queryKey: ['userWeeklyQuests'] });
-
-      // Prüfe zufällige Rewards
-      const { checkRandomRewards } = await import('../components/rewards/randomRewardChecker');
       let randomRewards = [];
-      try {
-        randomRewards = await checkRandomRewards(user, 'scan');
-      } catch (randomRewardError) {
-        console.error("Fehler beim Prüfen zufälliger Rewards:", randomRewardError);
-      }
-
       let scanZoneUnlocks = [];
       try {
         scanZoneUnlocks = await grantScanZoneUnlocks({
@@ -1179,6 +1163,24 @@ export default function Scanner() {
       } catch (unlockError) {
         console.error("Fehler bei scan-basierten Zonen-Freischaltungen fuer neue Global-Pflanze:", unlockError);
       }
+
+      const newlyUnlocked = await checkAndUnlockAchievements(user, { triggerDiscoveryId: newDiscoveryId });
+      if (newlyUnlocked.length > 0) {
+        setNewAchievements(newlyUnlocked);
+        setCurrentAchievementIndex(0);
+      }
+
+      const completedWeeklyQuest = await getCompletedWeeklyQuestForDiscovery(newDiscoveryId);
+      queryClient.invalidateQueries({ queryKey: ['userWeeklyQuests'] });
+
+      // Prüfe zufällige Rewards
+      const { checkRandomRewards } = await import('../components/rewards/randomRewardChecker');
+      try {
+        randomRewards = [...(await checkRandomRewards(user, 'scan')), ...randomRewards];
+      } catch (randomRewardError) {
+        console.error("Fehler beim Prüfen zufälliger Rewards:", randomRewardError);
+      }
+
       await updateQuestProgress(user);
       if (scanZoneUnlocks.length > 0) {
         queryClient.invalidateQueries({ queryKey: ["userRewards"] });

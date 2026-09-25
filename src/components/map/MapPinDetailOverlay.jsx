@@ -236,10 +236,10 @@ export default function MapPinDetailOverlay({
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 28 }}
             transition={{ duration: 0.2, ease: "easeOut" }}
-            className="absolute inset-x-0 bottom-0 z-[1400] flex w-full justify-stretch px-4 pb-4 sm:px-5 sm:pb-5"
+            className="absolute inset-x-0 bottom-0 z-[1400] flex max-h-full w-full justify-stretch px-4 pb-4 sm:px-5 sm:pb-5"
           >
             <div
-              className={`relative w-full overflow-hidden rounded-[1.75rem] border shadow-[0_18px_60px_rgba(0,0,0,0.28)] ${
+              className={`relative max-h-full w-full overflow-y-auto overscroll-contain rounded-[1.75rem] border shadow-[0_18px_60px_rgba(0,0,0,0.28)] ${
                 isLightUi
                   ? "border-stone-200/80 bg-white/96 text-stone-900 backdrop-blur-xl"
                   : "border-transparent bg-[#131710] text-stone-100"

@@ -10,6 +10,8 @@ const corsHeaders = {
 
 const EARTH_RADIUS_M = 6371000;
 const AREA_SIZE_M = 100;
+const EPSG_3035 = "+proj=laea +lat_0=52 +lon_0=10 +x_0=4321000 +y_0=3210000 +datum=ETRS89 +units=m +no_defs +type=crs";
+proj4.defs("EPSG:3035", EPSG_3035);
 
 type RequestBody = {
   discoveryId?: string | null;
@@ -381,6 +383,7 @@ Deno.serve(async (req) => {
         .maybeSingle<DiscoveryRow>();
 
       if (discoveryError || !discoveryData) {
+        console.warn(`[grantScanZoneUnlocks] Discovery ${discoveryId} not found:`, discoveryError?.message);
         return jsonResponse({ success: true, unlocked: [] });
       }
 
@@ -395,11 +398,13 @@ Deno.serve(async (req) => {
     const effectiveLocation = String(discovery?.discovery_location || body.discoveryLocation || "").trim();
 
     if (!effectivePlantId || !effectiveLocation) {
+      console.warn(`[grantScanZoneUnlocks] Skipped ${discoveryId}: plant=${effectivePlantId || "-"} location=${effectiveLocation || "-"}`);
       return jsonResponse({ success: true, unlocked: [] });
     }
 
     const coords = parseLocation(effectiveLocation);
     if (!coords) {
+      console.warn(`[grantScanZoneUnlocks] Skipped ${discoveryId}: unparsable location "${effectiveLocation}"`);
       return jsonResponse({ success: true, unlocked: [] });
     }
 
@@ -410,6 +415,7 @@ Deno.serve(async (req) => {
       .maybeSingle<PlantRow>();
 
     if (plantError || !plant) {
+      console.warn(`[grantScanZoneUnlocks] Skipped ${discoveryId}: plant ${effectivePlantId} not found`, plantError?.message);
       return jsonResponse({ success: true, unlocked: [] });
     }
 
@@ -438,10 +444,11 @@ Deno.serve(async (req) => {
       .like("zone_key", `%:${authKeySuffix}`);
 
     if (zoneError) {
+      console.warn("[grantScanZoneUnlocks] Zone query failed:", zoneError.message);
       return jsonResponse({ success: true, unlocked: [] });
     }
 
-    const matchedZone = (zones || [])
+    const zonesByDistance = (zones || [])
       .filter((zone): zone is ZoneRow => Number.isFinite(Number(zone.center_lat)) && Number.isFinite(Number(zone.center_lng)))
       .map((zone) => ({
         ...zone,
@@ -450,11 +457,16 @@ Deno.serve(async (req) => {
           lng: Number(zone.center_lng),
         }),
       }))
-      .filter((zone) => zone.distance <= Number(zone.radius_m ?? 150))
-      .sort((left, right) => left.distance - right.distance)[0] || null;
+      .sort((left, right) => left.distance - right.distance);
+    const matchedZone = zonesByDistance.find((zone) => zone.distance <= Number(zone.radius_m ?? 150)) || null;
 
     const matchedTheme = normalizeText(matchedZone?.theme);
     if (!matchedTheme) {
+      const nearest = zonesByDistance[0];
+      console.log(
+        `[grantScanZoneUnlocks] No zone match for ${discoveryId} on ${dayKey}; activeZones=${zonesByDistance.length}` +
+          (nearest ? `; nearest=${nearest.id} ${Math.round(nearest.distance)}m/${nearest.radius_m ?? 150}m` : ""),
+      );
       return jsonResponse({ success: true, unlocked: [] });
     }
 
@@ -652,6 +664,7 @@ Deno.serve(async (req) => {
     );
 
     if (insertError) {
+      console.error("[grantScanZoneUnlocks] UserRewards insert failed:", insertError.message);
       return jsonResponse({ success: false, error: insertError.message }, 500);
     }
 
@@ -670,6 +683,7 @@ Deno.serve(async (req) => {
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
+    console.error("[grantScanZoneUnlocks] Unhandled error:", error);
     return jsonResponse({ success: false, error: message }, 500);
   }
 });
