@@ -26,6 +26,12 @@ const toNumber = (value, fallback = 0) => {
   return Number.isFinite(numeric) ? numeric : fallback;
 };
 
+const isSameLootboxEntry = (left, right) => {
+  const hasMatchingReward = Boolean(left?.reward_id) && left.reward_id === right?.reward_id;
+  const hasMatchingCurrency = Boolean(left?.sync_key) && left.sync_key === right?.sync_key;
+  return hasMatchingReward || hasMatchingCurrency;
+};
+
 export default function LootAdmin() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -77,6 +83,7 @@ export default function LootAdmin() {
             shared_only,
             currency_code,
             currency_amount,
+            sync_key,
             reward:Rewards(id, name, display_name, type, value, image_url)
           )
         `)
@@ -139,15 +146,20 @@ export default function LootAdmin() {
   };
 
   const saveEntryMutation = useMutation({
-    mutationFn: async ({ id, values }) => {
+    mutationFn: async ({ entry, values }) => {
+      const matchingEntryIds = pools
+        .flatMap((pool) => pool.entries || [])
+        .filter((candidate) => isSameLootboxEntry(entry, candidate))
+        .map((candidate) => candidate.id);
+
       const { data, error } = await supabase
         .from("ZoneLootboxEntry")
         .update(values)
-        .eq("id", id)
+        .in("id", matchingEntryIds)
         .select()
-        .single();
+        ;
       if (error) throw error;
-      return data;
+      return data || [];
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["lootAdminPools"] });
@@ -344,11 +356,15 @@ export default function LootAdmin() {
               <div className="space-y-3">
                 {visibleEntries.map((entry) => {
                   const reward = entry.reward || null;
+                  const matchingEntryCount = poolSummaries
+                    .flatMap((candidatePool) => candidatePool.entries)
+                    .filter((candidate) => isSameLootboxEntry(entry, candidate)).length;
                   const thisDraft = entryDrafts[entry.id] || {
                     weight: entry.weight ?? 1,
                     duplicate_seed_value: entry.duplicate_seed_value ?? 0,
                     shared_only: Boolean(entry.shared_only),
                     selection_group: entry.selection_group || "bonus",
+                    currency_amount: entry.currency_amount ?? 1,
                   };
 
                   return (
@@ -356,7 +372,7 @@ export default function LootAdmin() {
                       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                         <div className="min-w-0 flex-1">
                           <p className="truncate text-sm font-medium text-white">
-                            {reward?.display_name || reward?.name || entry.reward_id || `${entry.currency_code || "Währung"} ${entry.currency_amount ?? 0}`}
+                            {reward?.display_name || reward?.name || entry.reward_id || `${entry.currency_code || "Währung"} ${thisDraft.currency_amount ?? 0}`}
                           </p>
                           <div className="mt-2 flex flex-wrap gap-2 text-[11px] text-slate-300">
                             <Badge variant="outline" className="border-slate-600 text-slate-200">
@@ -365,6 +381,11 @@ export default function LootAdmin() {
                             <Badge variant="outline" className="border-slate-600 text-slate-200">
                               {formatChance(entry.weight, visibleTotalWeight)}
                             </Badge>
+                            {matchingEntryCount > 1 && (
+                              <Badge variant="outline" className="border-emerald-500/50 text-emerald-200">
+                                Synchronisiert in {matchingEntryCount} Knospen
+                              </Badge>
+                            )}
                             {entry.shared_only && <Badge variant="outline" className="border-amber-500/40 text-amber-200">Shared</Badge>}
                           </div>
                         </div>
@@ -380,7 +401,7 @@ export default function LootAdmin() {
                         </Button>
                       </div>
 
-                      <div className="mt-3 grid gap-3 md:grid-cols-3">
+                      <div className="mt-3 grid gap-3 md:grid-cols-4">
                         <div className="space-y-1">
                           <Label className="text-xs uppercase tracking-[0.15em] text-slate-400">Weight</Label>
                           <Input
@@ -405,6 +426,20 @@ export default function LootAdmin() {
                             }))}
                           />
                         </div>
+                        {entry.currency_code && (
+                          <div className="space-y-1">
+                            <Label className="text-xs uppercase tracking-[0.15em] text-slate-400">Währungsbetrag</Label>
+                            <Input
+                              type="number"
+                              min="1"
+                              value={thisDraft.currency_amount}
+                              onChange={(event) => setEntryDrafts((previous) => ({
+                                ...previous,
+                                [entry.id]: { ...thisDraft, currency_amount: event.target.value },
+                              }))}
+                            />
+                          </div>
+                        )}
                         <div className="space-y-1">
                           <Label className="text-xs uppercase tracking-[0.15em] text-slate-400">Shared</Label>
                           <div className="flex h-10 items-center rounded-md border border-slate-700 bg-slate-950 px-3">
@@ -426,11 +461,14 @@ export default function LootAdmin() {
                           size="sm"
                           onClick={() => {
                             saveEntryMutation.mutate({
-                              id: entry.id,
+                              entry,
                               values: {
                                 weight: toNumber(thisDraft.weight, entry.weight ?? 1),
                                 duplicate_seed_value: toNumber(thisDraft.duplicate_seed_value, entry.duplicate_seed_value ?? 0),
                                 shared_only: Boolean(thisDraft.shared_only),
+                                ...(entry.currency_code && {
+                                  currency_amount: toNumber(thisDraft.currency_amount, entry.currency_amount ?? 1),
+                                }),
                               },
                             });
                           }}

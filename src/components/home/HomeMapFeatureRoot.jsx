@@ -357,9 +357,8 @@ export default function HomeMapFeatureRoot({
   }, [selectedZoneForDetail, openZoneSelection]);
 
   const handleOpenMoreInfoForSelectedZone = useCallback(() => {
-    if (!selectedZoneForDetail) return;
     setIsZoneInfoOpen(true);
-  }, [selectedZoneForDetail]);
+  }, []);
 
   const handleShareSelectedZone = useCallback(async (friend) => {
     if (!selectedZoneForDetail?.sourceZone?.id || !friend?.authId) return;
@@ -643,18 +642,13 @@ export default function HomeMapFeatureRoot({
             <button
               type="button"
               onClick={handleOpenMoreInfoForSelectedZone}
-              disabled={!selectedZoneForDetail}
-              aria-label="Mehr Infos zur ausgewählten Zone"
-              title="Mehr Infos zur ausgewählten Zone"
+              aria-label="Mehr Infos zu Geozonen"
+              title="Mehr Infos zu Geozonen"
               className={`flex h-8 w-8 items-center justify-center rounded-xl border text-[11px] md:text-xs font-semibold transition-colors ${
-                selectedZoneForDetail
-                  ? isLightUi
-                    ? "border-[#c8ac62]/55 bg-white/90 text-stone-800 hover:bg-white"
-                    : "border-[#f0e5a5]/45 bg-black/72 text-stone-100 hover:bg-black/85"
-                  : isLightUi
-                    ? "border-[#c8ac62]/35 bg-white/70 text-stone-400"
-                    : "border-[#f0e5a5]/25 bg-black/55 text-stone-500"
-              } ${selectedZoneForDetail ? "" : "cursor-not-allowed opacity-60"}`}
+                isLightUi
+                  ? "border-[#c8ac62]/55 bg-white/90 text-stone-800 hover:bg-white"
+                  : "border-[#f0e5a5]/45 bg-black/72 text-stone-100 hover:bg-black/85"
+              }`}
             >
               <CircleHelp className="h-3.5 w-3.5" />
             </button>
@@ -821,7 +815,6 @@ export default function HomeMapFeatureRoot({
       <ZoneInfoDialog
         open={isZoneInfoOpen}
         isLightUi={isLightUi}
-        targetPlants={selectedZoneForDetail?.targetPlants || []}
         onClose={() => setIsZoneInfoOpen(false)}
       />
 
