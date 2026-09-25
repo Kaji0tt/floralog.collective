@@ -49,6 +49,18 @@ create policy "Owners manage their collections"
 
 ----------------------------------------------------------
 -- 2) Items in einer Kollektion (Gattungen / Arten)
+--
+-- CollectionItem ist eine reine ZWISCHENTABELLE (Junction Table).
+-- Sie speichert keine eigenen Pflanzeninformationen, sondern verknüpft
+-- eine Collection mit einer oder mehreren Pflanzen bzw. Gattungen:
+--
+--   CollectionItem.plant_id  → Plant      (Pflanzenart, z.B. "Gartenchrysantheme")
+--   CollectionItem.genus_id  → PlantGenus (Pflanzengattung, z.B. "Chrysantheme")
+--
+-- Die eigentlichen Pflanzendetails (Name, Beschreibung, Seltenheit, …)
+-- liegen in den Tabellen Plant und PlantGenus.
+-- Ein CollectionItem kann entweder auf eine Art ODER eine Gattung zeigen
+-- (die jeweils andere FK-Spalte ist dann NULL).
 ----------------------------------------------------------
 create table if not exists public."CollectionItem" (
   id uuid primary key default gen_random_uuid(),
