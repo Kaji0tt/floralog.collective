@@ -82,6 +82,7 @@ function buildRewardSteps(rewardDetails, isInActiveZone) {
   }
 
   pushAdditiveStep("health", rewardDetails.healthStateLabel || "Zustand", rewardDetails.healthStateBonus);
+  pushAdditiveStep("areaSeedBonus", "Areale", rewardDetails.areaOwnershipSeedBonus);
   if (isInActiveZone) pushPreStreakStep("zone", "Zone", rewardDetails.zoneMultiplier);
   pushPreStreakStep("rarity", "Raritaet", rewardDetails.rarityMultiplier);
   pushPreStreakStep("novelty", "Neuheit", rewardDetails.noveltyMultiplier);
@@ -91,19 +92,7 @@ function buildRewardSteps(rewardDetails, isInActiveZone) {
   if (preStreakSteps.length > 0) {
     preStreakSteps[preStreakSteps.length - 1].result = rewardDetails.preStreakReward;
   }
-  const steps = [...preStreakSteps];
-
-  if (rewardDetails.areaOwnershipSeedBonus) {
-    steps.push({
-      id: "areaSeedBonus",
-      label: "Areale",
-      delta: rewardDetails.areaOwnershipSeedBonus,
-      result: rewardDetails.finalReward,
-      positive: true,
-      displayValue: `+${rewardDetails.areaOwnershipSeedBonus}`,
-    });
-  }
-  return steps;
+  return preStreakSteps;
 }
 
 function formatMultiplier(mult) {
