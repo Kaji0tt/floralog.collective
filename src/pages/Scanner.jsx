@@ -972,8 +972,9 @@ export default function Scanner() {
               ...randomRewards,
               {
                 id: lootboxReward?.id || lootboxReward?.reward_id || "zone-lootbox",
-                display_name: lootboxReward?.name || lootboxReward?.display_name || "Entdecker-Knospe",
-                name: lootboxReward?.name || lootboxReward?.display_name || "Entdecker-Knospe",
+                display_name: lootboxReward?.name || lootboxReward?.display_name || lootboxResult?.poolName || "Entdecker-Knospe",
+                name: lootboxReward?.name || lootboxReward?.display_name || lootboxResult?.poolName || "Entdecker-Knospe",
+                lootboxName: lootboxResult?.poolName || "Entdecker-Knospe",
                 value: lootboxReward?.value || (lootboxResult?.rewardStatus === "duplicate_compensated" ? `${lootboxResult?.duplicateSeedValue ?? 0} Seeds` : ""),
                 image_url: lootboxReward?.imageUrl || lootboxReward?.image_url || null,
                 type: lootboxReward?.type || "lootbox",

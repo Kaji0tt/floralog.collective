@@ -74,7 +74,9 @@ export default function ZoneLootboxNotification({ reward, onComplete }) {
           <div className="relative z-10 space-y-5 text-center">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.24em] text-lime-200/80">{themeLabel} abgeschlossen</p>
-              <h3 className="mt-2 text-2xl font-bold text-stone-50">{isRevealed ? "Deine Belohnung" : "Eine Entdecker-Knospe wartet"}</h3>
+              <h3 className="mt-2 text-2xl font-bold text-stone-50">
+                {isRevealed ? "Deine Belohnung" : `Eine ${reward.lootboxName || "Entdecker-Knospe"} wartet`}
+              </h3>
             </div>
 
             <div className="relative flex min-h-52 items-center justify-center">

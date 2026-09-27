@@ -343,6 +343,7 @@ Deno.serve(async (req) => {
     return jsonResponse({
       success: true,
       duplicate: false,
+      poolName: pool.name,
       claim: claimRecord,
       reward: reward ? {
         id: reward.id,

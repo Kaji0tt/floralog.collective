@@ -7,12 +7,24 @@ const formatChance = (weight, totalWeight) => {
   return `${chance.toFixed(chance < 1 ? 2 : 1)}%`;
 };
 
-const getEntryLabel = (entry) => (
-  entry.reward?.display_name
-  || entry.reward?.name
-  || entry.reward_id
-  || `${entry.currency_amount || 0} ${entry.currency_code || "Währung"}`
-);
+const CURRENCY_LABELS = {
+  seeds_progress: "Samen",
+  "seed progress": "Samen",
+  seeds: "Samen",
+  sparks: "Funken",
+  amber: "Bernstein",
+};
+
+const getEntryLabel = (entry) => {
+  if (entry.currency_code) {
+    const currencyCode = String(entry.currency_code).trim().toLowerCase();
+    const currencyLabel = CURRENCY_LABELS[currencyCode] || entry.currency_code;
+    return `${entry.currency_amount || 0} ${currencyLabel}`;
+  }
+
+  const label = entry.reward?.display_name || entry.reward?.name || entry.reward_id || "Währung";
+  return CURRENCY_LABELS[String(label).trim().toLowerCase()] || label;
+};
 
 const getEntryIdentity = (entry) => (
   entry.reward_id
