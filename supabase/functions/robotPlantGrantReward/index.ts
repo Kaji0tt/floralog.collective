@@ -1,5 +1,4 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import proj4 from "https://esm.sh/proj4@2.15.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -69,25 +68,6 @@ type RewardBreakdown = {
   areaOwnershipSeedBonus?: number;
   preStreakReward: number;
   finalReward: number;
-};
-
-type AreaClaimRow = {
-  area_x: number;
-  area_y: number;
-  owner_auth_id: string;
-  owner_scan_count: number;
-  claim_group_name: string | null;
-  claimed_at: string;
-  updated_at: string;
-};
-
-type AreaClaimResolution = {
-  areaX: number;
-  areaY: number;
-  ownerAuthId: string | null;
-  ownerScanCount: number;
-  claimedAreasCountForAuth: number;
-  areaClaimMultiplier: number;
 };
 
 type ScanRewardContext = {
@@ -180,13 +160,6 @@ const NORMALIZED_RARITY_MULTIPLIERS: Record<string, number> = {
 };
 
 const EARTH_RADIUS_M = 6371000;
-// Minimum scans by one user on a area to claim it.
-// Lowered from 4 → 3: 3 scans at the same location are sufficient to claim.
-const CLAIM_THRESHOLD = 3;
-const AREA_SIZE_M = 100;
-const EPSG_3035 = "+proj=laea +lat_0=52 +lon_0=10 +x_0=4321000 +y_0=3210000 +datum=ETRS89 +units=m +no_defs +type=crs";
-
-proj4.defs("EPSG:3035", EPSG_3035);
 
 function jsonResponse(payload: unknown, status = 200): Response {
   return new Response(JSON.stringify(payload), {
@@ -473,56 +446,6 @@ const getDistanceBetweenCoordinatesM = (
   return EARTH_RADIUS_M * c;
 };
 
-const getAreaFromLatLng = (lat: number, lng: number): { areaX: number; areaY: number } => {
-  const [x, y] = proj4("EPSG:4326", "EPSG:3035", [lng, lat]);
-  return {
-    areaX: Math.floor(Number(x) / AREA_SIZE_M),
-    areaY: Math.floor(Number(y) / AREA_SIZE_M),
-  };
-};
-
-const resolveAdjacentGroupNameForOwner = async (
-  adminClient: ReturnType<typeof createClient>,
-  ownerAuthId: string,
-  areaX: number,
-  areaY: number,
-): Promise<string | null> => {
-  const minAreaX = areaX - 1;
-  const maxAreaX = areaX + 1;
-  const minAreaY = areaY - 1;
-  const maxAreaY = areaY + 1;
-
-  const { data: neighbors, error } = await adminClient
-    .from("AreaClaim")
-    .select("area_x, area_y, claim_group_name, updated_at")
-    .eq("owner_auth_id", ownerAuthId)
-    .gte("area_x", minAreaX)
-    .lte("area_x", maxAreaX)
-    .gte("area_y", minAreaY)
-    .lte("area_y", maxAreaY)
-    .order("updated_at", { ascending: false });
-
-  if (error) {
-    console.warn("[robotPlantGrantReward] Failed to resolve adjacent group name", error);
-    return null;
-  }
-
-  for (const row of neighbors || []) {
-    const rowAreaX = Number(row.area_x);
-    const rowAreaY = Number(row.area_y);
-    if (!Number.isFinite(rowAreaX) || !Number.isFinite(rowAreaY)) continue;
-    const manhattanDistance = Math.abs(rowAreaX - areaX) + Math.abs(rowAreaY - areaY);
-    if (manhattanDistance !== 1) continue;
-
-    const groupName = String(row.claim_group_name || "").trim();
-    if (groupName) {
-      return groupName;
-    }
-  }
-
-  return null;
-};
-
 const syncClaimedAreaCountForUser = async (
   adminClient: ReturnType<typeof createClient>,
   authId: string,
@@ -540,137 +463,6 @@ const syncClaimedAreaCountForUser = async (
     .eq("auth_id", authId);
 
   return claimedCount;
-};
-
-const resolveAreaClaimForScan = async (
-  adminClient: ReturnType<typeof createClient>,
-  authId: string,
-  discoveryLocation: string | null | undefined,
-): Promise<AreaClaimResolution | null> => {
-  const discoveryCoords = parseDiscoveryLocation(discoveryLocation);
-  if (!discoveryCoords) return null;
-
-  const { areaX, areaY } = getAreaFromLatLng(discoveryCoords.lat, discoveryCoords.lng);
-
-  const { data: existingClaim } = await adminClient
-    .from("AreaClaim")
-    .select("area_x, area_y, owner_auth_id, owner_scan_count, claim_group_name, claimed_at, updated_at")
-    .eq("area_x", areaX)
-    .eq("area_y", areaY)
-    .maybeSingle<AreaClaimRow>();
-
-  // Only count scans from Sommer 2026 (ab 21.06.2026) for zone/area-claim ownership.
-  const SOMMER_2026_CUTOFF = "2026-06-21T00:00:00.000Z";
-
-  const { data: allDiscoveries, error: allDiscoveriesError } = await adminClient
-    .from("UserPlantDiscovery")
-    .select("auth_id, discovery_location")
-    .not("discovery_location", "is", null)
-    .not("auth_id", "is", null)
-    .gte("discovered_date", SOMMER_2026_CUTOFF)
-    .limit(50000);
-
-  if (allDiscoveriesError) {
-    throw new Error(`Failed to load discoveries for area claim aggregation: ${allDiscoveriesError.message}`);
-  }
-
-  const scanCountByAuth = new Map<string, number>();
-
-  for (const row of allDiscoveries || []) {
-    const coords = parseDiscoveryLocation(String(row.discovery_location || ""));
-    if (!coords) continue;
-    const rowArea = getAreaFromLatLng(coords.lat, coords.lng);
-    if (rowArea.areaX !== areaX || rowArea.areaY !== areaY) continue;
-
-    const rowAuthId = String(row.auth_id || "").trim();
-    if (!isUuid(rowAuthId)) continue;
-    scanCountByAuth.set(rowAuthId, (scanCountByAuth.get(rowAuthId) || 0) + 1);
-  }
-
-  const rankedCounts = Array.from(scanCountByAuth.entries())
-    .sort((left, right) => {
-      if (right[1] !== left[1]) return right[1] - left[1];
-      return left[0].localeCompare(right[0]);
-    });
-
-  const previousOwnerAuthId = existingClaim?.owner_auth_id || null;
-  const previousOwnerCount = previousOwnerAuthId ? (scanCountByAuth.get(previousOwnerAuthId) || 0) : 0;
-
-  let nextOwnerAuthId: string | null = previousOwnerAuthId;
-  let nextOwnerScanCount = previousOwnerCount;
-
-  if (!previousOwnerAuthId) {
-    const topCount = rankedCounts[0]?.[1] || 0;
-    if (topCount >= CLAIM_THRESHOLD) {
-      const topOwners = rankedCounts.filter((entry) => entry[1] === topCount);
-      if (topOwners.length === 1) {
-        nextOwnerAuthId = topOwners[0][0];
-        nextOwnerScanCount = topOwners[0][1];
-      }
-    }
-  } else {
-    const bestChallenger = rankedCounts.find((entry) => entry[0] !== previousOwnerAuthId) || null;
-    if (bestChallenger && bestChallenger[1] >= CLAIM_THRESHOLD && bestChallenger[1] > previousOwnerCount) {
-      nextOwnerAuthId = bestChallenger[0];
-      nextOwnerScanCount = bestChallenger[1];
-    } else {
-      nextOwnerScanCount = previousOwnerCount;
-    }
-  }
-
-  if (nextOwnerAuthId) {
-    const existingGroupName = String(existingClaim?.claim_group_name || "").trim() || null;
-    let claimGroupNameToPersist = existingGroupName;
-
-    if (!claimGroupNameToPersist || nextOwnerAuthId !== previousOwnerAuthId) {
-      claimGroupNameToPersist = await resolveAdjacentGroupNameForOwner(adminClient, nextOwnerAuthId, areaX, areaY);
-    }
-
-    await adminClient
-      .from("AreaClaim")
-      .upsert(
-        {
-          area_x: areaX,
-          area_y: areaY,
-          owner_auth_id: nextOwnerAuthId,
-          owner_scan_count: nextOwnerScanCount,
-          claim_group_name: claimGroupNameToPersist,
-          claimed_at: existingClaim?.claimed_at || new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: "area_x,area_y", ignoreDuplicates: false },
-      );
-  } else if (existingClaim) {
-    await adminClient
-      .from("AreaClaim")
-      .delete()
-      .eq("area_x", areaX)
-      .eq("area_y", areaY);
-  }
-
-  const ownersToSync = new Set<string>();
-  ownersToSync.add(authId);
-  if (previousOwnerAuthId) ownersToSync.add(previousOwnerAuthId);
-  if (nextOwnerAuthId) ownersToSync.add(nextOwnerAuthId);
-
-  let claimedAreasCountForAuth = 0;
-  for (const ownerAuthId of ownersToSync) {
-    const syncedCount = await syncClaimedAreaCountForUser(adminClient, ownerAuthId);
-    if (ownerAuthId === authId) {
-      claimedAreasCountForAuth = syncedCount;
-    }
-  }
-
-  const areaClaimMultiplier = 1 + Math.min(claimedAreasCountForAuth, 10) * 0.1;
-
-  return {
-    areaX,
-    areaY,
-    ownerAuthId: nextOwnerAuthId,
-    ownerScanCount: Math.max(0, Number(nextOwnerScanCount || 0)),
-    claimedAreasCountForAuth,
-    areaClaimMultiplier,
-  };
 };
 
 const computeScanRewardBreakdown = ({
@@ -1100,7 +892,6 @@ Deno.serve(async (req) => {
     let effectiveDataQualityDelta = dataQualityDelta;
     let effectiveCareDelta = careDelta;
     let rewardDetails: RewardBreakdown | null = null;
-    let areaClaimResolution: AreaClaimResolution | null = null;
     let zoneSparkReward: Record<string, unknown> | null = null;
     let scanStreakFunkenReward: Record<string, unknown> | null = null;
     let scanStreakBernsteinReward: Record<string, unknown> | null = null;
@@ -1121,14 +912,9 @@ Deno.serve(async (req) => {
 
       effectiveEventSource = scanContext.eventSource;
       rewardDetails = scanContext.rewardDetails;
-      areaClaimResolution = await resolveAreaClaimForScan(
-        adminClient,
-        authId,
-        scanContext.discovery.discovery_location,
-      );
+      const claimedAreasCount = await syncClaimedAreaCountForUser(adminClient, authId);
 
       const baseFinalReward = Math.max(1, Math.round(Number(rewardDetails.finalReward || 0)));
-      const claimedAreasCount = Math.max(0, Number(areaClaimResolution?.claimedAreasCountForAuth || 0));
       // Fester Samen-Bonus fuer zukuenftige Scans: +1 Samen pro Area, die dem Spieler gehoert.
       // Kein %-Multiplikator mehr - nur dieser flache Bonus zaehlt.
       const areaOwnershipSeedBonus = claimedAreasCount;
@@ -1157,14 +943,6 @@ Deno.serve(async (req) => {
         derived_care_delta: effectiveCareDelta,
         zone_scan_applied: scanContext.matchedZoneId,
         scan_streak: scanContext.scanStreakOutcome,
-        area_claim: areaClaimResolution
-          ? {
-              area_x: areaClaimResolution.areaX,
-              area_y: areaClaimResolution.areaY,
-              owner_auth_id: areaClaimResolution.ownerAuthId,
-              owner_scan_count: areaClaimResolution.ownerScanCount,
-            }
-          : null,
       };
     } else if (!Number.isFinite(effectiveAmount) || effectiveAmount < 0) {
       return jsonResponse({ error: "amount must be a number >= 0" }, 400);
@@ -1245,13 +1023,6 @@ Deno.serve(async (req) => {
     }
 
     const result = Array.isArray(data) ? data[0] : data;
-
-    if (areaClaimResolution) {
-      await syncClaimedAreaCountForUser(adminClient, authId);
-      if (areaClaimResolution.ownerAuthId && areaClaimResolution.ownerAuthId !== authId) {
-        await syncClaimedAreaCountForUser(adminClient, areaClaimResolution.ownerAuthId);
-      }
-    }
 
     if (scanContext?.matchedZoneId) {
       const sparkEventReference = `zone:${scanContext.matchedZoneId}`;
@@ -1355,7 +1126,6 @@ Deno.serve(async (req) => {
         result,
         rewardDetails,
         zoneSparkReward,
-        areaClaim: areaClaimResolution,
         eventSource: effectiveEventSource,
         energyDelta: Math.round(effectiveEnergyDelta),
         dataQualityDelta: Math.round(effectiveDataQualityDelta),

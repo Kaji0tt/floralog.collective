@@ -244,41 +244,83 @@ async function completeZoneForPlayer(
     shuffleInPlace(neighborOffsets);
     const extraAreaCount = 1 + Math.floor(Math.random() * 2);
     const candidateOffsets = [[0, 0], ...neighborOffsets.slice(0, extraAreaCount)];
+    const maxSearchRadius = 8;
+    const searchOffsets: Array<[number, number]> = [[0, 0]];
+    for (let radius = 1; radius <= maxSearchRadius; radius += 1) {
+      for (let offsetX = -radius; offsetX <= radius; offsetX += 1) {
+        for (let offsetY = -radius; offsetY <= radius; offsetY += 1) {
+          if (Math.max(Math.abs(offsetX), Math.abs(offsetY)) === radius) {
+            searchOffsets.push([offsetX, offsetY]);
+          }
+        }
+      }
+    }
+    const grantedAreaKeys = new Set<string>();
 
     for (const [offsetX, offsetY] of candidateOffsets) {
-      const areaX = center.areaX + offsetX;
-      const areaY = center.areaY + offsetY;
+      const requestedAreaX = center.areaX + offsetX;
+      const requestedAreaY = center.areaY + offsetY;
 
-      const { data: existingClaim } = await adminClient
+      const { data: nearbyClaims, error: lookupError } = await adminClient
         .from("AreaClaim")
-        .select("owner_auth_id")
-        .eq("area_x", areaX)
-        .eq("area_y", areaY)
-        .maybeSingle();
+        .select("area_x, area_y")
+        .gte("area_x", requestedAreaX - maxSearchRadius)
+        .lte("area_x", requestedAreaX + maxSearchRadius)
+        .gte("area_y", requestedAreaY - maxSearchRadius)
+        .lte("area_y", requestedAreaY + maxSearchRadius);
 
-      if (existingClaim && existingClaim.owner_auth_id !== authId) continue;
-
-      const { error: claimError } = await adminClient
-        .from("AreaClaim")
-        .upsert(
-          {
-            area_x: areaX,
-            area_y: areaY,
-            owner_auth_id: authId,
-            owner_scan_count: requiredScanCount,
-            claim_group_name: "Geo-Zone",
-            claimed_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-          },
-          { onConflict: "area_x,area_y" },
-        );
-
-      if (claimError) {
-        console.warn("[grantScanZoneUnlocks] Area grant failed:", claimError.message);
+      if (lookupError) {
+        console.warn("[grantScanZoneUnlocks] Nearby area lookup failed:", lookupError.message);
         continue;
       }
 
-      grantedCount += 1;
+      const occupiedAreaKeys = new Set(
+        (nearbyClaims || []).map((claim) => `${claim.area_x}:${claim.area_y}`),
+      );
+      let granted = false;
+
+      for (const [searchOffsetX, searchOffsetY] of searchOffsets) {
+        const areaX = requestedAreaX + searchOffsetX;
+        const areaY = requestedAreaY + searchOffsetY;
+        const areaKey = `${areaX}:${areaY}`;
+        if (occupiedAreaKeys.has(areaKey) || grantedAreaKeys.has(areaKey)) continue;
+
+        const { data: insertedClaim, error: claimError } = await adminClient
+          .from("AreaClaim")
+          .insert(
+            {
+              area_x: areaX,
+              area_y: areaY,
+              owner_auth_id: authId,
+              owner_scan_count: requiredScanCount,
+              claim_group_name: "Geo-Zone",
+              claimed_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+            },
+            { onConflict: "area_x,area_y", ignoreDuplicates: true },
+          )
+          .select("area_x, area_y")
+          .maybeSingle();
+
+        if (claimError) {
+          console.warn("[grantScanZoneUnlocks] Area grant failed:", claimError.message);
+          break;
+        }
+
+        if (!insertedClaim) {
+          occupiedAreaKeys.add(areaKey);
+          continue;
+        }
+
+        grantedAreaKeys.add(areaKey);
+        grantedCount += 1;
+        granted = true;
+        break;
+      }
+
+      if (!granted) {
+        console.warn(`[grantScanZoneUnlocks] No unclaimed area found near ${requestedAreaX}:${requestedAreaY}`);
+      }
     }
 
     if (grantedCount > 0) {
