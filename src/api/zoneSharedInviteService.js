@@ -45,3 +45,41 @@ export const getZoneSharedInvites = async ({ authId }) => {
   if (error) throw error;
   return data || [];
 };
+
+export const getZoneSharedInviteProgress = async ({ authId }) => {
+  if (!authId) return [];
+  const { data: invites, error: inviteError } = await supabase
+    .from("ZoneSharedInvite")
+    .select("*")
+    .or(`sender_auth_id.eq.${authId},recipient_auth_id.eq.${authId}`)
+    .in("status", ["accepted", "completed"])
+    .order("created_at", { ascending: false });
+  if (inviteError) throw inviteError;
+
+  const activeInvites = (invites || []).filter((invite) =>
+    invite.status === "completed" || new Date(invite.challenge_expires_at || 0).getTime() > Date.now()
+  );
+  if (activeInvites.length === 0) return [];
+
+  const { data: scans, error: scansError } = await supabase
+    .from("ZoneSharedInviteScan")
+    .select("invite_id, auth_id")
+    .in("invite_id", activeInvites.map((invite) => invite.id));
+  if (scansError) throw scansError;
+
+  const countsByInvite = new Map();
+  (scans || []).forEach(({ invite_id, auth_id: scannerAuthId }) => {
+    const counts = countsByInvite.get(invite_id) || new Map();
+    counts.set(scannerAuthId, (counts.get(scannerAuthId) || 0) + 1);
+    countsByInvite.set(invite_id, counts);
+  });
+
+  return activeInvites.map((invite) => {
+    const counts = countsByInvite.get(invite.id) || new Map();
+    return {
+      ...invite,
+      sender_scan_count: counts.get(invite.sender_auth_id) || 0,
+      recipient_scan_count: counts.get(invite.recipient_auth_id) || 0,
+    };
+  });
+};

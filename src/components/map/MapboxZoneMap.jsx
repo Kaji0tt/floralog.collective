@@ -222,6 +222,9 @@ const buildZonePopupHtml = (props, isLightUi) => {
   const titleColor = isLightUi ? "#292524" : "#fde68a";
   const bodyColor = isLightUi ? "#44403c" : "#d6d3d1";
   const mutedColor = isLightUi ? "#78716c" : "#a8a29e";
+  const sharedProgressHtml = String(props.isSharedZone || "") === "true"
+    ? `<div style="margin-top:5px;color:${mutedColor};">Gemeinsamer Fortschritt:<br>${escapeHtml(props.senderName || "Freund")}: ${Math.min(5, Number(props.senderScanCount) || 0)}/5<br>${escapeHtml(props.recipientName || "Freund")}: ${Math.min(5, Number(props.recipientScanCount) || 0)}/5</div>`
+    : "";
 
   return `
     <div style="font-family:sans-serif;min-width:176px;max-width:228px;padding:6px 4px;background:${cardBg};border:1px solid ${cardBorder};border-radius:12px;">
@@ -237,6 +240,7 @@ const buildZonePopupHtml = (props, isLightUi) => {
           Start bei x1.50, sinkt pro weiterem Scan in dieser Zone.
         </div>
         <div style="margin-bottom:4px;"><span style="font-weight:700;">Scans:</span> ${scanCount}/${requiredScanCount}</div>
+        ${sharedProgressHtml}
         ${radiusDisplay ? `<div style="color:${mutedColor};">Radius: ${radiusDisplay}</div>` : ""}
       </div>
     </div>
@@ -1140,7 +1144,8 @@ export default function MapboxZoneMap({
           }
 
           const theme = typeof zone.theme === "string" ? zone.theme : "meadow";
-          const color = THEME_MAP_COLORS[theme] || THEME_MAP_COLORS.meadow;
+          const isSharedZone = Boolean(zone.isSharedZone);
+          const color = isSharedZone ? "#f0e5a5" : THEME_MAP_COLORS[theme] || THEME_MAP_COLORS.meadow;
           const themeLabel = THEME_MAP_LABELS[theme] || theme;
           const zoneMultiplierCandidate = Number(
             zone.bonusMultiplier ?? zone.zoneBonusMultiplier ?? zone.zone_bonus_multiplier ?? 1.5
@@ -1164,6 +1169,11 @@ export default function MapboxZoneMap({
               zoneMultiplier,
               scansToday,
               requiredScanCount,
+              isSharedZone,
+              senderName: zone.sharedProgress?.[0]?.label || "Freund",
+              senderScanCount: zone.sharedProgress?.[0]?.count || 0,
+              recipientName: zone.sharedProgress?.[1]?.label || "Freund",
+              recipientScanCount: zone.sharedProgress?.[1]?.count || 0,
               centerLat: lat,
               centerLng: lng,
             },
@@ -1230,6 +1240,7 @@ export default function MapboxZoneMap({
               centerLng: Number(props.centerLng),
               radiusM: Number(props.radiusM),
               themeLabel: props.themeLabel || props.theme || "Zone",
+              isSharedZone: String(props.isSharedZone) === "true",
             });
             return;
           }

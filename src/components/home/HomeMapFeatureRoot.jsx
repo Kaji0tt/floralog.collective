@@ -1,5 +1,5 @@
 import { Building2, CircleHelp, Droplet, EyeOff, Leaf, Loader2, PackageOpen, RefreshCw, Sprout, User, Users, X } from "lucide-react";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import MapboxZoneMap from "@/components/map/MapboxZoneMap";
 import MapPinDetailOverlay from "@/components/map/MapPinDetailOverlay";
 import ZoneDetailSheet from "@/components/home/ZoneDetailSheet";
@@ -8,7 +8,7 @@ import ZoneLootboxInfoDialog from "@/components/home/ZoneLootboxInfoDialog";
 import GoldGradientCard from "@/components/home/GoldGradientCard";
 import { calculateDistanceMetersRaw } from "@/lib/discoveryMap";
 import { computeZoneMultiplierFromScanCount } from "@/lib/robotPlantEconomy";
-import { createZoneSharedInvite } from "@/api/zoneSharedInviteService";
+import { createZoneSharedInvite, getZoneSharedInviteProgress } from "@/api/zoneSharedInviteService";
 import { createUserNotification } from "@/api/notificationService";
 
 const AREA_HALF_SIZE_M = 50;
@@ -141,6 +141,38 @@ export default function HomeMapFeatureRoot({
   const [isLootboxInfoOpen, setIsLootboxInfoOpen] = useState(false);
   const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
   const [isSendingShare, setIsSendingShare] = useState(false);
+  const [sharedZoneInvites, setSharedZoneInvites] = useState([]);
+
+  useEffect(() => {
+    if (!authId) {
+      setSharedZoneInvites([]);
+      return undefined;
+    }
+
+    let isCancelled = false;
+    let isLoading = false;
+    const loadSharedZones = async () => {
+      if (isLoading) return;
+      isLoading = true;
+      try {
+        const invites = await getZoneSharedInviteProgress({ authId });
+        if (!isCancelled) setSharedZoneInvites(invites);
+      } catch (error) {
+        console.warn("[HomeMap] Could not load shared zone progress:", error?.message || error);
+      } finally {
+        isLoading = false;
+      }
+    };
+
+    loadSharedZones();
+    const refreshInterval = window.setInterval(loadSharedZones, 15000);
+    window.addEventListener("focus", loadSharedZones);
+    return () => {
+      isCancelled = true;
+      window.clearInterval(refreshInterval);
+      window.removeEventListener("focus", loadSharedZones);
+    };
+  }, [authId]);
 
   const zoneRewardProgressByTheme = useMemo(() => {
     const unlockedRewardIds = new Set(
@@ -216,18 +248,51 @@ export default function HomeMapFeatureRoot({
     return map;
   }, [rewards, userRewards, plants, genera, allDiscoveryPoints, authId, logoAssetCatalog]);
 
+  const sharedZones = useMemo(() => sharedZoneInvites.map((invite) => {
+    const senderIsCurrentUser = String(invite.sender_auth_id) === String(authId);
+    const senderName = senderIsCurrentUser
+      ? "Du"
+      : friendOptions.find((friend) => String(friend.authId) === String(invite.sender_auth_id))?.name || "Freund";
+    const recipientName = senderIsCurrentUser
+      ? friendOptions.find((friend) => String(friend.authId) === String(invite.recipient_auth_id))?.name || "Freund"
+      : "Du";
+    const theme = String(invite.zone_theme || "meadow").trim().toLowerCase();
+    const themeMeta = ZONE_THEME_META[theme] || ZONE_THEME_META.meadow;
+    return {
+      zoneKey: `shared:${invite.id}`,
+      title: `Gemeinsam: ${invite.zone_title || themeMeta.label}`,
+      theme,
+      centerLat: Number(invite.center_lat),
+      centerLng: Number(invite.center_lng),
+      radiusM: Number(invite.radius_m),
+      isActive: invite.status === "accepted",
+      isSharedZone: true,
+      sharedProgress: [
+        { authId: invite.sender_auth_id, label: senderName, count: Number(invite.sender_scan_count) || 0 },
+        { authId: invite.recipient_auth_id, label: recipientName, count: Number(invite.recipient_scan_count) || 0 },
+      ],
+      sourceZone: invite,
+      requiredScanCount: 5,
+      themeIcon: Users,
+      themeIconClass: "text-emerald-300",
+      themeMeta,
+    };
+  }), [sharedZoneInvites, authId, friendOptions]);
+
   const zoneListItems = useMemo(() => {
     const centerLat = Number(cachedLocation?.lat ?? heroMapCenter?.[0]);
     const centerLng = Number(cachedLocation?.lng ?? heroMapCenter?.[1]);
 
-    return (Array.isArray(heroZones) ? heroZones : [])
+    return [...(Array.isArray(heroZones) ? heroZones : []), ...sharedZones]
       .map((zone, index) => {
         const zoneLat = Number(zone?.centerLat ?? zone?.center_lat);
         const zoneLng = Number(zone?.centerLng ?? zone?.center_lng);
         const themeKey = String(zone?.theme || zone?.zoneTheme || "meadow").trim().toLowerCase();
         const themeMeta = ZONE_THEME_META[themeKey] || ZONE_THEME_META.meadow;
         const zoneTitle = String(zone?.title || zone?.zoneTitle || zone?.name || themeMeta.label).trim();
-        const requiredScanCount = Math.min(5, Math.max(3, Number(zone?.requiredScanCount ?? zone?.required_scan_count) || 5));
+        const requiredScanCount = zone?.isSharedZone
+          ? 5
+          : Math.min(5, Math.max(3, Number(zone?.requiredScanCount ?? zone?.required_scan_count) || 5));
         const scansToday = Number(zone?.scansToday ?? zone?.scans_today ?? zone?.scanCountToday ?? zone?.scan_count_today ?? 0);
         const scanProgress = Number.isFinite(scansToday) ? Math.max(0, Math.min(requiredScanCount, scansToday)) : 0;
         const configuredZoneMultiplier = Number(
@@ -255,6 +320,8 @@ export default function HomeMapFeatureRoot({
           distanceLabel: formatDistanceMeters(distanceM),
           scanLabel: `${scanProgress}/${requiredScanCount}`,
           scanProgressCount: scanProgress,
+          isSharedZone: Boolean(zone?.isSharedZone),
+          sharedProgress: zone?.sharedProgress || [],
           requiredScanCount,
           accessoryLabel: `${Math.max(0, accessoryUnlocked)}/${accessoryTotal}`,
           accessoryUnlockedCount: Math.max(0, accessoryUnlocked),
@@ -265,7 +332,12 @@ export default function HomeMapFeatureRoot({
           themeIconClass: themeMeta.iconClass,
         };
       });
-  }, [cachedLocation?.lat, cachedLocation?.lng, heroMapCenter, heroZones, zoneRewardProgressByTheme, zoneTargetPlantsByTheme]);
+  }, [cachedLocation?.lat, cachedLocation?.lng, heroMapCenter, heroZones, sharedZones, zoneRewardProgressByTheme, zoneTargetPlantsByTheme]);
+
+  const mapZones = useMemo(
+    () => [...(Array.isArray(heroZones) ? heroZones : []), ...sharedZones],
+    [heroZones, sharedZones]
+  );
 
   const zoneThemeSummaries = useMemo(() => {
     const summaryMap = new Map();
@@ -581,7 +653,7 @@ export default function HomeMapFeatureRoot({
         <div className="relative flex-1 min-h-0">
           <div className="absolute inset-0 overflow-hidden">
             <MapboxZoneMap
-              zones={heroZones}
+              zones={mapZones}
               userLocation={cachedLocation}
               fallbackCenter={{ lat: heroMapCenter[0], lng: heroMapCenter[1] }}
               focusCenter={selectedZoneFocusCenter}

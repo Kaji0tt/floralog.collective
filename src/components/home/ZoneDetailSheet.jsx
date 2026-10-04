@@ -77,29 +77,49 @@ export default function ZoneDetailSheet({ zone, isLightUi, onClose, onOpenScans,
                   isLightUi ? "text-stone-500" : "text-stone-400"
                 }`}>
                   <span>Scans</span>
-                  <span className="tabular-nums">{zone.scanLabel}</span>
+                  <span className="tabular-nums">{zone.isSharedZone ? "je 5" : zone.scanLabel}</span>
                 </div>
-                <div
-                  className="grid gap-1"
-                  style={{ gridTemplateColumns: `repeat(${zone.requiredScanCount}, minmax(0, 1fr))` }}
-                >
-                  {Array.from({ length: zone.requiredScanCount }).map((_, stepIndex) => {
-                    const isFilled = stepIndex < zone.scanProgressCount;
-                    return (
-                      <span
-                        key={`${zone.key}-detail-scan-step-${stepIndex}`}
-                        className={`h-2 rounded-full border ${isFilled
-                          ? isLightUi
-                            ? "border-emerald-500/35 bg-emerald-500/85"
-                            : "border-emerald-300/30 bg-emerald-400/85"
-                          : isLightUi
-                            ? "border-stone-300/70 bg-stone-200/70"
-                            : "border-[#f0e5a5]/12 bg-black/25"
-                        }`}
-                      />
-                    );
-                  })}
-                </div>
+                {zone.isSharedZone ? zone.sharedProgress.map((participant) => (
+                  <div key={participant.authId} className="grid gap-1">
+                    <div className={`flex items-center justify-between text-[10px] ${isLightUi ? "text-stone-600" : "text-stone-300"}`}>
+                      <span>{participant.label}</span>
+                      <span className="tabular-nums">{Math.min(5, participant.count)}/5</span>
+                    </div>
+                    <div className="grid grid-cols-5 gap-1">
+                      {Array.from({ length: 5 }).map((_, stepIndex) => (
+                        <span
+                          key={`${zone.key}-${participant.authId}-scan-${stepIndex}`}
+                          className={`h-2 rounded-full border ${stepIndex < participant.count
+                            ? isLightUi ? "border-emerald-500/35 bg-emerald-500/85" : "border-emerald-300/30 bg-emerald-400/85"
+                            : isLightUi ? "border-stone-300/70 bg-stone-200/70" : "border-[#f0e5a5]/12 bg-black/25"
+                          }`}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                )) : (
+                  <div
+                    className="grid gap-1"
+                    style={{ gridTemplateColumns: `repeat(${zone.requiredScanCount}, minmax(0, 1fr))` }}
+                  >
+                    {Array.from({ length: zone.requiredScanCount }).map((_, stepIndex) => {
+                      const isFilled = stepIndex < zone.scanProgressCount;
+                      return (
+                        <span
+                          key={`${zone.key}-detail-scan-step-${stepIndex}`}
+                          className={`h-2 rounded-full border ${isFilled
+                            ? isLightUi
+                              ? "border-emerald-500/35 bg-emerald-500/85"
+                              : "border-emerald-300/30 bg-emerald-400/85"
+                            : isLightUi
+                              ? "border-stone-300/70 bg-stone-200/70"
+                              : "border-[#f0e5a5]/12 bg-black/25"
+                          }`}
+                        />
+                      );
+                    })}
+                  </div>
+                )}
               </div>
 
               <div className={`mt-2 flex items-center justify-between text-[10px] font-semibold uppercase tracking-[0.14em] ${
@@ -141,19 +161,21 @@ export default function ZoneDetailSheet({ zone, isLightUi, onClose, onOpenScans,
                 Scans
                 <span aria-hidden="true" className="gold-gradient-border-mask" style={{ background: scansBorderGradient }} />
               </button>
-              <button
-                type="button"
-                onClick={onShare}
-                className={`relative flex w-full items-center justify-center gap-1 rounded-xl px-2 py-1.5 text-[11px] font-semibold leading-tight transition-colors ${
-                  isLightUi
-                    ? "bg-white/70 text-amber-800 hover:bg-white/90"
-                    : "bg-black/35 text-amber-100 hover:bg-black/55"
-                }`}
-              >
-                <Share2 className="h-3 w-3 shrink-0" />
-                <span className="truncate">Teilen</span>
-                <span aria-hidden="true" className="gold-gradient-border-mask" style={{ background: shareBorderGradient }} />
-              </button>
+              {!zone.isSharedZone && (
+                <button
+                  type="button"
+                  onClick={onShare}
+                  className={`relative flex w-full items-center justify-center gap-1 rounded-xl px-2 py-1.5 text-[11px] font-semibold leading-tight transition-colors ${
+                    isLightUi
+                      ? "bg-white/70 text-amber-800 hover:bg-white/90"
+                      : "bg-black/35 text-amber-100 hover:bg-black/55"
+                  }`}
+                >
+                  <Share2 className="h-3 w-3 shrink-0" />
+                  <span className="truncate">Teilen</span>
+                  <span aria-hidden="true" className="gold-gradient-border-mask" style={{ background: shareBorderGradient }} />
+                </button>
+              )}
             </div>
           </div>
 
