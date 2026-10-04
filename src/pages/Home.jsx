@@ -4,6 +4,8 @@ import { getCurrentUser, updateCurrentUserProfile } from "@/api/userApi";
 import { upsertUserProfile } from "@/api/authService";
 import { executeMigration } from "@/api/migrationService";
 import { createUserNotification } from "@/api/notificationService";
+import { getPendingSharedZoneMapEvents } from "@/api/zoneSharedInviteService";
+import { claimZoneLootbox } from "@/api/zoneLootboxService";
 import { supabase } from "@/api/supabaseClient";
 import { connectViaReferral } from "@/api/friendService";
 import {
@@ -465,6 +467,18 @@ function HomeContent() {
   const scanFeedbackCooldownRef = useRef(false);
   const blockNavigationFeedbackRef = useRef(false);
 
+  const { data: sharedZoneMapEvents = { pendingInvites: [], sharedZoneInvites: [], pendingBudOffers: [] } } = useQuery({
+    queryKey: ["sharedZoneMapEvents", user?.id],
+    queryFn: () => getPendingSharedZoneMapEvents({ authId: user?.id }),
+    enabled: !!user?.id,
+    initialData: { pendingInvites: [], sharedZoneInvites: [], pendingBudOffers: [] },
+    staleTime: 10000,
+    refetchInterval: 15000,
+    refetchOnWindowFocus: true,
+  });
+  const pendingZoneBudOffers = sharedZoneMapEvents.pendingBudOffers;
+  const pendingMapEventCount = sharedZoneMapEvents.pendingInvites.length + pendingZoneBudOffers.length;
+
   // Cooldown-Schutz: scanFeedback kann nach Schließen für 1 Sekunde nicht erneut gesetzt werden
   const safeSetScanFeedback = (value) => {
     if ((scanFeedbackCooldownRef.current || blockNavigationFeedbackRef.current) && value) {
@@ -474,7 +488,6 @@ function HomeContent() {
     setScanFeedback(value);
   };
   const [activePanel, setActivePanel] = useState(null);
-  const [zoneShareFriendAuthId, setZoneShareFriendAuthId] = useState(null);
   const [shopOpenCategory, setShopOpenCategory] = useState("root");
   const [scanStreakStatus, setScanStreakStatus] = useState(null);
   const [scanStreakNotice, setScanStreakNotice] = useState(null);
@@ -1393,7 +1406,7 @@ function HomeContent() {
     const navigationRandomRewards = Array.isArray(location.state.randomRewards)
       ? location.state.randomRewards.filter(Boolean)
       : [];
-    const completedZoneId = navigationUnlocks?.zoneProgress?.completed
+    const completedZoneId = navigationUnlocks?.zoneProgress?.completed && navigationUnlocks.zoneProgress.removeZone !== false
       ? navigationUnlocks.zoneProgress.zoneId
       : null;
     const hasScanZoneUnlocks = navigationUnlocks.length > 0;
@@ -1437,6 +1450,7 @@ function HomeContent() {
     // refresh them now instead of waiting for staleTime/window-focus so Home
     // never shows the pre-scan seed count or stale badges right after return.
     if (hasScanFeedback || hasScanZoneUnlocks || hasRandomRewards) {
+      queryClient.invalidateQueries({ queryKey: ["sharedZoneMapEvents", user?.id] });
       queryClient.invalidateQueries({ queryKey: ['userAlltimeSeedTotal', user?.id] });
       queryClient.invalidateQueries({ queryKey: ['userWallet', user?.id] });
       queryClient.invalidateQueries({ queryKey: ['homeAlltimeSeedLeaderboard'] });
@@ -3111,6 +3125,46 @@ function HomeContent() {
     return `x${safeValue.toFixed(2).replace(/\.00$/, "").replace(/(\.\d)0$/, "$1")}`;
   };
 
+  const handleOpenPendingZoneBudOffer = () => {
+    const queuedClaimKeys = new Set(randomRewardQueue.map((reward) => reward.claimKey).filter(Boolean));
+    const offersToQueue = pendingZoneBudOffers.filter((offer) => !queuedClaimKeys.has(offer.claimKey));
+    if (offersToQueue.length > 0) {
+      setRandomRewardQueue((currentQueue) => [...offersToQueue, ...currentQueue]);
+      setShowRandomReward(true);
+    }
+  };
+
+  const handleAcceptZoneBudOffer = async (offer) => {
+    const result = await claimZoneLootbox({
+      zoneTheme: offer.zoneTheme,
+      zoneId: offer.zoneId,
+      claimKey: offer.claimKey,
+    });
+    const reward = result?.reward || null;
+    queryClient.invalidateQueries({ queryKey: ["sharedZoneMapEvents", user?.id] });
+    queryClient.invalidateQueries({ queryKey: ["userRewards"] });
+    queryClient.invalidateQueries({ queryKey: ["userWallet", user?.id] });
+
+    return {
+      ...offer,
+      requiresClaim: false,
+      display_name: reward?.name || reward?.display_name || result?.poolName || offer.lootboxName,
+      name: reward?.name || reward?.display_name || result?.poolName || offer.lootboxName,
+      rewardType: reward?.type || null,
+      value: reward?.value || (result?.rewardStatus === "duplicate_compensated" ? `${result?.duplicateSeedValue ?? 0} Seeds` : ""),
+      image_url: reward?.imageUrl || reward?.image_url || null,
+      rewardStatus: result?.rewardStatus || null,
+      duplicateSeedValue: result?.duplicateSeedValue ?? null,
+      currencies: Array.isArray(result?.currencies) ? result.currencies : [],
+      type: "lootbox",
+    };
+  };
+
+  const handleDeferZoneBudOffer = () => {
+    const nextQueue = randomRewardQueue.slice(1);
+    setRandomRewardQueue(nextQueue);
+    setShowRandomReward(nextQueue.length > 0);
+  };
 
   const navItems = [
     {
@@ -3121,6 +3175,7 @@ function HomeContent() {
         handleOpenHeroZoneMap();
         setShowHealthStatsPanel(false);
       },
+      showNotificationDot: pendingMapEventCount > 0,
       isActive: activePanel === "map",
       ...getNavButtonStyle({ palette: "blue", isLightUi }),
     },
@@ -3585,6 +3640,8 @@ function HomeContent() {
           randomRewardQueue[0]?.type === "lootbox" ? (
             <ZoneLootboxNotification
               reward={randomRewardQueue[0]}
+              onAccept={handleAcceptZoneBudOffer}
+              onLater={randomRewardQueue[0]?.requiresClaim ? handleDeferZoneBudOffer : undefined}
               onComplete={() => {
                 setRandomRewardQueue((prevQueue) => {
                   const nextQueue = prevQueue.slice(1);
@@ -3958,10 +4015,6 @@ function HomeContent() {
                     onRequestClose={() => setActivePanel(null)}
                     onHeaderMetaChange={setEmbeddedHeaderMeta}
                     openAddFriendDialogNonce={embeddedFriendsAddDialogNonce}
-                    onRequestZoneShareWithFriend={(friendAuthId) => {
-                      setZoneShareFriendAuthId(friendAuthId);
-                      setActivePanel("map");
-                    }}
                   />
                 ) : activePanel === "shop" ? (
                   <ShopFeatureRoot
@@ -4016,7 +4069,8 @@ function HomeContent() {
                     logoAssetCatalog={logoAssets}
                     friendEmails={[...friendEmailSet]}
                     friendOptions={friendOptions}
-                    preselectedFriendAuthId={zoneShareFriendAuthId}
+                    pendingZoneMapEvents={sharedZoneMapEvents}
+                    onOpenPendingZoneBudOffers={() => handleOpenPendingZoneBudOffer(pendingZoneBudOffers)}
                   />
                 ) : (
                   <section data-ui="home-plant-hero-section" className="relative flex-1 min-h-0 rounded-3xl px-[clamp(0.25rem,1vw,0.75rem)] pt-[clamp(0.1rem,0vh,0.5rem)] pb-[clamp(0.12rem,0.35vh,0.28rem)] flex flex-col gap-2 bg-transparent">

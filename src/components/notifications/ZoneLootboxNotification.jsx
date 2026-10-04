@@ -11,37 +11,60 @@ const ZONE_THEMES = {
   wetlands: { label: "Feuchtgebiet", color: "#14b8a6", light: "#99f6e4", dark: "#134e4a" },
 };
 
-export default function ZoneLootboxNotification({ reward, onComplete }) {
+export default function ZoneLootboxNotification({ reward, onComplete, onAccept, onLater }) {
   const [phase, setPhase] = useState("sealed");
+  const [resolvedReward, setResolvedReward] = useState(null);
+  const [isClaiming, setIsClaiming] = useState(false);
+  const [claimError, setClaimError] = useState("");
   const reducedMotion = useReducedMotion();
 
   useEffect(() => {
     setPhase("sealed");
+    setResolvedReward(null);
+    setClaimError("");
   }, [reward]);
 
   useEffect(() => {
-    if (!reward || phase === "revealed") return undefined;
+    if (!reward || phase === "revealed" || (reward.requiresClaim && !resolvedReward)) return undefined;
     const timeoutId = window.setTimeout(
       () => setPhase(phase === "sealed" ? "opening" : "revealed"),
       phase === "sealed" ? 9000 : reducedMotion ? 200 : 1150,
     );
     return () => window.clearTimeout(timeoutId);
-  }, [reward, phase, reducedMotion]);
+  }, [reward, phase, reducedMotion, resolvedReward]);
 
   if (!reward) return null;
 
+  const displayReward = resolvedReward || reward;
+  const isClaimOffer = Boolean(reward.requiresClaim && !resolvedReward);
   const isOpening = phase === "opening";
   const isRevealed = phase === "revealed";
-  const isDuplicate = reward.rewardStatus === "duplicate_compensated";
-  const theme = ZONE_THEMES[reward.zoneTheme] || { ...ZONE_THEMES.meadow, label: "Geo-Zone" };
-  const hasSpecialReward = Boolean(reward.type && !["lootbox", "currency", "seeds", "seeds_progress", "sparks", "amber"].includes(reward.type));
+  const isDuplicate = displayReward.rewardStatus === "duplicate_compensated";
+  const theme = ZONE_THEMES[displayReward.zoneTheme] || { ...ZONE_THEMES.meadow, label: "Geo-Zone" };
+  const rewardType = displayReward.rewardType || displayReward.type;
+  const hasSpecialReward = Boolean(rewardType && !["lootbox", "currency", "seeds", "seeds_progress", "sparks", "amber"].includes(rewardType));
   const gold = "#c8ac62";
   const accent = hasSpecialReward ? gold : theme.light;
-  const title = isDuplicate ? "Doppelter Fund" : reward.display_name || reward.name || "Entdecker-Knospe";
+  const title = isDuplicate ? "Doppelter Fund" : displayReward.display_name || displayReward.name || "Entdecker-Knospe";
   const currencies = isDuplicate
-    ? [{ currencyCode: "seeds_progress", amount: Number(reward.duplicateSeedValue ?? 0) }]
-    : reward.currencies || [];
-  const showReward = isDuplicate || hasSpecialReward || Boolean(reward.value) || currencies.length === 0;
+    ? [{ currencyCode: "seeds_progress", amount: Number(displayReward.duplicateSeedValue ?? 0) }]
+    : displayReward.currencies || [];
+  const showReward = isDuplicate || hasSpecialReward || Boolean(displayReward.value) || currencies.length === 0;
+
+  const handleAccept = async () => {
+    if (!onAccept || isClaiming) return;
+    setIsClaiming(true);
+    setClaimError("");
+    try {
+      const claimedReward = await onAccept(reward);
+      setResolvedReward(claimedReward);
+      setPhase("opening");
+    } catch (error) {
+      setClaimError(error?.message || "Die Knospe konnte nicht angenommen werden.");
+    } finally {
+      setIsClaiming(false);
+    }
+  };
 
   const handleOpen = () => {
     if (isRevealed) onComplete?.();
@@ -101,8 +124,13 @@ export default function ZoneLootboxNotification({ reward, onComplete }) {
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.14em]" style={{ color: theme.light }}>{theme.label} abgeschlossen</p>
               <h3 id="zone-lootbox-title" className="mt-2 break-words text-2xl font-bold text-stone-50">
-                {isRevealed ? "Deine Belohnung" : isOpening ? "Die Knospe erwacht" : reward.lootboxName || "Entdecker-Knospe"}
+                {isRevealed ? "Deine Belohnung" : isClaimOffer ? "Deine Knospe wartet" : isOpening ? "Die Knospe erwacht" : displayReward.lootboxName || "Entdecker-Knospe"}
               </h3>
+              {isClaimOffer && (
+                <p className="mt-2 text-sm leading-relaxed text-stone-300">
+                  Deine {displayReward.requiredScanCount || 5} Scans sind geschafft. Nimm die Knospe jetzt an oder später über die Karte.
+                </p>
+              )}
             </div>
 
             <div className="relative flex min-h-60 items-center justify-center">
@@ -182,12 +210,12 @@ export default function ZoneLootboxNotification({ reward, onComplete }) {
                           className="flex h-32 w-32 items-center justify-center overflow-hidden rounded-full border-2"
                           style={{ borderColor: accent, background: `linear-gradient(135deg, ${theme.color}55, ${theme.dark})`, boxShadow: `0 0 45px ${hasSpecialReward ? `${gold}70` : `${theme.color}60`}` }}
                         >
-                          {isDuplicate ? <Sprout className="h-16 w-16" style={{ color: theme.light }} /> : reward.image_url ? (
-                            <img src={reward.image_url} alt={title} className="h-full w-full object-contain" />
+                          {isDuplicate ? <Sprout className="h-16 w-16" style={{ color: theme.light }} /> : displayReward.image_url ? (
+                            <img src={displayReward.image_url} alt={title} className="h-full w-full object-contain" />
                           ) : <Gift className="h-16 w-16" style={{ color: accent }} />}
                         </div>
                         <p className="w-full break-words text-xl font-bold" style={{ color: hasSpecialReward ? "#f0e5a5" : "#fafaf9" }}>{title}</p>
-                        {!isDuplicate && reward.value && <p className="break-words text-base" style={{ color: theme.light }}>{reward.value}</p>}
+                        {!isDuplicate && displayReward.value && <p className="break-words text-base" style={{ color: theme.light }}>{displayReward.value}</p>}
                       </motion.div>
                     )}
                     <div className="flex flex-wrap justify-center gap-3">
@@ -218,16 +246,40 @@ export default function ZoneLootboxNotification({ reward, onComplete }) {
               </AnimatePresence>
             </div>
 
-            <button
-              type="button"
-              onClick={handleOpen}
-              disabled={isOpening}
-              className="flex w-full items-center justify-center gap-2 rounded-xl border px-4 py-3 text-sm font-semibold transition hover:brightness-110 disabled:cursor-wait"
-              style={{ borderColor: `${accent}80`, background: `${theme.color}35`, color: theme.light }}
-            >
-              {isRevealed ? <ArrowRight className="h-4 w-4" /> : <Sparkles className="h-4 w-4" />}
-              {isRevealed ? "Weiter" : isOpening ? "Öffnet sich …" : "Knospe öffnen"}
-            </button>
+            {claimError && <p role="alert" className="text-sm text-red-300">{claimError}</p>}
+            {isClaimOffer ? (
+              <div className="grid gap-2 sm:grid-cols-2">
+                <button
+                  type="button"
+                  onClick={handleAccept}
+                  disabled={isClaiming}
+                  className="flex w-full items-center justify-center gap-2 rounded-xl border px-4 py-3 text-sm font-semibold transition hover:brightness-110 disabled:cursor-wait"
+                  style={{ borderColor: `${accent}80`, background: `${theme.color}35`, color: theme.light }}
+                >
+                  <Sparkles className="h-4 w-4" />
+                  {isClaiming ? "Wird angenommen …" : "Knospe annehmen"}
+                </button>
+                <button
+                  type="button"
+                  onClick={onLater}
+                  disabled={isClaiming}
+                  className="flex w-full items-center justify-center rounded-xl border border-white/20 px-4 py-3 text-sm font-semibold text-stone-200 transition hover:bg-white/10 disabled:cursor-wait"
+                >
+                  Später
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={handleOpen}
+                disabled={isOpening}
+                className="flex w-full items-center justify-center gap-2 rounded-xl border px-4 py-3 text-sm font-semibold transition hover:brightness-110 disabled:cursor-wait"
+                style={{ borderColor: `${accent}80`, background: `${theme.color}35`, color: theme.light }}
+              >
+                {isRevealed ? <ArrowRight className="h-4 w-4" /> : <Sparkles className="h-4 w-4" />}
+                {isRevealed ? "Weiter" : isOpening ? "Öffnet sich …" : "Knospe öffnen"}
+              </button>
+            )}
           </div>
         </motion.div>
       </motion.div>

@@ -201,7 +201,7 @@ Deno.serve(async (req) => {
         .from("ZoneSharedInvite")
         .select("id")
         .eq("source_zone_id", zoneId)
-        .eq("status", "completed")
+        .in("status", ["accepted", "completed"])
         .or(`sender_auth_id.eq.${authId},recipient_auth_id.eq.${authId}`)
         .limit(1)
         .maybeSingle()

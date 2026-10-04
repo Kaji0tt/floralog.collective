@@ -35,6 +35,20 @@ const LOGO_URL = "https://blauzahn.eu/PlantDexIcon.png";
 // PlantNet erlaubt maximal 5 Bilder pro Identifikationsanfrage.
 const MAX_SCAN_IMAGES = 5;
 
+const buildSharedZoneBudOffer = (zoneProgress) => ({
+  id: `zone-lootbox-offer:${zoneProgress.claimKey}`,
+  display_name: "Gemeinsame Entdecker-Knospe",
+  name: "Gemeinsame Entdecker-Knospe",
+  lootboxName: "Entdecker-Knospe",
+  type: "lootbox",
+  zoneTheme: zoneProgress.zoneTheme,
+  zoneId: zoneProgress.zoneId,
+  requiredScanCount: zoneProgress.requiredScanCount,
+  claimKey: zoneProgress.claimKey,
+  requiresClaim: true,
+  isSharedZone: true,
+});
+
 /**
  * Verwendet ausschließlich die harten GBIF-Daten – kein LLM.
  */
@@ -958,35 +972,40 @@ export default function Scanner() {
 
       const zoneCompletion = scanZoneUnlocks?.zoneProgress;
       if (zoneCompletion?.completed) {
-        try {
-          const lootboxResult = await claimZoneLootbox({
-            zoneTheme: zoneCompletion.zoneTheme,
-            zoneId: zoneCompletion.zoneId,
-            claimKey: zoneCompletion.claimKey,
-          });
+        if (zoneCompletion.isSharedZone) {
+          const offer = buildSharedZoneBudOffer(zoneCompletion);
+          randomRewards.push(offer);
+        } else {
+          try {
+            const lootboxResult = await claimZoneLootbox({
+              zoneTheme: zoneCompletion.zoneTheme,
+              zoneId: zoneCompletion.zoneId,
+              claimKey: zoneCompletion.claimKey,
+            });
 
-          const lootboxReward = lootboxResult?.reward || null;
-          const lootboxCurrencies = Array.isArray(lootboxResult?.currencies) ? lootboxResult.currencies : [];
-          if (lootboxReward || lootboxCurrencies.length > 0) {
-            randomRewards = [
-              ...randomRewards,
-              {
-                id: lootboxReward?.id || lootboxReward?.reward_id || "zone-lootbox",
-                display_name: lootboxReward?.name || lootboxReward?.display_name || lootboxResult?.poolName || "Entdecker-Knospe",
-                name: lootboxReward?.name || lootboxReward?.display_name || lootboxResult?.poolName || "Entdecker-Knospe",
-                lootboxName: lootboxResult?.poolName || "Entdecker-Knospe",
-                value: lootboxReward?.value || (lootboxResult?.rewardStatus === "duplicate_compensated" ? `${lootboxResult?.duplicateSeedValue ?? 0} Seeds` : ""),
-                image_url: lootboxReward?.imageUrl || lootboxReward?.image_url || null,
-                type: lootboxReward?.type || "lootbox",
-                rewardStatus: lootboxResult?.rewardStatus || null,
-                duplicateSeedValue: lootboxResult?.duplicateSeedValue ?? null,
-                currencies: lootboxCurrencies,
-                zoneTheme: zoneCompletion.zoneTheme,
-              },
-            ];
+            const lootboxReward = lootboxResult?.reward || null;
+            const lootboxCurrencies = Array.isArray(lootboxResult?.currencies) ? lootboxResult.currencies : [];
+            if (lootboxReward || lootboxCurrencies.length > 0) {
+              randomRewards = [
+                ...randomRewards,
+                {
+                  id: lootboxReward?.id || lootboxReward?.reward_id || "zone-lootbox",
+                  display_name: lootboxReward?.name || lootboxReward?.display_name || lootboxResult?.poolName || "Entdecker-Knospe",
+                  name: lootboxReward?.name || lootboxReward?.display_name || lootboxResult?.poolName || "Entdecker-Knospe",
+                  lootboxName: lootboxResult?.poolName || "Entdecker-Knospe",
+                  value: lootboxReward?.value || (lootboxResult?.rewardStatus === "duplicate_compensated" ? `${lootboxResult?.duplicateSeedValue ?? 0} Seeds` : ""),
+                  image_url: lootboxReward?.imageUrl || lootboxReward?.image_url || null,
+                  type: lootboxReward?.type || "lootbox",
+                  rewardStatus: lootboxResult?.rewardStatus || null,
+                  duplicateSeedValue: lootboxResult?.duplicateSeedValue ?? null,
+                  currencies: lootboxCurrencies,
+                  zoneTheme: zoneCompletion.zoneTheme,
+                },
+              ];
+            }
+          } catch (lootboxError) {
+            console.error("Fehler beim Claim der Zone-Lootbox:", lootboxError);
           }
-        } catch (lootboxError) {
-          console.error("Fehler beim Claim der Zone-Lootbox:", lootboxError);
         }
       }
     } catch (error) {
@@ -1133,32 +1152,37 @@ export default function Scanner() {
 
         const zoneCompletion = scanZoneUnlocks?.zoneProgress;
         if (zoneCompletion?.completed) {
-          try {
-            const lootboxResult = await claimZoneLootbox({
-              zoneTheme: zoneCompletion.zoneTheme,
-              zoneId: zoneCompletion.zoneId,
-              claimKey: zoneCompletion.claimKey,
-            });
+          if (zoneCompletion.isSharedZone) {
+            const offer = buildSharedZoneBudOffer(zoneCompletion);
+            randomRewards.push(offer);
+          } else {
+            try {
+              const lootboxResult = await claimZoneLootbox({
+                zoneTheme: zoneCompletion.zoneTheme,
+                zoneId: zoneCompletion.zoneId,
+                claimKey: zoneCompletion.claimKey,
+              });
 
-            const lootboxReward = lootboxResult?.reward || null;
-            if (lootboxReward) {
-              randomRewards = [
-                ...randomRewards,
-                {
-                  id: lootboxReward.id || lootboxReward.reward_id || "zone-lootbox",
-                  display_name: lootboxReward.name || lootboxReward.display_name || "Entdecker-Knospe",
-                  name: lootboxReward.name || lootboxReward.display_name || "Entdecker-Knospe",
-                  value: lootboxReward.value || (lootboxResult?.rewardStatus === "duplicate_compensated" ? `${lootboxResult?.duplicateSeedValue ?? 0} Seeds` : ""),
-                  image_url: lootboxReward.imageUrl || lootboxReward.image_url || null,
-                  type: lootboxReward.type || "lootbox",
-                  rewardStatus: lootboxResult?.rewardStatus || null,
-                  duplicateSeedValue: lootboxResult?.duplicateSeedValue ?? null,
-                  zoneTheme: zoneCompletion.zoneTheme,
-                },
-              ];
+              const lootboxReward = lootboxResult?.reward || null;
+              if (lootboxReward) {
+                randomRewards = [
+                  ...randomRewards,
+                  {
+                    id: lootboxReward.id || lootboxReward.reward_id || "zone-lootbox",
+                    display_name: lootboxReward.name || lootboxReward.display_name || "Entdecker-Knospe",
+                    name: lootboxReward.name || lootboxReward.display_name || "Entdecker-Knospe",
+                    value: lootboxReward.value || (lootboxResult?.rewardStatus === "duplicate_compensated" ? `${lootboxResult?.duplicateSeedValue ?? 0} Seeds` : ""),
+                    image_url: lootboxReward.imageUrl || lootboxReward.image_url || null,
+                    type: lootboxReward.type || "lootbox",
+                    rewardStatus: lootboxResult?.rewardStatus || null,
+                    duplicateSeedValue: lootboxResult?.duplicateSeedValue ?? null,
+                    zoneTheme: zoneCompletion.zoneTheme,
+                  },
+                ];
+              }
+            } catch (lootboxError) {
+              console.error("Fehler beim Claim der Zone-Lootbox fuer neue Global-Pflanze:", lootboxError);
             }
-          } catch (lootboxError) {
-            console.error("Fehler beim Claim der Zone-Lootbox fuer neue Global-Pflanze:", lootboxError);
           }
         }
       } catch (unlockError) {

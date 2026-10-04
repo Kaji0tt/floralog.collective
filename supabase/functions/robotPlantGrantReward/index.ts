@@ -49,6 +49,16 @@ type ZoneRow = {
   zone_bonus_multiplier: number | null;
 };
 
+type SharedZoneInviteRow = {
+  id: string;
+  source_zone_id: string;
+  center_lat: number | null;
+  center_lng: number | null;
+  radius_m: number | null;
+  zone_bonus_multiplier: number | null;
+  challenge_expires_at: string | null;
+};
+
 type RewardBreakdown = {
   eventSource: string;
   isScanReward: boolean;
@@ -639,6 +649,7 @@ async function tryResolveScanRewardContext(
 
   let isInActiveZone = false;
   let matchedZone: ZoneRow | null = null;
+  let matchedSharedInvite: SharedZoneInviteRow | null = null;
   if (discoveryCoordinates) {
     const { data: zones } = await adminClient
       .from("RobotPlantZone")
@@ -659,16 +670,48 @@ async function tryResolveScanRewardContext(
       .filter((zone) => zone.distanceM <= Number(zone.radius_m ?? 150))
       .sort((left, right) => left.distanceM - right.distanceM)[0] || null;
 
-    isInActiveZone = !!matchedZone;
+    const { data: sharedInvites, error: sharedInviteError } = await adminClient
+      .from("ZoneSharedInvite")
+      .select("id, source_zone_id, center_lat, center_lng, radius_m, zone_bonus_multiplier, challenge_expires_at")
+      .eq("status", "accepted")
+      .or(`sender_auth_id.eq.${authId},recipient_auth_id.eq.${authId}`);
+
+    if (sharedInviteError) {
+      console.warn("[robotPlantGrantReward] Could not load shared zones:", sharedInviteError.message);
+    } else {
+      const nowMs = Date.now();
+      matchedSharedInvite = (sharedInvites || [])
+        .filter((invite) => invite.challenge_expires_at && new Date(invite.challenge_expires_at).getTime() > nowMs)
+        .filter((invite) => Number.isFinite(Number(invite.center_lat)) && Number.isFinite(Number(invite.center_lng)))
+        .map((invite) => ({
+          ...invite,
+          distanceM: getDistanceBetweenCoordinatesM(discoveryCoordinates, {
+            lat: Number(invite.center_lat),
+            lng: Number(invite.center_lng),
+          }),
+        }))
+        .filter((invite) => invite.distanceM <= Number(invite.radius_m ?? 0))
+        .sort((left, right) => left.distanceM - right.distanceM)[0] || null;
+    }
+
+    isInActiveZone = Boolean(matchedZone || matchedSharedInvite);
   }
 
-  const zoneMultiplier = isInActiveZone
+  const personalZoneMultiplier = matchedZone
     ? clamp(
-        Number(matchedZone?.zone_bonus_multiplier ?? REWARD_FORMULA_CONFIG.zoneMultiplier.start),
+        Number(matchedZone.zone_bonus_multiplier ?? REWARD_FORMULA_CONFIG.zoneMultiplier.start),
         REWARD_FORMULA_CONFIG.zoneMultiplier.min,
         REWARD_FORMULA_CONFIG.zoneMultiplier.max,
       )
-    : REWARD_FORMULA_CONFIG.zoneMultiplier.default;
+    : null;
+  const sharedZoneMultiplier = matchedSharedInvite
+    ? clamp(
+        Number(matchedSharedInvite.zone_bonus_multiplier ?? REWARD_FORMULA_CONFIG.zoneMultiplier.start),
+        REWARD_FORMULA_CONFIG.zoneMultiplier.min,
+        REWARD_FORMULA_CONFIG.zoneMultiplier.max,
+      )
+    : null;
+  const zoneMultiplier = sharedZoneMultiplier ?? personalZoneMultiplier ?? REWARD_FORMULA_CONFIG.zoneMultiplier.default;
 
   // Check if this is the first scan of the UTC day for this user.
   // The discovery usually exists already, so <=1 still means first scan.
@@ -782,9 +825,9 @@ async function tryResolveScanRewardContext(
     : 0;
   const finalEnergyDelta = Math.round(derivedEnergyDelta);
 
-  const nextZoneMultiplier = isInActiveZone
+  const nextZoneMultiplier = matchedZone && matchedZone.id !== matchedSharedInvite?.source_zone_id
     ? clamp(
-        zoneMultiplier - REWARD_FORMULA_CONFIG.zoneMultiplier.decrementPerAdditionalScan,
+        Number(personalZoneMultiplier) - REWARD_FORMULA_CONFIG.zoneMultiplier.decrementPerAdditionalScan,
         REWARD_FORMULA_CONFIG.zoneMultiplier.min,
         REWARD_FORMULA_CONFIG.zoneMultiplier.max,
       )

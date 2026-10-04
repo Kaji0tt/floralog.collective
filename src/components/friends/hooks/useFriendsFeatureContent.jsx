@@ -187,7 +187,6 @@ export function useFriendsFeatureContent({
   onHeaderMetaChange,
   openAddFriendDialogNonce = 0,
   onRequestClose: _onRequestClose = null,
-  onRequestZoneShareWithFriend = null,
 }) {
   const { isLightUi } = useUiTheme();
   const queryClient = useQueryClient();
@@ -2273,20 +2272,6 @@ Viel Spaß beim Entdecken! 🌿`;
                             )}
                           </div>
                         </button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            onRequestZoneShareWithFriend?.(friendData.authId);
-                          }}
-                          disabled={!friendData.authId || !onRequestZoneShareWithFriend}
-                          title="Zone mit diesem Freund teilen"
-                          aria-label={`Zone mit ${friendData.name} teilen`}
-                          className={isLightUi ? "text-emerald-700 hover:bg-emerald-50 w-8 h-8 p-0 flex-shrink-0" : "text-emerald-300 hover:bg-emerald-500/10 w-8 h-8 p-0 flex-shrink-0"}
-                        >
-                          <MapPlus className="w-4 h-4" />
-                        </Button>
                         <Button
                           size="sm"
                           variant="ghost"

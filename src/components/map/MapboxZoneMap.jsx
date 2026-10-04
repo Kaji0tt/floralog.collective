@@ -222,8 +222,12 @@ const buildZonePopupHtml = (props, isLightUi) => {
   const titleColor = isLightUi ? "#292524" : "#fde68a";
   const bodyColor = isLightUi ? "#44403c" : "#d6d3d1";
   const mutedColor = isLightUi ? "#78716c" : "#a8a29e";
+  const isSharedZone = String(props.isSharedZone || "") === "true";
+  const scanSummaryHtml = isSharedZone
+    ? `<div style="margin-bottom:4px;"><span style="font-weight:700;">Scans pro Person:</span> ${requiredScanCount}</div>`
+    : `<div style="margin-bottom:4px;"><span style="font-weight:700;">Scans:</span> ${scanCount}/${requiredScanCount}</div>`;
   const sharedProgressHtml = String(props.isSharedZone || "") === "true"
-    ? `<div style="margin-top:5px;color:${mutedColor};">Gemeinsamer Fortschritt:<br>${escapeHtml(props.senderName || "Freund")}: ${Math.min(5, Number(props.senderScanCount) || 0)}/5<br>${escapeHtml(props.recipientName || "Freund")}: ${Math.min(5, Number(props.recipientScanCount) || 0)}/5</div>`
+    ? `<div style="margin-top:5px;color:${mutedColor};">Gemeinsamer Fortschritt:<br>${escapeHtml(props.senderName || "Freund")}: ${Math.min(requiredScanCount, Number(props.senderScanCount) || 0)}/${requiredScanCount}<br>${escapeHtml(props.recipientName || "Freund")}: ${Math.min(requiredScanCount, Number(props.recipientScanCount) || 0)}/${requiredScanCount}</div>`
     : "";
 
   return `
@@ -239,7 +243,7 @@ const buildZonePopupHtml = (props, isLightUi) => {
         <div style="margin-bottom:4px;color:${mutedColor};">
           Start bei x1.50, sinkt pro weiterem Scan in dieser Zone.
         </div>
-        <div style="margin-bottom:4px;"><span style="font-weight:700;">Scans:</span> ${scanCount}/${requiredScanCount}</div>
+        ${scanSummaryHtml}
         ${sharedProgressHtml}
         ${radiusDisplay ? `<div style="color:${mutedColor};">Radius: ${radiusDisplay}</div>` : ""}
       </div>

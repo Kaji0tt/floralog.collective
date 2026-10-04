@@ -1,5 +1,6 @@
-import { Building2, CircleHelp, Droplet, EyeOff, Leaf, Loader2, PackageOpen, RefreshCw, Sprout, User, Users, X } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Building2, CircleHelp, Droplet, EyeOff, Leaf, Loader2, MailOpen, PackageOpen, RefreshCw, Sprout, User, Users, X } from "lucide-react";
+import { useCallback, useMemo, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import MapboxZoneMap from "@/components/map/MapboxZoneMap";
 import MapPinDetailOverlay from "@/components/map/MapPinDetailOverlay";
 import ZoneDetailSheet from "@/components/home/ZoneDetailSheet";
@@ -8,7 +9,7 @@ import ZoneLootboxInfoDialog from "@/components/home/ZoneLootboxInfoDialog";
 import GoldGradientCard from "@/components/home/GoldGradientCard";
 import { calculateDistanceMetersRaw } from "@/lib/discoveryMap";
 import { computeZoneMultiplierFromScanCount } from "@/lib/robotPlantEconomy";
-import { createZoneSharedInvite, getZoneSharedInviteProgress } from "@/api/zoneSharedInviteService";
+import { createZoneSharedInvite, respondToZoneSharedInvite } from "@/api/zoneSharedInviteService";
 import { createUserNotification } from "@/api/notificationService";
 
 const AREA_HALF_SIZE_M = 50;
@@ -130,9 +131,11 @@ export default function HomeMapFeatureRoot({
   logoAssetCatalog = [],
   friendEmails = [],
   friendOptions = [],
-  preselectedFriendAuthId = null,
+  pendingZoneMapEvents = { pendingInvites: [], sharedZoneInvites: [], pendingBudOffers: [] },
+  onOpenPendingZoneBudOffers = () => {},
   senderDisplayName = "",
 }) {
+  const queryClient = useQueryClient();
   const [pinOverlayData, setPinOverlayData] = useState(null);
   const [pinVisibilityMode, setPinVisibilityMode] = useState("friends");
   const [isZoneOverviewExpanded, setIsZoneOverviewExpanded] = useState(false);
@@ -141,38 +144,11 @@ export default function HomeMapFeatureRoot({
   const [isLootboxInfoOpen, setIsLootboxInfoOpen] = useState(false);
   const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
   const [isSendingShare, setIsSendingShare] = useState(false);
-  const [sharedZoneInvites, setSharedZoneInvites] = useState([]);
-
-  useEffect(() => {
-    if (!authId) {
-      setSharedZoneInvites([]);
-      return undefined;
-    }
-
-    let isCancelled = false;
-    let isLoading = false;
-    const loadSharedZones = async () => {
-      if (isLoading) return;
-      isLoading = true;
-      try {
-        const invites = await getZoneSharedInviteProgress({ authId });
-        if (!isCancelled) setSharedZoneInvites(invites);
-      } catch (error) {
-        console.warn("[HomeMap] Could not load shared zone progress:", error?.message || error);
-      } finally {
-        isLoading = false;
-      }
-    };
-
-    loadSharedZones();
-    const refreshInterval = window.setInterval(loadSharedZones, 15000);
-    window.addEventListener("focus", loadSharedZones);
-    return () => {
-      isCancelled = true;
-      window.clearInterval(refreshInterval);
-      window.removeEventListener("focus", loadSharedZones);
-    };
-  }, [authId]);
+  const [isPendingInvitesDialogOpen, setIsPendingInvitesDialogOpen] = useState(false);
+  const [respondingInviteId, setRespondingInviteId] = useState(null);
+  const sharedZoneInvites = pendingZoneMapEvents.sharedZoneInvites || [];
+  const pendingZoneInvites = pendingZoneMapEvents.pendingInvites || [];
+  const pendingZoneBudOffers = pendingZoneMapEvents.pendingBudOffers || [];
 
   const zoneRewardProgressByTheme = useMemo(() => {
     const unlockedRewardIds = new Set(
@@ -265,6 +241,8 @@ export default function HomeMapFeatureRoot({
       centerLat: Number(invite.center_lat),
       centerLng: Number(invite.center_lng),
       radiusM: Number(invite.radius_m),
+      requiredScanCount: Number(invite.required_scan_count) || 5,
+      bonusMultiplier: Number(invite.zone_bonus_multiplier) || 1.5,
       isActive: invite.status === "accepted",
       isSharedZone: true,
       sharedProgress: [
@@ -272,7 +250,6 @@ export default function HomeMapFeatureRoot({
         { authId: invite.recipient_auth_id, label: recipientName, count: Number(invite.recipient_scan_count) || 0 },
       ],
       sourceZone: invite,
-      requiredScanCount: 5,
       themeIcon: Users,
       themeIconClass: "text-emerald-300",
       themeMeta,
@@ -290,9 +267,7 @@ export default function HomeMapFeatureRoot({
         const themeKey = String(zone?.theme || zone?.zoneTheme || "meadow").trim().toLowerCase();
         const themeMeta = ZONE_THEME_META[themeKey] || ZONE_THEME_META.meadow;
         const zoneTitle = String(zone?.title || zone?.zoneTitle || zone?.name || themeMeta.label).trim();
-        const requiredScanCount = zone?.isSharedZone
-          ? 5
-          : Math.min(5, Math.max(3, Number(zone?.requiredScanCount ?? zone?.required_scan_count) || 5));
+        const requiredScanCount = Math.min(5, Math.max(3, Number(zone?.requiredScanCount ?? zone?.required_scan_count) || 5));
         const scansToday = Number(zone?.scansToday ?? zone?.scans_today ?? zone?.scanCountToday ?? zone?.scan_count_today ?? 0);
         const scanProgress = Number.isFinite(scansToday) ? Math.max(0, Math.min(requiredScanCount, scansToday)) : 0;
         const configuredZoneMultiplier = Number(
@@ -435,6 +410,7 @@ export default function HomeMapFeatureRoot({
 
   const handleShareSelectedZone = useCallback(async (friend) => {
     if (!selectedZoneForDetail?.sourceZone?.id || !friend?.authId) return;
+    const requiredScanCount = Math.min(5, Math.max(3, Number(selectedZoneForDetail.requiredScanCount) || 5));
     setIsSendingShare(true);
     try {
       const invite = await createZoneSharedInvite({
@@ -447,8 +423,8 @@ export default function HomeMapFeatureRoot({
         userEmail: friend.email,
         notificationType: "zone_shared_invite",
         title: "🌱 Zoneneinladung",
-        message: `${senderName} möchte eine ${selectedZoneForDetail.themeLabel}zone, ${selectedZoneForDetail.distanceLabel} entfernt, mit dir teilen. Möchtest du die Einladung annehmen? Wenn ihr es schafft, in den nächsten 30 Minuten jeweils 5 Entdeckungen in dieser Zone zu machen, könnt ihr beide je 3 Areas aus der Zone erobern und ihr bekommt extra Samen!`,
-        description: JSON.stringify({ inviteId: invite?.id }),
+        message: `${senderName} möchte eine ${selectedZoneForDetail.themeLabel}zone, ${selectedZoneForDetail.distanceLabel} entfernt, mit dir teilen. Möchtest du die Einladung annehmen? Wenn ihr es schafft, in den nächsten 30 Minuten jeweils ${requiredScanCount} Entdeckungen in dieser Zone zu machen, könnt ihr beide je 3 Areas aus der Zone erobern und ihr bekommt extra Samen!`,
+        description: JSON.stringify({ inviteId: invite?.id, requiredScanCount }),
         actionUrl: "Friends?tab=news",
         priority: "high",
         displayLocation: "banner",
@@ -462,6 +438,21 @@ export default function HomeMapFeatureRoot({
       setIsSendingShare(false);
     }
   }, [selectedZoneForDetail, authId, senderDisplayName]);
+
+  const handleMapInviteResponse = async (invite, response) => {
+    setRespondingInviteId(invite.id);
+    try {
+      await respondToZoneSharedInvite({ inviteId: invite.id, response });
+      await queryClient.invalidateQueries({ queryKey: ["sharedZoneMapEvents", authId] });
+      if (response === "accepted" || pendingZoneInvites.length <= 1) {
+        setIsPendingInvitesDialogOpen(false);
+      }
+    } catch (error) {
+      window.alert(error.message || "Die Zoneneinladung konnte nicht verarbeitet werden.");
+    } finally {
+      setRespondingInviteId(null);
+    }
+  };
 
   // ── Claim area click handler ──────────────────────────────────────────────
   const handleClaimSelect = useCallback(
@@ -741,6 +732,35 @@ export default function HomeMapFeatureRoot({
             </button>
           </div>
 
+          {(pendingZoneInvites.length > 0 || pendingZoneBudOffers.length > 0) && (
+            <div className="absolute right-4 top-14 z-[1200] flex items-center gap-2">
+              {pendingZoneInvites.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setIsPendingInvitesDialogOpen(true)}
+                  title={`${pendingZoneInvites.length} offene Zoneneinladung${pendingZoneInvites.length === 1 ? "" : "en"}`}
+                  aria-label={`${pendingZoneInvites.length} offene Zoneneinladung${pendingZoneInvites.length === 1 ? "" : "en"}`}
+                  className={`relative flex h-9 w-9 items-center justify-center rounded-full border shadow-lg ${isLightUi ? "border-[#c8ac62]/65 bg-white/95 text-amber-800" : "border-[#f0e5a5]/50 bg-black/80 text-amber-200"}`}
+                >
+                  <MailOpen className="h-4 w-4" />
+                  <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-600 px-1 text-[9px] font-bold text-white">{pendingZoneInvites.length}</span>
+                </button>
+              )}
+              {pendingZoneBudOffers.length > 0 && (
+                <button
+                  type="button"
+                  onClick={onOpenPendingZoneBudOffers}
+                  title={`${pendingZoneBudOffers.length} Knospe${pendingZoneBudOffers.length === 1 ? "" : "n"} abholen`}
+                  aria-label={`${pendingZoneBudOffers.length} Knospe${pendingZoneBudOffers.length === 1 ? "" : "n"} abholen`}
+                  className={`relative flex h-9 w-9 items-center justify-center rounded-full border shadow-lg ${isLightUi ? "border-[#c8ac62]/65 bg-white/95 text-emerald-800" : "border-[#f0e5a5]/50 bg-black/80 text-emerald-200"}`}
+                >
+                  <Sprout className="h-4 w-4" />
+                  <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-600 px-1 text-[9px] font-bold text-white">{pendingZoneBudOffers.length}</span>
+                </button>
+              )}
+            </div>
+          )}
+
           {(zoneMapError || areaClaimError) && (
             <div className={`absolute left-4 right-4 top-16 z-[1200] rounded-xl border px-3 py-2 text-[11px] md:text-xs font-medium ${
               isLightUi
@@ -912,6 +932,50 @@ export default function HomeMapFeatureRoot({
         onClose={() => setIsLootboxInfoOpen(false)}
       />
 
+      {isPendingInvitesDialogOpen && (
+        <div className="fixed inset-0 z-[1500] flex items-center justify-center bg-black/60 px-4" onClick={() => setIsPendingInvitesDialogOpen(false)}>
+          <div
+            className={`w-full max-w-sm rounded-2xl border p-4 shadow-2xl ${isLightUi ? "border-stone-200 bg-white text-stone-900" : "border-[#f0e5a5]/30 bg-[#1b1914] text-stone-100"}`}
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <h3 className="font-semibold">Offene Einladungen</h3>
+              <button type="button" onClick={() => setIsPendingInvitesDialogOpen(false)} aria-label="Schließen">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="grid gap-3">
+              {pendingZoneInvites.map((invite) => {
+                const senderName = friendOptions.find((friend) => String(friend.authId) === String(invite.sender_auth_id))?.name || "Ein Freund";
+                const requiredScanCount = Math.min(5, Math.max(3, Number(invite.required_scan_count) || 5));
+                return (
+                  <div key={invite.id} className={`rounded-xl border p-3 ${isLightUi ? "border-stone-200 bg-stone-50" : "border-white/10 bg-white/5"}`}>
+                    <p className="text-sm font-semibold">{senderName} teilt eine {invite.zone_title || "Zone"}</p>
+                    <p className={`mt-1 text-xs ${isLightUi ? "text-stone-600" : "text-stone-300"}`}>
+                      Ihr braucht jeweils {requiredScanCount} Scans in der Zone. Nach dem Annehmen habt ihr 30 Minuten.
+                    </p>
+                    <div className="mt-3 grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        disabled={respondingInviteId === invite.id}
+                        onClick={() => handleMapInviteResponse(invite, "accepted")}
+                        className="rounded-lg bg-emerald-700 px-3 py-2 text-sm font-semibold text-white disabled:opacity-60"
+                      >Annehmen</button>
+                      <button
+                        type="button"
+                        disabled={respondingInviteId === invite.id}
+                        onClick={() => handleMapInviteResponse(invite, "declined")}
+                        className={`rounded-lg border px-3 py-2 text-sm font-semibold disabled:opacity-60 ${isLightUi ? "border-stone-300 text-stone-700" : "border-white/20 text-stone-200"}`}
+                      >Ablehnen</button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
       {isShareDialogOpen && selectedZoneForDetail && (
         <div className="fixed inset-0 z-[1500] flex items-center justify-center bg-black/60 px-4" onClick={() => setIsShareDialogOpen(false)}>
           <div
@@ -928,9 +992,9 @@ export default function HomeMapFeatureRoot({
               Wähle einen befreundeten Spieler für {selectedZoneForDetail.title}.
             </p>
             <div className="grid gap-2">
-              {(friendOptions.filter((friend) => !preselectedFriendAuthId || friend.authId === preselectedFriendAuthId).length === 0) ? (
+              {friendOptions.length === 0 ? (
                 <p className="text-sm text-stone-400">Du hast noch keine geeigneten Freunde.</p>
-              ) : friendOptions.filter((friend) => !preselectedFriendAuthId || friend.authId === preselectedFriendAuthId).map((friend) => (
+              ) : friendOptions.map((friend) => (
                 <button
                   key={friend.authId}
                   type="button"

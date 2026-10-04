@@ -121,9 +121,12 @@ export default function QuestNotificationDisplay({ notification, onClose, onMark
     const isScanLikedNotification = notification.notification_type === "scan_liked";
     const isZoneSharedInvite = notification.notification_type === "zone_shared_invite";
     let zoneInviteId = null;
+    let zoneInviteRequiredScanCount = 5;
     if (isZoneSharedInvite) {
       try {
-        zoneInviteId = JSON.parse(notification.description || "{}").inviteId || null;
+        const inviteDetails = JSON.parse(notification.description || "{}");
+        zoneInviteId = inviteDetails.inviteId || null;
+        zoneInviteRequiredScanCount = Math.min(5, Math.max(3, Number(inviteDetails.requiredScanCount) || 5));
       } catch {
         zoneInviteId = null;
       }
@@ -215,7 +218,7 @@ export default function QuestNotificationDisplay({ notification, onClose, onMark
             </span>
             {isZoneSharedInvite && (
               <p className="mt-1 text-xs max-w-2xl">
-                Schafft ihr innerhalb der nächsten 30 Minuten jeweils 5 Entdeckungen, erobert ihr beide 3 Areas und erhaltet extra Samen.
+                Schafft ihr innerhalb der nächsten 30 Minuten jeweils {zoneInviteRequiredScanCount} Entdeckungen, erobert ihr beide 3 Areas und erhaltet extra Samen.
               </p>
             )}
           </div>

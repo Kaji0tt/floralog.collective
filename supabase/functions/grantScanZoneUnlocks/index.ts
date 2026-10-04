@@ -67,9 +67,12 @@ type ProfileRow = {
 
 type SharedInviteRow = {
   id: string;
+  source_zone_id: string;
   sender_auth_id: string;
   recipient_auth_id: string;
   zone_theme: string | null;
+  required_scan_count: number | null;
+  zone_bonus_multiplier: number | null;
   center_lat: number | null;
   center_lng: number | null;
   radius_m: number | null;
@@ -502,6 +505,140 @@ Deno.serve(async (req) => {
       .sort((left, right) => left.distance - right.distance);
     const matchedZone = zonesByDistance.find((zone) => zone.distance <= Number(zone.radius_m ?? 150)) || null;
 
+    const { data: sharedInvites, error: sharedInviteError } = await adminClient
+      .from("ZoneSharedInvite")
+      .select("id, source_zone_id, sender_auth_id, recipient_auth_id, zone_theme, required_scan_count, zone_bonus_multiplier, center_lat, center_lng, radius_m, challenge_expires_at, status")
+      .eq("status", "accepted")
+      .or(`sender_auth_id.eq.${authId},recipient_auth_id.eq.${authId}`);
+
+    let sharedInviteProgress: {
+      inviteId: string;
+      sourceZoneId: string;
+      zoneTheme: string | null;
+      scanCount: number;
+      previousScanCount: number;
+      requiredScanCount: number;
+      completed: boolean;
+      newlyCompletedForUser: boolean;
+      claimKey: string;
+    } | null = null;
+
+    if (sharedInviteError) {
+      console.warn("[grantScanZoneUnlocks] Could not load shared zone invites:", sharedInviteError.message);
+    } else if (discovery?.id && coords) {
+      for (const invite of (sharedInvites || []) as SharedInviteRow[]) {
+        if (!invite.challenge_expires_at || new Date(invite.challenge_expires_at).getTime() <= Date.now()) continue;
+        const inviteCenter = {
+          lat: Number(invite.center_lat),
+          lng: Number(invite.center_lng),
+        };
+        if (!Number.isFinite(inviteCenter.lat) || !Number.isFinite(inviteCenter.lng)) continue;
+        if (distanceM(coords, inviteCenter) > Number(invite.radius_m || 0)) continue;
+
+        const { data: scansBefore } = await adminClient
+          .from("ZoneSharedInviteScan")
+          .select("auth_id")
+          .eq("invite_id", invite.id);
+        const previousScanCount = (scansBefore || []).filter((row) => row.auth_id === authId).length;
+
+        const { data: insertedScan, error: sharedScanError } = await adminClient
+          .from("ZoneSharedInviteScan")
+          .upsert({
+            invite_id: invite.id,
+            auth_id: authId,
+            discovery_id: discovery.id,
+          }, { onConflict: "invite_id,discovery_id", ignoreDuplicates: true })
+          .select("id");
+
+        if (sharedScanError) {
+          console.warn("[grantScanZoneUnlocks] Could not record shared zone scan:", sharedScanError.message);
+          continue;
+        }
+
+        if (insertedScan?.length) {
+          const nextSharedMultiplier = Math.max(
+            1,
+            Math.min(2.5, Number(invite.zone_bonus_multiplier ?? 1.5) - 0.1),
+          );
+          const { error: sharedMultiplierError } = await adminClient
+            .from("ZoneSharedInvite")
+            .update({ zone_bonus_multiplier: nextSharedMultiplier })
+            .eq("id", invite.id)
+            .eq("status", "accepted");
+          if (sharedMultiplierError) {
+            console.warn("[grantScanZoneUnlocks] Could not update shared zone multiplier:", sharedMultiplierError.message);
+          }
+
+          const { error: sourceZoneMultiplierError } = await adminClient
+            .from("RobotPlantZone")
+            .update({ zone_bonus_multiplier: nextSharedMultiplier })
+            .eq("id", invite.source_zone_id)
+            .eq("is_active", true);
+          if (sourceZoneMultiplierError) {
+            console.warn("[grantScanZoneUnlocks] Could not sync source zone multiplier:", sourceZoneMultiplierError.message);
+          }
+        }
+
+        const { data: progressRows } = await adminClient
+          .from("ZoneSharedInviteScan")
+          .select("auth_id")
+          .eq("invite_id", invite.id);
+        const senderCount = (progressRows || []).filter((row) => row.auth_id === invite.sender_auth_id).length;
+        const recipientCount = (progressRows || []).filter((row) => row.auth_id === invite.recipient_auth_id).length;
+        const ownScanCount = authId === invite.sender_auth_id ? senderCount : recipientCount;
+        const requiredScanCount = Math.min(5, Math.max(3, Number(invite.required_scan_count) || 5));
+        const sharedChallengeCompleted = senderCount >= requiredScanCount && recipientCount >= requiredScanCount;
+
+        sharedInviteProgress = {
+          inviteId: invite.id,
+          sourceZoneId: invite.source_zone_id,
+          zoneTheme: invite.zone_theme,
+          scanCount: ownScanCount,
+          previousScanCount,
+          requiredScanCount,
+          completed: sharedChallengeCompleted,
+          newlyCompletedForUser: Boolean(insertedScan?.length) && previousScanCount < requiredScanCount && ownScanCount >= requiredScanCount,
+          claimKey: `zone-lootbox:${authId}:${invite.source_zone_id}:${invite.id}`,
+        };
+
+        if (sharedChallengeCompleted) {
+          const { data: completedInvite } = await adminClient
+            .from("ZoneSharedInvite")
+            .update({ status: "completed", completed_at: new Date().toISOString() })
+            .eq("id", invite.id)
+            .eq("status", "accepted")
+            .select("id")
+            .maybeSingle();
+          if (completedInvite?.id) {
+            await grantSharedInviteAreas(adminClient, invite);
+            await deactivateCompletedZone(adminClient, invite.source_zone_id);
+
+            const partnerAuthId = authId === invite.sender_auth_id
+              ? invite.recipient_auth_id
+              : invite.sender_auth_id;
+            const { error: notificationError } = await adminClient
+              .from("UserNotification")
+              .insert({
+                auth_id: partnerAuthId,
+                notification_type: "zone_shared_bud_available",
+                title: "Deine gemeinsame Knospe wartet",
+                message: `Ihr habt beide ${requiredScanCount} Scans geschafft. Deine Knospe kannst du jetzt auf der Karte abholen.`,
+                description: JSON.stringify({ inviteId: invite.id }),
+                action_url: "Home",
+                priority: "high",
+                display_location: "banner",
+                seen: false,
+                created_by: "system",
+                created_date: new Date().toISOString(),
+              });
+            if (notificationError) {
+              console.warn("[grantScanZoneUnlocks] Could not notify shared-zone partner:", notificationError.message);
+            }
+          }
+        }
+      }
+    }
+
     const matchedTheme = normalizeText(matchedZone?.theme);
     if (!matchedTheme) {
       const nearest = zonesByDistance[0];
@@ -509,7 +646,20 @@ Deno.serve(async (req) => {
         `[grantScanZoneUnlocks] No zone match for ${discoveryId} on ${dayKey}; activeZones=${zonesByDistance.length}` +
           (nearest ? `; nearest=${nearest.id} ${Math.round(nearest.distance)}m/${nearest.radius_m ?? 150}m` : ""),
       );
-      return jsonResponse({ success: true, unlocked: [] });
+      const zoneProgress = sharedInviteProgress?.newlyCompletedForUser && sharedInviteProgress.completed
+        ? {
+            zoneId: sharedInviteProgress.sourceZoneId,
+            zoneTheme: sharedInviteProgress.zoneTheme,
+            scanCount: sharedInviteProgress.scanCount,
+            previousScanCount: sharedInviteProgress.previousScanCount,
+            requiredScanCount: sharedInviteProgress.requiredScanCount,
+            completed: true,
+            isSharedZone: true,
+            removeZone: sharedInviteProgress.completed,
+            claimKey: sharedInviteProgress.claimKey,
+          }
+        : null;
+      return jsonResponse({ success: true, unlocked: [], zoneProgress });
     }
 
     let zoneProgress: {
@@ -550,74 +700,28 @@ Deno.serve(async (req) => {
         const requiredScanCount = Number(matchedZone.required_scan_count) || 5;
         const completionEligible = nextScanCount >= requiredScanCount;
 
+        const isSharedSourceZone = sharedInviteProgress?.sourceZoneId === matchedZone.id;
         zoneProgress = {
           zoneId: matchedZone.id,
           zoneTheme: matchedZone.theme,
-          scanCount: nextScanCount,
-          previousScanCount,
-          requiredScanCount,
-          completed: completionEligible,
-          claimKey: `zone-lootbox:${authId}:${matchedZone.id}:${dayKey}`,
+          scanCount: isSharedSourceZone ? sharedInviteProgress.scanCount : nextScanCount,
+          previousScanCount: isSharedSourceZone ? sharedInviteProgress.previousScanCount : previousScanCount,
+          requiredScanCount: isSharedSourceZone ? sharedInviteProgress.requiredScanCount : requiredScanCount,
+          completed: isSharedSourceZone
+            ? sharedInviteProgress.newlyCompletedForUser && sharedInviteProgress.completed
+            : completionEligible,
+          isSharedZone: isSharedSourceZone,
+          removeZone: isSharedSourceZone ? sharedInviteProgress.completed : completionEligible,
+          claimKey: isSharedSourceZone
+            ? sharedInviteProgress.claimKey
+            : `zone-lootbox:${authId}:${matchedZone.id}:${dayKey}`,
         };
 
-        if (completionEligible) {
+        if (completionEligible && previousScanCount < requiredScanCount && !isSharedSourceZone) {
           await completeZoneForPlayer(adminClient, authId, matchedZone, requiredScanCount);
         }
 
         console.log(`[grantScanZoneUnlocks] Recorded zone scan ${discovery.id}; count=${nextScanCount}/${requiredScanCount}; completionEligible=${completionEligible}`);
-      }
-    }
-
-    const { data: sharedInvites, error: sharedInviteError } = await adminClient
-      .from("ZoneSharedInvite")
-      .select("id, sender_auth_id, recipient_auth_id, zone_theme, center_lat, center_lng, radius_m, challenge_expires_at, status")
-      .eq("status", "accepted")
-      .or(`sender_auth_id.eq.${authId},recipient_auth_id.eq.${authId}`);
-
-    if (sharedInviteError) {
-      console.warn("[grantScanZoneUnlocks] Could not load shared zone invites:", sharedInviteError.message);
-    } else if (discovery?.id && coords) {
-      for (const invite of (sharedInvites || []) as SharedInviteRow[]) {
-        if (!invite.challenge_expires_at || new Date(invite.challenge_expires_at).getTime() <= Date.now()) continue;
-        const inviteCenter = {
-          lat: Number(invite.center_lat),
-          lng: Number(invite.center_lng),
-        };
-        if (!Number.isFinite(inviteCenter.lat) || !Number.isFinite(inviteCenter.lng)) continue;
-        if (distanceM(coords, inviteCenter) > Number(invite.radius_m || 0)) continue;
-
-        const { error: sharedScanError } = await adminClient
-          .from("ZoneSharedInviteScan")
-          .upsert({
-            invite_id: invite.id,
-            auth_id: authId,
-            discovery_id: discovery.id,
-          }, { onConflict: "invite_id,discovery_id", ignoreDuplicates: true });
-
-        if (sharedScanError) {
-          console.warn("[grantScanZoneUnlocks] Could not record shared zone scan:", sharedScanError.message);
-          continue;
-        }
-
-        const { data: progressRows } = await adminClient
-          .from("ZoneSharedInviteScan")
-          .select("auth_id")
-          .eq("invite_id", invite.id);
-        const senderCount = (progressRows || []).filter((row) => row.auth_id === invite.sender_auth_id).length;
-        const recipientCount = (progressRows || []).filter((row) => row.auth_id === invite.recipient_auth_id).length;
-
-        if (senderCount >= 5 && recipientCount >= 5) {
-          const { data: completedInvite } = await adminClient
-            .from("ZoneSharedInvite")
-            .update({ status: "completed", completed_at: new Date().toISOString() })
-            .eq("id", invite.id)
-            .eq("status", "accepted")
-            .select("id")
-            .maybeSingle();
-          if (completedInvite?.id) {
-            await grantSharedInviteAreas(adminClient, invite);
-          }
-        }
       }
     }
 
@@ -668,7 +772,7 @@ Deno.serve(async (req) => {
 
     const rewardIds = Array.from(new Set(rewardsToConsider.map((reward) => reward.id)));
     if (rewardIds.length === 0) {
-      if (zoneProgress?.completed) await deactivateCompletedZone(adminClient, zoneProgress.zoneId);
+      if (zoneProgress?.removeZone) await deactivateCompletedZone(adminClient, zoneProgress.zoneId);
       return jsonResponse({ success: true, unlocked: [], zoneProgress });
     }
     const { data: existingUserRewards } = await adminClient
@@ -681,7 +785,7 @@ Deno.serve(async (req) => {
     const rewardsToInsert = rewardsToConsider.filter((reward) => !unlockedIds.has(reward.id));
 
     if (rewardsToInsert.length === 0) {
-      if (zoneProgress?.completed) await deactivateCompletedZone(adminClient, zoneProgress.zoneId);
+      if (zoneProgress?.removeZone) await deactivateCompletedZone(adminClient, zoneProgress.zoneId);
       return jsonResponse({ success: true, unlocked: [], zoneProgress });
     }
 
@@ -710,7 +814,7 @@ Deno.serve(async (req) => {
       return jsonResponse({ success: false, error: insertError.message }, 500);
     }
 
-    if (zoneProgress?.completed) await deactivateCompletedZone(adminClient, zoneProgress.zoneId);
+    if (zoneProgress?.removeZone) await deactivateCompletedZone(adminClient, zoneProgress.zoneId);
 
     return jsonResponse({
       success: true,

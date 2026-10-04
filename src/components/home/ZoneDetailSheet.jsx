@@ -24,6 +24,7 @@ export default function ZoneDetailSheet({ zone, isLightUi, onClose, onOpenScans,
   if (!zone) return null;
 
   const targetPlants = Array.isArray(zone.targetPlants) ? zone.targetPlants : [];
+  const requiredScanCount = Math.min(5, Math.max(3, Number(zone.requiredScanCount) || 5));
   const ThemeIcon = zone.themeIcon;
   const previewBorderGradient = isLightUi
     ? "linear-gradient(to bottom right, #e8d9a8, #c8ac62, rgba(143,107,34,0.7))"
@@ -77,16 +78,16 @@ export default function ZoneDetailSheet({ zone, isLightUi, onClose, onOpenScans,
                   isLightUi ? "text-stone-500" : "text-stone-400"
                 }`}>
                   <span>Scans</span>
-                  <span className="tabular-nums">{zone.isSharedZone ? "je 5" : zone.scanLabel}</span>
+                  <span className="tabular-nums">{zone.isSharedZone ? `je ${zone.requiredScanCount}` : zone.scanLabel}</span>
                 </div>
                 {zone.isSharedZone ? zone.sharedProgress.map((participant) => (
                   <div key={participant.authId} className="grid gap-1">
                     <div className={`flex items-center justify-between text-[10px] ${isLightUi ? "text-stone-600" : "text-stone-300"}`}>
                       <span>{participant.label}</span>
-                      <span className="tabular-nums">{Math.min(5, participant.count)}/5</span>
+                      <span className="tabular-nums">{Math.min(requiredScanCount, participant.count)}/{requiredScanCount}</span>
                     </div>
-                    <div className="grid grid-cols-5 gap-1">
-                      {Array.from({ length: 5 }).map((_, stepIndex) => (
+                    <div className="grid gap-1" style={{ gridTemplateColumns: `repeat(${requiredScanCount}, minmax(0, 1fr))` }}>
+                      {Array.from({ length: requiredScanCount }).map((_, stepIndex) => (
                         <span
                           key={`${zone.key}-${participant.authId}-scan-${stepIndex}`}
                           className={`h-2 rounded-full border ${stepIndex < participant.count
