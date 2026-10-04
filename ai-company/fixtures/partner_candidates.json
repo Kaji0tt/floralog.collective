@@ -1,0 +1,39 @@
+[
+  {
+    "platform": "bluesky",
+    "handle": "naturschutz-beispiel.bsky.social",
+    "display_name": "Naturschutzgruppe Beispielstadt",
+    "profile_url": "https://bsky.app/profile/naturschutz-beispiel.bsky.social",
+    "bio": "Ehrenamtlicher Naturschutz, Streuobstwiesen und Wildpflanzen-Führungen.",
+    "followers": 240,
+    "source": "bluesky search: Streuobstwiese"
+  },
+  {
+    "platform": "mastodon",
+    "handle": "botanik@example.social",
+    "display_name": "Botanik-Treff",
+    "profile_url": "https://example.social/@botanik",
+    "bio": "Wir bestimmen gemeinsam Pflanzen im Park. Umweltbildung für alle.",
+    "followers": 180,
+    "source": "mastodon search: Umweltbildung"
+  },
+  {
+    "platform": "bluesky",
+    "handle": "shop-beispiel.bsky.social",
+    "display_name": "Beispiel Shop",
+    "profile_url": "https://bsky.app/profile/shop-beispiel.bsky.social",
+    "bio": "Günstige Handyhüllen und Zubehör.",
+    "followers": 5000,
+    "source": "bluesky search: Naturpark"
+  },
+  {
+    "platform": "instagram",
+    "handle": "beispiel_naturpark",
+    "display_name": "Naturpark Beispiel",
+    "profile_url": "https://www.instagram.com/beispiel_naturpark/",
+    "bio": null,
+    "website": "https://example.org",
+    "followers": 1200,
+    "source": "instagram seed"
+  }
+]

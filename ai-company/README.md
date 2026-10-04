@@ -28,6 +28,16 @@ Every implementation still requires explicit human approval. The crew has no soc
 email, ad-spend, merge, deploy, or SQL tools. The Marketing Manager creates drafts only; those
 external capabilities can be added later as separately approved tools with their own permissions.
 
+## Reach Agent
+
+`ReachFlow` runs a single `Floralog Reach Manager` agent that evaluates recent Instagram,
+Pinterest, Bluesky and Mastodon performance, writes platform-specific posts from the aggregate
+content snapshot, renders Season 2 slides (`slides.py`), and publishes posts that pass the
+deterministic checks in `reach_guardrails.py`. The same agent ranks partner candidates weekly
+(`partner_main.py`); it only drafts messages and never contacts anyone. The agent itself has no
+tools; posting only happens in `reach_main.py` behind `--live --publish` and the
+`FLORALOG_REACH_POSTING_ENABLED=true` kill switch. Setup: `../docs/AI_COMPANY_SETUP.md`.
+
 ## Phase 2 status
 
 The payment ledger migration, PayPal capture recording, funnel tracking, and aggregate KPI Edge

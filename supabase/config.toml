@@ -133,3 +133,13 @@ entrypoint = "./functions/capturePayPalAmberPayment/index.ts"
 enabled = true
 verify_jwt = false
 entrypoint = "./functions/aiKpiSnapshot/index.ts"
+
+[functions.aiContentSnapshot]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/aiContentSnapshot/index.ts"
+
+[functions.aiSocialMediaUpload]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/aiSocialMediaUpload/index.ts"

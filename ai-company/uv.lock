@@ -752,6 +752,7 @@ version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "crewai" },
+    { name = "pillow" },
 ]
 
 [package.dev-dependencies]
@@ -761,7 +762,10 @@ dev = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "crewai", specifier = "==1.15.22" }]
+requires-dist = [
+    { name = "crewai", specifier = "==1.15.22" },
+    { name = "pillow", specifier = ">=12,<13" },
+]
 
 [package.metadata.requires-dev]
 dev = [

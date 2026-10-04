@@ -59,7 +59,7 @@ export default function ScanStreakRewardTrack({ streakDays = 0, jokerCount = 0 }
       </div>
 
       <div
-        className="flex gap-1.5 overflow-x-auto hide-scrollbar pb-0 pointer-events-auto"
+        className="flex gap-1.5 overflow-x-auto hide-scrollbar pt-1 pr-1 pb-0 pointer-events-auto"
         role="list"
         aria-label="Scan-Streak Belohnungen"
       >

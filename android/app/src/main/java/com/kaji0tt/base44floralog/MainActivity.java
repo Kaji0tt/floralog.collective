@@ -26,11 +26,6 @@ public class MainActivity extends BridgeActivity {
 		// bei erzwungenem Edge-to-Edge bereits selbst.
 		WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
 
-		// System font scaling would widen fixed-size layouts and cause horizontal overflow.
-		if (getBridge() != null && getBridge().getWebView() != null) {
-			getBridge().getWebView().getSettings().setTextZoom(100);
-		}
-
 		// Apply a previously staged OTA bundle so the WebView loads from it
 		OtaManager otaManager = new OtaManager(this);
 		String activePath = otaManager.getActivePath();

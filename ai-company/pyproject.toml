@@ -6,12 +6,17 @@ readme = "README.md"
 requires-python = ">=3.10,<3.14"
 dependencies = [
     "crewai==1.15.22",
+    "pillow>=12,<13",
 ]
 
 [project.scripts]
 floralog-ai = "floralog_ai.main:main"
 floralog-ai-fetch-snapshot = "floralog_ai.snapshot_client:main"
 floralog-ai-render-issue = "floralog_ai.issue_renderer:main"
+floralog-ai-reach = "floralog_ai.reach_main:main"
+floralog-ai-fetch-content = "floralog_ai.content_snapshot_client:main"
+floralog-ai-partners = "floralog_ai.partner_main:main"
+floralog-ai-render-background = "floralog_ai.slides:main"
 
 [dependency-groups]
 dev = [

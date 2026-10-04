@@ -1,0 +1,48 @@
+{
+  "generated_at": "2026-09-28T16:00:00Z",
+  "week_key": "2026-W40",
+  "community": {
+    "scans_7d": 212,
+    "active_explorers_7d": 31,
+    "distinct_species_7d": 64,
+    "species_in_game": 480
+  },
+  "top_plants_7d": [
+    {
+      "species_name": "Rotbuche",
+      "scientific_name": "Fagus sylvatica",
+      "genus_name": "Buche",
+      "category": "Bäume",
+      "rarity": "common",
+      "fun_fact": "Rotbuchen können über 300 Jahre alt werden.",
+      "scan_count_7d": 18
+    },
+    {
+      "species_name": "Gänseblümchen",
+      "scientific_name": "Bellis perennis",
+      "genus_name": "Gänseblümchen",
+      "category": "Blumen",
+      "rarity": "common",
+      "fun_fact": "Gänseblümchen schließen ihre Blüten nachts und bei Regen.",
+      "scan_count_7d": 14
+    }
+  ],
+  "scan_of_the_week": {
+    "week_key": "2026-W39",
+    "species_name": "Herbstzeitlose",
+    "genus_name": "Zeitlose",
+    "category": "Blumen",
+    "like_count": 9,
+    "source": "scheduler"
+  },
+  "weekly_quest": {
+    "title": "Baumdetektiv",
+    "description": "Entdecke 5 verschiedene Bäume in deiner Umgebung.",
+    "category": "Bäume",
+    "target_genus_name": null,
+    "target_species_name": null,
+    "required_discoveries": 5
+  },
+  "monthly_quest": null,
+  "kpi": null
+}
