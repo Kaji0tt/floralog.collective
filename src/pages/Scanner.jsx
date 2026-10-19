@@ -4,6 +4,7 @@ import { getCurrentUser, updateCurrentUserProfile } from "@/api/userApi";
 import { upsertUserProfile, ensureUserProfileExists } from "@/api/authService";
 import { uploadFile } from "@/api/storage";
 import { supabase } from "@/api/supabaseClient";
+import { COMMUNITY_EVENT_QUERY_KEY } from "@/lib/communityEvents";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -959,6 +960,9 @@ export default function Scanner() {
     }
 
     queryClient.invalidateQueries({ queryKey: ['userDiscoveries'] });
+    queryClient.invalidateQueries({ queryKey: [COMMUNITY_EVENT_QUERY_KEY] });
+    queryClient.invalidateQueries({ queryKey: ['communityQuests'] });
+    queryClient.invalidateQueries({ queryKey: ['userCommunityQuests'] });
 
     // Zone grant runs before the unguarded achievement/quest steps so their failures cannot skip it.
     let randomRewards = [];
@@ -1140,6 +1144,9 @@ export default function Scanner() {
 
       queryClient.invalidateQueries({ queryKey: ['userDiscoveries'] });
       queryClient.invalidateQueries({ queryKey: ['plants'] });
+      queryClient.invalidateQueries({ queryKey: [COMMUNITY_EVENT_QUERY_KEY] });
+      queryClient.invalidateQueries({ queryKey: ['communityQuests'] });
+      queryClient.invalidateQueries({ queryKey: ['userCommunityQuests'] });
 
       let randomRewards = [];
       let scanZoneUnlocks = [];

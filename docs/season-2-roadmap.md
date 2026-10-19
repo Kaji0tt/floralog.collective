@@ -90,43 +90,52 @@ für `probability_percent` und Priorität zone-spezifisch vs. `all`-Fallback sep
 
 ---
 
-## 3. Community Events (neu, Season 2)
+## 3. Community Events (Season 2 – umgesetzt)
 
 **Ziel:** Zeitlich begrenzte, kooperative Ziele, bei denen die gesamte Community gemeinsam eine
-Scan-Anzahl in einem bestimmten Zonentyp erreichen muss. Bei Erfolg erhalten alle Teilnehmenden
-einen besonderen Reward.
+Anzahl Scans einer Zielpflanze/-gattung erreichen muss. Erstes Event: **„Die Kastanien-Kartierung“**
+(19.–25.10.2026, 150 Kastanien, Ross- + Edelkastanie über `PlantGenus.genus_name = 'Kastanie'`).
 
-**Vorgeschlagenes Datenmodell** (Details/Rewards noch offen, siehe unten):
-- `CommunityEvent`: `id`, `zone_theme` (eines der 6 Zonentypen oder `all`), `target_scan_count`,
-  `starts_at`, `ends_at`, `status` (`upcoming` / `active` / `succeeded` / `failed`),
-  `reward_description` (Platzhaltertext bis Rewards definiert sind).
-- `CommunityEventProgress`: serverseitig gepflegter Zähler (`current_scan_count`), analog zum
-  bereits etablierten Muster `syncClaimedAreaCountForUser` in
-  [robotPlantGrantReward/index.ts](../supabase/functions/robotPlantGrantReward/index.ts#L511)
-  — vermeidet teure Live-Aggregation über alle Discoveries bei jedem Scan.
-- `CommunityEventParticipant`: `event_id`, `auth_id`, `contributed_scans` — bestimmt, wer beim
-  Erfolg claim-berechtigt ist (mind. 1 beitragender Scan im Zeitraum).
+**Datenmodell:** Community Events sind `CommunityQuest`-Rows mit `is_event = true`
+(Migrationen `20260921140000_add_community_quests.sql` + `20261016120000_community_events.sql`).
+Event und Community-Quest sind dasselbe Objekt – das Event erscheint daher automatisch auch im Quest-Tab.
+- `CommunityQuest`: `slug`, `is_event`, `reward_tiers` (`[{min_contributions, reward_id}]`, kumulativ),
+  `success_sparks`, `failure_sparks`, `outcome`, `finalized_at`, Push-Flags
+  (`start_notified_at`, `progress_notified_count`, `goal_notified_at`, `end_notified_at`).
+- `UserCommunityQuest`: Teilnahme + `contributed_count`, nach Abschluss `granted_sparks`,
+  `granted_reward_ids`, `outcome`.
+- `CommunityQuestContribution`: jeder gezählte Scan (Basis für die Scan-Liste im Explorer-Log,
+  RPC `get_community_quest_scans`).
+- `Rewards.exclusive_source`: Event-exklusive Rewards (z. B. `face_Mojo/Twodee/Skyjo`) bleiben
+  `shop_hidden`, `syncLogoAssets` blendet sie nicht wieder ein.
 
-**Scan-Zählung:** Jeder Scan mit `discovery_location` innerhalb einer aktiven Zone des passenden
-Themas erhöht `current_scan_count` serverseitig im selben Aufruf wie der bestehende
-Area-Claim-/Zonen-Fortschritt (gleicher Edge-Function-Durchlauf in `robotPlantGrantReward`, um
-Rennbedingungen zu vermeiden).
+**Scan-Zählung:** Trigger `sync_community_quest_on_discovery` auf `UserPlantDiscovery` zählt jeden
+passenden Scan im Zeitraum. Events zählen auch nach Erreichen des Ziels bis `end_date` weiter
+(persönliche Reward-Stufen bleiben erreichbar).
 
-**Erfolgsfall:** Sobald `current_scan_count >= target_scan_count`, Status → `succeeded`, und ein
-Grant-Flow (analog `grantScanZoneUnlocks`) verteilt den definierten Reward an alle Zeilen in
-`CommunityEventParticipant`. Reward-Typ ist bewusst noch offen — Kandidaten: exklusives Kosmetik-Item,
-Lootbox mit garantiertem Season-Reward, oder Seed-Bonus-Multiplikator für begrenzte Zeit.
+**Anti-Abuse (gilt für alle Community Events/Quests):** Ein Scan zählt pro Spieler nur, wenn er
+mindestens `radius_m` (Standard 50 m) von **allen** eigenen bereits gezählten Scans dieses Events
+entfernt ist – unabhängig von der erkannten Pflanzen-ID.
+
+**Abschluss:** `finalize_community_quest(quest_id)` (nur service_role, idempotent) nach `end_date`:
+- Erfolg (`completed`): `success_sparks` Funken + alle erreichten `reward_tiers`.
+- Misserfolg: `failure_sparks` Funken, keine Tier-Rewards.
+- Pro Teilnehmer eine `UserNotification` (`community_event_result`) → Reward-Overlay beim nächsten
+  Öffnen von Home (`CommunityEventRewardNotification`).
+
+**Scheduler & Push:** Edge Function `communityEventScheduler` (Header `x-community-event-secret`,
+Secret `COMMUNITY_EVENT_SCHEDULER_SECRET`), stündlich getriggert vom Cloudflare-Worker
+`workers/community-events` (Env `COMMUNITY_EVENT_ENDPOINT`, `COMMUNITY_EVENT_SECRET`, optional
+`WORKER_TRIGGER_SECRET`). Pushes (Florabot-Story-Sprech, Broadcast + News) nur zwischen 08–22 Uhr
+Europe/Berlin: Start, Zwischenstand bei ⅓ und ⅔ der Laufzeit, Ziel erreicht, Ergebnis nach Abschluss.
+Finalisierung läuft unabhängig vom Push-Zeitfenster.
 
 **UI:**
-- Banner/Progress-Bar auf Home bzw. Map (z. B. in [HomeMapFeatureRoot.jsx](../src/components/home/HomeMapFeatureRoot.jsx)),
-  zeigt `current_scan_count / target_scan_count` und Restzeit.
-- Abschluss-Notification im selben Notification-Queue-Muster wie Lootbox/Zone-Unlock.
-
-**Offene Punkte (bewusst nicht final):**
-- Konkrete Reward-Definition pro Event.
-- Ob Events global (alle Spieler weltweit) oder regional/Community-Segment-basiert laufen.
-- Balancing von `target_scan_count` relativ zu aktiver Spielerzahl.
-- Anti-Abuse: Rate-Limit/Dedup für Massen-Scans am selben Ort zur künstlichen Zielerreichung.
+- Home-Eventstripe: Event-Item an erster Stelle mit animiertem Rahmen (`CommunityEventGlowBorder`),
+  Community-Fortschrittsbalken und persönlichem Beitrag (sichtbar bis 3 Tage nach Ende).
+- Quests: Event-Karte mit Zusammenfassung (Ziel, Bedingungen, Zeitraum, Belohnungen, Stufen).
+- Explorer-Log → Community: Event-Eintrag mit allen gezählten Event-Scans.
+- Admin: `AdminQuestCreator` → Tab „Community“ → Checkbox „Community Event“.
 
 ---
 
@@ -141,7 +150,7 @@ Lootbox mit garantiertem Season-Reward, oder Seed-Bonus-Multiplikator für begre
      und die minimale Reveal-UI ergänzen.
 3. **Phase C — Lootbox-Politur**
    - Volle Animationssequenz, Theming, Telemetrie.
-4. **Phase D — Community Events**
+4. **Phase D — Community Events** ✅ (erstes Event: Kastanien-Kartierung, Oktober 2026)
    - Datenmodell + Server-Zählung + Banner-UI + Abschluss-Reward-Grant.
    - Reward-Inhalte parallel im Reward-/Shop-System definieren.
 

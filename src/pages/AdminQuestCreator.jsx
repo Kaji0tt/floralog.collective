@@ -35,6 +35,23 @@ const difficultyOptions = [
 const getDefaultSeedRewardForTab = (tab) =>
   tab === "weekly" ? 1500 : tab === "monthly" ? 1000 : tab === "community" ? 400 : 500;
 
+const EMPTY_EVENT_FIELDS = {
+  is_event: false,
+  slug: "",
+  success_sparks: 0,
+  failure_sparks: 0,
+  reward_tiers_json: "[]",
+};
+
+// datetime-local inputs expect local wall-clock time, DB values are UTC ISO strings.
+const toDateTimeLocalValue = (value) => {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+};
+
 export default function AdminQuestCreator() {
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState("quest");
@@ -78,7 +95,8 @@ export default function AdminQuestCreator() {
     is_active: true,
     radius_m: 50,
     start_date: "",
-    end_date: ""
+    end_date: "",
+    ...EMPTY_EVENT_FIELDS
   });
 
   // Fetch existing quests
@@ -170,7 +188,8 @@ export default function AdminQuestCreator() {
       is_active: true,
       radius_m: 50,
       start_date: "",
-      end_date: ""
+      end_date: "",
+      ...EMPTY_EVENT_FIELDS
     });
     setEditingQuest(null);
   };
@@ -194,12 +213,17 @@ export default function AdminQuestCreator() {
       targets_operator: quest.targets_operator || "UND",
       target_plants: quest.target_plants || [],
       xp_reward: quest.xp_reward || 50,
-      seed_reward: quest.seed_reward || getDefaultSeedRewardForTab(activeTab),
+      seed_reward: quest.seed_reward ?? getDefaultSeedRewardForTab(activeTab),
       icon_emoji: quest.icon_emoji || "🗺️",
       is_active: quest.is_active !== undefined ? quest.is_active : true,
       radius_m: quest.radius_m || 50,
-      start_date: quest.start_date ? quest.start_date.slice(0, 16) : "",
-      end_date: quest.end_date ? quest.end_date.slice(0, 16) : ""
+      start_date: toDateTimeLocalValue(quest.start_date),
+      end_date: toDateTimeLocalValue(quest.end_date),
+      is_event: !!quest.is_event,
+      slug: quest.slug || "",
+      success_sparks: quest.success_sparks ?? 0,
+      failure_sparks: quest.failure_sparks ?? 0,
+      reward_tiers_json: JSON.stringify(quest.reward_tiers || [], null, 2),
     });
   };
 
@@ -213,13 +237,30 @@ export default function AdminQuestCreator() {
       requirement: formData.requirement,
       category: formData.category,
       required_discoveries: parseInt(formData.required_discoveries) || undefined,
-      seed_reward: parseInt(formData.seed_reward) || getDefaultSeedRewardForTab(activeTab),
+      seed_reward: Number.isFinite(parseInt(formData.seed_reward)) ? parseInt(formData.seed_reward) : getDefaultSeedRewardForTab(activeTab),
     };
 
     if (activeTab === "community") {
       questData.radius_m = parseInt(formData.radius_m) || 50;
       questData.start_date = formData.start_date ? new Date(formData.start_date).toISOString() : null;
       questData.end_date = formData.end_date ? new Date(formData.end_date).toISOString() : null;
+      questData.is_event = !!formData.is_event;
+      questData.slug = formData.slug?.trim() || null;
+      questData.success_sparks = Math.max(0, parseInt(formData.success_sparks) || 0);
+      questData.failure_sparks = Math.max(0, parseInt(formData.failure_sparks) || 0);
+      if (formData.is_event) {
+        let tiers;
+        try {
+          tiers = JSON.parse(formData.reward_tiers_json || "[]");
+        } catch {
+          tiers = null;
+        }
+        if (!Array.isArray(tiers) || tiers.some((t) => !t || !Number.isFinite(Number(t.min_contributions)) || !t.reward_id)) {
+          alert('Reward-Stufen müssen ein JSON-Array wie [{"min_contributions":5,"reward_id":"reward_..."}] sein.');
+          return;
+        }
+        questData.reward_tiers = tiers.map((t) => ({ min_contributions: Number(t.min_contributions), reward_id: String(t.reward_id) }));
+      }
     }
 
     // Add reward_name if specified (matches DB schema)
@@ -487,8 +528,8 @@ export default function AdminQuestCreator() {
                       required
                     />
                     <p className="text-xs text-stone-500 mt-1">
-                      Ein weiterer Scan derselben Pflanze durch denselben Nutzer zählt nur, wenn er mehr als
-                      diesen Abstand vom letzten gezählten Scan entfernt ist (verhindert Grinding an einer Pflanze).
+                      Ein weiterer Scan einer Zielpflanze durch denselben Nutzer zählt nur, wenn er mindestens
+                      diesen Abstand von allen eigenen bisher gezählten Scans entfernt ist (verhindert Mehrfach-Scans derselben Pflanze).
                     </p>
                   </div>
                 )}
@@ -514,6 +555,64 @@ export default function AdminQuestCreator() {
                     <p className="col-span-2 text-xs text-stone-500 -mt-2">
                       Leer lassen für ein dauerhaft laufendes Event ohne festen Zeitraum.
                     </p>
+                  </div>
+                )}
+
+                {activeTab === "community" && (
+                  <div className="space-y-3 rounded-lg border border-amber-200 bg-amber-50/60 p-3">
+                    <label className="flex items-center gap-2 text-sm font-medium text-stone-800">
+                      <input
+                        type="checkbox"
+                        checked={!!formData.is_event}
+                        onChange={(e) => setFormData({...formData, is_event: e.target.checked})}
+                      />
+                      Community Event (hervorgehoben, automatische Belohnung am Event-Ende)
+                    </label>
+                    {formData.is_event && (
+                      <>
+                        <div className="grid grid-cols-3 gap-3">
+                          <div>
+                            <Label>Slug</Label>
+                            <Input
+                              value={formData.slug}
+                              onChange={(e) => setFormData({...formData, slug: e.target.value})}
+                              placeholder="kastanien-kartierung-2026"
+                            />
+                          </div>
+                          <div>
+                            <Label>Funken bei Erfolg</Label>
+                            <Input
+                              type="number"
+                              min={0}
+                              value={formData.success_sparks}
+                              onChange={(e) => setFormData({...formData, success_sparks: e.target.value})}
+                            />
+                          </div>
+                          <div>
+                            <Label>Funken bei Misserfolg</Label>
+                            <Input
+                              type="number"
+                              min={0}
+                              value={formData.failure_sparks}
+                              onChange={(e) => setFormData({...formData, failure_sparks: e.target.value})}
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <Label>Reward-Stufen (JSON, kumulativ, nur bei Erfolg)</Label>
+                          <Textarea
+                            rows={4}
+                            className="font-mono text-xs"
+                            value={formData.reward_tiers_json}
+                            onChange={(e) => setFormData({...formData, reward_tiers_json: e.target.value})}
+                          />
+                          <p className="text-xs text-stone-500 mt-1">
+                            Format: {'[{"min_contributions": 5, "reward_id": "reward_logo_accessory_face_Mojo"}]'}. Samen-Belohnung für Events auf 0 setzen.
+                            Funken &amp; Stufen werden vom communityEventScheduler nach Event-Ende automatisch vergeben.
+                          </p>
+                        </div>
+                      </>
+                    )}
                   </div>
                 )}
 
@@ -823,6 +922,11 @@ export default function AdminQuestCreator() {
                                   {activeTab === "community" && quest.radius_m && (
                                     <Badge className="bg-blue-100 text-blue-700">
                                       📍 {quest.radius_m}m
+                                    </Badge>
+                                  )}
+                                  {activeTab === "community" && quest.is_event && (
+                                    <Badge className="bg-amber-700 text-white">
+                                      🌰 Event{quest.finalized_at ? ` · ${quest.outcome === "succeeded" ? "erfolgreich" : "verfehlt"}` : ""}
                                     </Badge>
                                   )}
                                   {activeTab === "community" && quest.completed && (

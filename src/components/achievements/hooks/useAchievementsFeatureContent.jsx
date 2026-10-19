@@ -37,6 +37,14 @@ import LeaderboardPodium from "@/components/achievements/LeaderboardPodium";
 import LeaderboardUserCard from "@/components/achievements/LeaderboardUserCard";
 import LeaderboardTable from "@/components/achievements/LeaderboardTable";
 import GoldGradientCard from "@/components/home/GoldGradientCard";
+import CommunityEventGlowBorder, { COMMUNITY_EVENT_GLOW_SHADOW } from "@/components/community/CommunityEventGlowBorder";
+import {
+  COMMUNITY_EVENT_AFTERGLOW_MS,
+  formatCommunityEventPeriod,
+  formatCommunityEventRemaining,
+  getCommunityEventPhase,
+  getCommunityEventTiers,
+} from "@/lib/communityEvents";
 
 /** @type {{ regular: number, weekly: number, monthly: number, community: number }} */
 const DEFAULT_QUEST_SEED_REWARD_BY_TYPE = {
@@ -1498,11 +1506,56 @@ export function useAchievementsFeatureContent({
 
   // Community-Quests: gemeinsames Server-Ziel, sichtbar für alle. Eine Teilnahme
   // (UserCommunityQuest) entsteht automatisch beim ersten zählenden Scan.
+  // Community-Events (is_event) sind zeitlich begrenzt und werden serverseitig am
+  // Event-Ende automatisch belohnt (kein Einlösen-Button).
+  const nowMs = Date.now();
+  const resolveRewardLabel = (rewardId) => {
+    const reward = rewards.find((r) => r.id === rewardId);
+    return reward?.display_name || String(rewardId || "").replace(/^reward_logo_accessory_/, "").replace(/^face_/, "Face ");
+  };
   const activeCommunityQuests = communityQuests
     .filter((quest) => quest.is_active !== false)
+    .filter((quest) => {
+      if (!quest.is_event) return true;
+      const start = quest.start_date ? new Date(quest.start_date).getTime() : null;
+      const end = quest.end_date ? new Date(quest.end_date).getTime() : null;
+      if (start !== null && nowMs < start) return false;
+      if (end !== null && nowMs > end + COMMUNITY_EVENT_AFTERGLOW_MS) return false;
+      return true;
+    })
     .flatMap((quest) => {
       const userQuest = userCommunityQuests.find((ucq) => ucq.community_quest_id === quest.id);
       if (userQuest?.status === 'redeemed') return [];
+
+      if (quest.is_event) {
+        const contributedCount = Number(userQuest?.contributed_count) || 0;
+        const phase = getCommunityEventPhase(quest, nowMs);
+        const tiers = getCommunityEventTiers(quest).map((tier) => ({
+          ...tier,
+          label: resolveRewardLabel(tier.rewardId),
+          reached: contributedCount >= tier.min,
+        }));
+        return [{
+          ...quest,
+          userQuestId: userQuest?.id,
+          progress: quest.current_progress || 0,
+          required_discoveries: quest.required_discoveries || 0,
+          isCompleted: !!quest.completed,
+          type: 'community',
+          isEvent: true,
+          eventPhase: phase,
+          eventTiers: tiers,
+          eventPeriodLabel: formatCommunityEventPeriod(quest),
+          eventRemainingLabel: formatCommunityEventRemaining(quest, nowMs),
+          contributedCount,
+          successSparks: Number(quest.success_sparks) || 0,
+          failureSparks: Number(quest.failure_sparks) || 0,
+          seedReward: 0,
+          rewardDisplayName: null,
+          canRedeem: false,
+          hasJoined: !!userQuest,
+        }];
+      }
 
       const reward = rewards.find(r => r.name === quest.reward_name);
       const seedReward = resolveQuestSeedReward({ questType: 'community', seedReward: quest.seed_reward });
@@ -1532,27 +1585,50 @@ export function useAchievementsFeatureContent({
       ucq.community_quest_id === quest.id && ucq.status === 'redeemed'
     );
 
-    return relatedUserQuests.map((ucq) => ({
-      ...quest,
-      userQuestId: ucq.id,
-      progress: quest.current_progress || quest.required_discoveries || 0,
-      required_discoveries: quest.required_discoveries || 0,
-      isCompleted: true,
-      type: 'community',
-      seedReward,
-      rewardDisplayName,
-      rewardData: reward,
-      canRedeem: false,
-      completedAt: ucq.redeemed_at,
-    }));
+    return relatedUserQuests.map((ucq) => {
+      if (quest.is_event) {
+        const grantedFaces = (Array.isArray(ucq.granted_reward_ids) ? ucq.granted_reward_ids : []).map(resolveRewardLabel);
+        const grantedSparks = Number(ucq.granted_sparks) || 0;
+        const parts = [];
+        if (grantedSparks > 0) parts.push(`${grantedSparks} Funken`);
+        parts.push(...grantedFaces);
+        return {
+          ...quest,
+          userQuestId: ucq.id,
+          progress: quest.current_progress || 0,
+          required_discoveries: quest.required_discoveries || 0,
+          isCompleted: true,
+          type: 'community',
+          isEvent: true,
+          seedReward: 0,
+          rewardDisplayName: `${ucq.outcome === 'failed' ? 'Ziel verfehlt · ' : ''}${parts.join(' + ') || 'Teilgenommen'}`,
+          canRedeem: false,
+          completedAt: ucq.redeemed_at,
+        };
+      }
+      return {
+        ...quest,
+        userQuestId: ucq.id,
+        progress: quest.current_progress || quest.required_discoveries || 0,
+        required_discoveries: quest.required_discoveries || 0,
+        isCompleted: true,
+        type: 'community',
+        seedReward,
+        rewardDisplayName,
+        rewardData: reward,
+        canRedeem: false,
+        completedAt: ucq.redeemed_at,
+      };
+    });
   });
 
   // Zeige alle relevanten Quest-Typen gesammelt ohne Unterkategorie
   const activeQuests = [
+    ...activeCommunityQuests.filter((quest) => quest.isEvent),
     ...activeRegularQuests,
     ...(activeWeeklyQuest ? [activeWeeklyQuest] : []),
     ...(activeMonthlyQuest ? [activeMonthlyQuest] : []),
-    ...activeCommunityQuests,
+    ...activeCommunityQuests.filter((quest) => !quest.isEvent),
   ];
   const completedQuests = [
     ...completedRegularQuests,
@@ -2617,7 +2693,7 @@ export function useAchievementsFeatureContent({
               {activeQuests.map((quest, index) => {
                 const rawProgress = quest.progress || 0;
                 const target = quest.required_discoveries || 0;
-                const displayProgress = target > 0 ? Math.min(rawProgress, target) : rawProgress;
+                const displayProgress = target > 0 && !quest.isEvent ? Math.min(rawProgress, target) : rawProgress;
                 const progressPercentage = target > 0 ? Math.min(100, (rawProgress / target) * 100) : 0;
 
                 const accentMap = {
@@ -2627,9 +2703,12 @@ export function useAchievementsFeatureContent({
                   community:  { tint: "rgba(129,140,248,0.36)",  border: "rgba(165,180,252,0.30)", iconBg: "bg-indigo-300/16 border-white/20 text-indigo-100" },
                   regular:    { tint: "rgba(146,181,93,0.38)",  border: "rgba(199,224,151,0.30)", iconBg: "bg-lime-300/16 border-white/20 text-lime-100" },
                 };
-                const accent = accentMap[quest.type] || accentMap.regular;
+                const accent = quest.isEvent
+                  ? { tint: "rgba(180,83,9,0.42)", border: "rgba(251,191,36,0.35)", iconBg: "bg-amber-300/16 border-amber-200/30 text-amber-100" }
+                  : accentMap[quest.type] || accentMap.regular;
 
-                const typeLabel = quest.type === "weekly" ? "📅 Wöchentlich"
+                const typeLabel = quest.isEvent ? "🌰 Community Event"
+                  : quest.type === "weekly" ? "📅 Wöchentlich"
                   : quest.type === "monthly" ? "📆 Monatlich"
                   : quest.type === "collection" ? `🗺️ ${quest.icon_emoji || "Sammlung"}`
                   : quest.type === "community" ? "🌍 Community"
@@ -2659,14 +2738,18 @@ export function useAchievementsFeatureContent({
                       style={{
                         background: `linear-gradient(145deg, ${accent.tint} 0%, rgba(10,13,19,0.86) 58%, rgba(7,10,16,0.94) 100%)`,
                         borderColor: accent.border,
+                        ...(quest.isEvent ? { boxShadow: `0 16px 42px rgba(0,0,0,0.34), ${COMMUNITY_EVENT_GLOW_SHADOW}` } : {}),
                       }}
                     >
+                      {quest.isEvent && <CommunityEventGlowBorder radius="1.35rem" borderWidth={2} />}
                       <div className="absolute inset-0 pointer-events-none rounded-[1.35rem] bg-gradient-to-br from-white/14 via-transparent to-black/38" />
                       <div className="relative p-4 flex items-start gap-3">
                         {/* Icon */}
                         <div className={`h-11 w-11 rounded-xl border flex items-center justify-center shrink-0 backdrop-blur-sm ${accent.iconBg}`}>
                           {quest.type === "collection"
                             ? <span className="text-lg leading-none">{quest.icon_emoji || "🗺️"}</span>
+                            : quest.isEvent
+                            ? <span className="text-xl leading-none">{quest.icon_emoji || "🌰"}</span>
                             : <QuestIcon className="w-5 h-5" />
                           }
                         </div>
@@ -2726,17 +2809,65 @@ export function useAchievementsFeatureContent({
                           {quest.required_discoveries && (
                             <div className="mt-2.5 space-y-1">
                               <div className="flex justify-between text-[11px] text-white/70">
-                                <span>Fortschritt</span>
+                                <span>{quest.isEvent ? "Community-Fortschritt" : "Fortschritt"}</span>
                                 <span className="font-semibold text-white/90">{displayProgress} / {quest.required_discoveries}</span>
                               </div>
                               <div className="h-1.5 rounded-full bg-white/15 overflow-hidden">
-                                <div className="h-full rounded-full bg-white/70 transition-all" style={{ width: `${progressPercentage}%` }} />
+                                <div
+                                  className={`h-full rounded-full transition-all ${quest.isEvent ? "" : "bg-white/70"}`}
+                                  style={{
+                                    width: `${progressPercentage}%`,
+                                    ...(quest.isEvent ? { background: "linear-gradient(90deg, #78350f, #d97706, #fde68a)" } : {}),
+                                  }}
+                                />
                               </div>
                             </div>
                           )}
 
+                          {/* Community-Event-Zusammenfassung */}
+                          {quest.isEvent && (
+                            <div className="mt-3 space-y-2 rounded-xl border border-amber-200/20 bg-black/25 p-2.5 text-[11px] leading-snug text-white/80">
+                              <div className="flex items-center justify-between gap-2">
+                                <span className="font-semibold text-amber-200">Dein Beitrag: {quest.contributedCount}</span>
+                                <span className="text-white/60">
+                                  {quest.eventPhase === "active"
+                                    ? quest.eventRemainingLabel
+                                    : quest.eventPhase === "succeeded" ? "✓ Erfolgreich"
+                                    : quest.eventPhase === "failed" ? "Ziel verfehlt"
+                                    : "Beendet"}
+                                </span>
+                              </div>
+                              <div><span className="font-semibold text-white/90">Ziel: </span>Gemeinsam {quest.required_discoveries} × {quest.target_species_name || quest.target_genus_name} scannen.</div>
+                              <div><span className="font-semibold text-white/90">Zeitraum: </span>{quest.eventPeriodLabel}</div>
+                              <div>
+                                <span className="font-semibold text-white/90">Bedingungen: </span>
+                                Jede Art aus „{quest.target_species_name || quest.target_genus_name}“ zählt{quest.target_genus_name === "Kastanie" && !quest.target_species_name ? " (Ross- und Edelkastanie)" : ""}. Innerhalb von {quest.radius_m || 50} m um einen deiner bereits gezählten Scans wird kein weiterer Scan gewertet.
+                              </div>
+                              <div>
+                                <span className="font-semibold text-white/90">Belohnungen (nur bei Erfolg): </span>
+                                {quest.successSparks} Funken für alle Teilnehmenden
+                                {quest.eventTiers.length > 0 && " + "}
+                                {quest.eventTiers.map((tier) => `${tier.label} ab ${tier.min}`).join(", ")}
+                                {quest.failureSparks > 0 && `. Wird das Ziel verfehlt: ${quest.failureSparks} Funken als Dankeschön.`}
+                              </div>
+                              {quest.eventTiers.length > 0 && (
+                                <div className="flex flex-wrap gap-1 pt-0.5">
+                                  {quest.eventTiers.map((tier) => (
+                                    <span
+                                      key={tier.rewardId}
+                                      className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-medium ${tier.reached ? "border-amber-300/60 bg-amber-400/20 text-amber-100" : "border-white/20 bg-black/20 text-white/60"}`}
+                                    >
+                                      {tier.reached ? "✓ " : ""}{tier.label} · {tier.min}
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
+                              <p className="text-[10px] text-white/50">Belohnungen werden automatisch nach Event-Ende verteilt.</p>
+                            </div>
+                          )}
+
                           {/* Reward + redeem */}
-                          {quest.isCompleted && (
+                          {quest.isCompleted && !quest.isEvent && (
                             <div className="mt-3 pt-2.5 border-t border-white/15">
                               <div className="flex items-center gap-2">
                                 {quest.rewardDisplayName && (

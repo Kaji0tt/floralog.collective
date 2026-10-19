@@ -33,6 +33,9 @@ import { LockedTooltip } from "@/components/ui/locked-tooltip";
 import { getCurrentWeeklyQuest } from "@/components/quests/QuestRotationHelper";
 import { getConservationFromPlant } from "@/lib/conservationStatus";
 import { computeRarityLabel, getRarityAccentClasses } from "@/lib/plantRarity";
+import CommunityEventGlowBorder, { COMMUNITY_EVENT_GLOW_SHADOW } from "@/components/community/CommunityEventGlowBorder";
+import CommunityEventExplorerSection from "@/components/community/CommunityEventExplorerSection";
+import { useCommunityEvent } from "@/lib/communityEvents";
 
 // Sticky pill-tabs header: gold-gradient-bordered glass card when embedded, plain white bar as standalone page header.
 function TabsHeaderContainer({ embedded, className, children }) {
@@ -568,6 +571,8 @@ export function useFriendsFeatureContent({
     enabled: !!user?.email && isExplorerTab && isSotwView,
     staleTime: 5 * 60 * 1000,
   });
+
+  const communityEventForExplorer = useCommunityEvent(user?.id, { enabled: !!user?.id && isExplorerTab });
 
   const sotwWeekGroups = useMemo(() => {
     const groups = new Map();
@@ -1567,13 +1572,14 @@ Viel Spaß beim Entdecken! 🌿`;
             { id: "sotw", label: "Community" },
           ].map((option) => {
             const isSelected = explorerViewMode === option.id;
+            const hasEventGlow = option.id === "sotw" && Boolean(communityEventForExplorer.event);
             return (
               <button
                 key={option.id}
                 type="button"
                 onClick={() => setExplorerViewMode(option.id)}
                 className={
-                  `rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${isSelected
+                  `${hasEventGlow ? "relative overflow-hidden " : ""}rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${isSelected
                     ? (isLightUi
                       ? "bg-white text-[#8f6b22] shadow-sm"
                       : "bg-[#f0e5a5] text-stone-950")
@@ -1581,8 +1587,10 @@ Viel Spaß beim Entdecken! 🌿`;
                       ? "text-stone-600 hover:text-stone-900"
                       : "text-stone-300 hover:text-stone-100")}`
                 }
+                style={hasEventGlow ? { boxShadow: COMMUNITY_EVENT_GLOW_SHADOW } : undefined}
               >
-                {option.label}
+                {hasEventGlow && <CommunityEventGlowBorder radius="9999px" borderWidth={1.5} />}
+                {hasEventGlow ? `🌰 ${option.label}` : option.label}
               </button>
             );
           })}
@@ -1774,6 +1782,11 @@ Viel Spaß beim Entdecken! 🌿`;
                 ) : (
                   <section className={`${sectionSurfaceClass} p-4 md:p-5`}>
                     {explorerFilterHeaderNode}
+                    <CommunityEventExplorerSection
+                      userId={user?.id}
+                      isLightUi={isLightUi}
+                      onOpenScan={openExplorerDiscoveryInFriendCollection}
+                    />
                     {sotwWeekGroups.length === 0 ? (
                       <div className="px-1 py-8 text-center">
                         <Trophy className={`w-14 h-14 mx-auto mb-3 ${isLightUi ? "text-stone-300" : "text-stone-500"}`} />

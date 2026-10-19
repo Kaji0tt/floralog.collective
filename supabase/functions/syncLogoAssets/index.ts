@@ -293,13 +293,15 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Ensure active (non-legacy) assets have shop_hidden = false
+    // Ensure active (non-legacy) assets have shop_hidden = false – except rewards that
+    // are exclusive to a source (e.g. a community event) and must stay out of the shop.
     if (activeAssetIds.length > 0) {
       const activeRewardIds = activeAssetIds.map((id) => `reward_logo_accessory_${id}`);
       const { error: unhideError } = await adminClient
         .from("Rewards")
         .update({ shop_hidden: false })
-        .in("id", activeRewardIds);
+        .in("id", activeRewardIds)
+        .is("exclusive_source", null);
 
       if (unhideError) {
         console.warn("[syncLogoAssets] Failed to unhide active rewards:", unhideError);

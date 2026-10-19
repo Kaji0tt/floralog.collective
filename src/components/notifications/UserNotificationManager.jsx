@@ -3,6 +3,7 @@ import { Query } from "@/api/entities";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import QuestNotificationDisplay from "./QuestNotificationDisplay";
 import ScanOfTheWeekNotification from "./ScanOfTheWeekNotification";
+import CommunityEventRewardNotification from "./CommunityEventRewardNotification";
 import { AnimatePresence } from "framer-motion";
 
 // Notification types that belong to the Friends news tab.
@@ -244,6 +245,15 @@ export default function UserNotificationManager({ user }) {
   if (currentNotification.notification_type === "scan_of_the_week") {
     return (
       <ScanOfTheWeekNotification
+        notification={currentNotification}
+        onComplete={handleClose}
+      />
+    );
+  }
+
+  if (currentNotification.notification_type === "community_event_result") {
+    return (
+      <CommunityEventRewardNotification
         notification={currentNotification}
         onComplete={handleClose}
       />

@@ -1,0 +1,10 @@
+{
+  "name": "floralog-community-events",
+  "compatibility_date": "2026-05-06",
+  "main": "src/index.js",
+  "preview_urls": false,
+  "triggers": {
+    "crons": ["2 * * * *"]
+  },
+  "observability": { "enabled": true, "logs": { "enabled": true } }
+}

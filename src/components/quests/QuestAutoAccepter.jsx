@@ -47,7 +47,7 @@ export default function QuestAutoAccepter({ user }) {
   });
 
   const acceptQuestMutation = useMutation({
-    mutationFn: async ({ questId, questType, activeMonth }) => {
+    mutationFn: async ({ questId, questType, activeMonth, activeWeek }) => {
       const now = new Date().toISOString();
       if (questType === 'regular') {
         // Falls bereits eine aktive oder abgeschlossene UserQuest existiert, nichts neu anlegen
@@ -201,4 +201,3 @@ export default function QuestAutoAccepter({ user }) {
 
   return null; // Unsichtbare Komponente
 }
-

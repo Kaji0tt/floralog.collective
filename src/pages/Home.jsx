@@ -4227,6 +4227,7 @@ function HomeContent() {
                 {activePanel === null && !showHealthStatsPanel && !showShopStack ? (
                   <div ref={eventStripeContainerRef} className="mb-[clamp(0.35rem,0.8vh,0.55rem)]">
                     <HomeEventStripeContent
+                      userId={user?.id}
                       isLightUi={isLightUi}
                       displayedWeeklyQuest={displayedWeeklyQuest}
                       currentWeeklyUserQuest={currentWeeklyUserQuest}

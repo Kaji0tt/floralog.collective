@@ -1,7 +1,55 @@
 import HomeEventStripe from "@/components/home/HomeEventStripe";
 import { trackAction } from "@/api/analyticsService";
+import {
+  formatCommunityEventRemaining,
+  getNextCommunityEventTier,
+  useCommunityEvent,
+} from "@/lib/communityEvents";
+
+function buildCommunityEventStripeItem({ event, phase, progress, target, contributedCount, onOpenAchievements }) {
+  if (!event) return null;
+  const nextTier = getNextCommunityEventTier(event, contributedCount);
+  const remaining = Math.max(0, target - progress);
+  const targetLabel = event.target_genus_name || event.target_species_name || "Zielpflanzen";
+
+  let description;
+  if (phase === "succeeded") {
+    description = `Geschafft! Gemeinsam habt ihr ${progress} ${targetLabel}n kartiert. Die Belohnungen wurden verteilt.`;
+  } else if (phase === "failed" || phase === "ended") {
+    description = `Das Event ist beendet: ${progress} von ${target} ${targetLabel}n kartiert.`;
+  } else if (remaining <= 0) {
+    description = `Ziel erreicht! Scannt weiter bis zum Ende – jede ${targetLabel} bringt euch höhere Belohnungsstufen.`;
+  } else {
+    description = `Noch ${remaining} ${targetLabel}n bis zum Gemeinschaftsziel. ${event.description || ""}`.trim();
+  }
+
+  let personalLabel = `Dein Beitrag: ${contributedCount}`;
+  if (phase === "active" && nextTier) {
+    personalLabel += ` · nächste Stufe ab ${nextTier.min}`;
+  }
+
+  return {
+    id: `community-event-${event.id}`,
+    kind: "community",
+    highlight: true,
+    icon: event.icon_emoji || "🌰",
+    title: event.title,
+    metaLabel: phase === "active" ? formatCommunityEventRemaining(event) : "beendet",
+    description,
+    progressCurrent: progress,
+    progressTarget: target,
+    progressPrefix: "Community ",
+    personalLabel,
+    isCompleted: false,
+    onClick: () => {
+      trackAction("home_event_stripe_community", { sourcePage: "Home" });
+      onOpenAchievements?.();
+    },
+  };
+}
 
 export default function HomeEventStripeContent({
+  userId,
   isLightUi,
   displayedWeeklyQuest,
   currentWeeklyUserQuest,
@@ -14,13 +62,18 @@ export default function HomeEventStripeContent({
   isRedeemedStatus,
   onOpenAchievements,
 }) {
-  const homeEventStripeItems = [{
+  const communityEvent = useCommunityEvent(userId, { enabled: Boolean(userId) });
+  const communityEventItem = buildCommunityEventStripeItem({ ...communityEvent, onOpenAchievements });
+
+  const homeEventStripeItems = [];
+  if (communityEventItem) homeEventStripeItems.push(communityEventItem);
+  homeEventStripeItems.push({
     id: "geozone-info",
     kind: "geo-info",
     title: "Gemeinsam erkunden",
     dismissible: true,
     description: "Erkunde Geozonen auf der Karte, um Knospen mit besonderen Belohnungen freizuschalten und neue Areale zu erschließen. Teile eine Geozone mit Freunden: Erkundet ihr sie innerhalb von 30 Minuten, gilt die Belohnung für euch beide und ihr erhaltet garantiert je 3 Areale.",
-  }];
+  });
 
   if (displayedWeeklyQuest && !isRedeemedStatus(currentWeeklyUserQuest)) {
     const weeklyQuestTargetLabel = displayedWeeklyQuest.target_species_name
