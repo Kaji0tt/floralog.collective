@@ -14,6 +14,11 @@ const BACKFILL_SOURCES = [
   "collection_quest_completion",
   "daily_challenge_completion",
 ];
+const PROFILE_LOGO_DEFAULTS: Record<string, string> = {
+  selected_face_asset: "face_default",
+  selected_plant_asset: "plant_leaf",
+  selected_border_asset: "border_default",
+};
 
 type Row = Record<string, unknown>;
 
@@ -83,6 +88,13 @@ function isPublicProfile(profile: Row | undefined): boolean {
 function publicName(profile: Row | undefined): string {
   if (!isPublicProfile(profile)) return "Entdecker:in";
   return String(profile?.display_name || profile?.full_name || "Entdecker:in");
+}
+
+function publicNameStatus(profile: Row | undefined): string {
+  if (!profile) return "profile_missing";
+  if (!isPublicProfile(profile)) return "profile_not_public";
+  if (!profile.display_name && !profile.full_name) return "display_name_missing";
+  return "available";
 }
 
 function rarityLevel(value: unknown): number {
@@ -230,9 +242,8 @@ Deno.serve(async (req) => {
     const logoAssetIds = [...new Set(profiles
       .filter(isPublicProfile)
       .flatMap((profile) => [
-        String(profile.selected_face_asset || ""),
-        String(profile.selected_plant_asset || ""),
-        String(profile.selected_border_asset || ""),
+        ...Object.entries(PROFILE_LOGO_DEFAULTS)
+          .map(([field, defaultAssetId]) => String(profile[field] || defaultAssetId)),
       ])
       .filter(Boolean))];
     const logoAssets = logoAssetIds.length
@@ -246,16 +257,25 @@ Deno.serve(async (req) => {
     ]));
 
     const avatarForProfile = (profile: Row | undefined) => {
-      if (!isPublicProfile(profile)) return null;
+      if (!profile) {
+        return { face: null, plant: null, border: null, border_color: null, status: "profile_missing" };
+      }
+      if (!isPublicProfile(profile)) {
+        return { face: null, plant: null, border: null, border_color: null, status: "profile_not_public" };
+      }
       const resolve = (field: string) => {
-        const assetId = String(profile?.[field] || "");
+        const assetId = String(profile[field] || PROFILE_LOGO_DEFAULTS[field] || "");
         return logoAssetUrlById.get(assetId) || null;
       };
+      const face = resolve("selected_face_asset");
+      const plant = resolve("selected_plant_asset");
+      const border = resolve("selected_border_asset");
       return {
-        face: resolve("selected_face_asset"),
-        plant: resolve("selected_plant_asset"),
-        border: resolve("selected_border_asset"),
+        face,
+        plant,
+        border,
         border_color: profile?.selected_border_color || null,
+        status: face || plant || border ? "ok" : "no_matching_active_logo_assets",
       };
     };
 
@@ -283,6 +303,7 @@ Deno.serve(async (req) => {
         const profile = profileByAuthId.get(authId);
         return {
           name: publicName(profile),
+          name_status: publicNameStatus(profile),
           avatar: avatarForProfile(profile),
           weekly_seed_total: total,
         };
@@ -322,8 +343,14 @@ Deno.serve(async (req) => {
           species_name: topScanPlant?.species_name || "Unbekannte Art",
           rarity: topScanPlant?.rarity ?? null,
           display_name: publicName(topScanProfile),
+          name_status: publicNameStatus(topScanProfile),
           avatar: avatarForProfile(topScanProfile),
           image_url: isPublicProfile(topScanProfile) ? topScanRow.image_url ?? null : null,
+          image_status: !isPublicProfile(topScanProfile)
+            ? "profile_not_public"
+            : topScanRow.image_url
+            ? "available"
+            : "discovery_has_no_image",
         }
         : null,
     });

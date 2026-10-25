@@ -185,19 +185,21 @@ class _Slide:
         self.width, self.height = size
         self.scale = self.width / 1080
         self.dark_theme = dark_theme
+        has_background_image = background_image is not None
         self.image = (
             _draw_admin_report_background(size, autumn_variant) if dark_theme else background(size)
         ).convert("RGBA")
         if background_image is not None:
             photo = ImageOps.fit(background_image.convert("RGB"), size).convert("RGBA")
-            self.image = Image.blend(self.image, photo, 0.78 if dark_theme else 0.42)
+            self.image = Image.blend(self.image, photo, 0.92 if dark_theme else 0.42)
         panel = Image.new("RGBA", size, (0, 0, 0, 0))
         margin = int(64 * self.scale)
         panel_draw = ImageDraw.Draw(panel)
+        panel_fill = (5, 30, 25, 145 if has_background_image else 222) if dark_theme else PANEL
         panel_draw.rounded_rectangle(
             (margin, int(170 * self.scale), self.width - margin, self.height - int(150 * self.scale)),
             radius=int(48 * self.scale),
-            fill=(5, 30, 25, 222) if dark_theme else PANEL,
+            fill=panel_fill,
             outline=(GOLD[0], GOLD[1], GOLD[2], 90) if dark_theme else None,
             width=max(2, self.px(2)) if dark_theme else 1,
         )
@@ -411,6 +413,7 @@ def render_admin_weekly_report(stats: dict) -> list[Image.Image]:
         layer = Image.new("RGBA", (size_px, size_px), (0, 0, 0, 0))
         has_asset = False
         if avatar:
+            status = str(avatar.get("status") or "asset_unavailable")
             for asset_type in ("plant", "border", "face"):
                 url = avatar.get(asset_type)
                 if not url:
@@ -422,6 +425,10 @@ def render_admin_weekly_report(stats: dict) -> list[Image.Image]:
                 position = ((size_px - fitted.width) // 2, (size_px - fitted.height) // 2)
                 layer.alpha_composite(fitted, position)
                 has_asset = True
+            if not has_asset:
+                print(f"[weekly-report] Avatar unavailable ({status}); using initials.")
+        else:
+            print("[weekly-report] Avatar unavailable (profile not public or missing); using initials.")
         if not has_asset:
             draw = ImageDraw.Draw(layer)
             draw.ellipse((0, 0, size_px - 1, size_px - 1), fill=(*NIGHT_FOREST_LIGHT, 255))
@@ -478,6 +485,9 @@ def render_admin_weekly_report(stats: dict) -> list[Image.Image]:
             avatar_x = second.left + second.px(12)
             avatar_y = y + (height - second.px(100)) // 2
             name = str(item.get("name") or "Entdecker:in")
+            name_status = str(item.get("name_status") or "")
+            if name_status and name_status != "available":
+                print(f"[weekly-report] Leaderboard rank {index} name status: {name_status}.")
             draw_avatar(second, item.get("avatar"), avatar_x, avatar_y, 100, name)
             text_x = avatar_x + second.px(118)
             second.draw.text(
@@ -515,8 +525,15 @@ def render_admin_weekly_report(stats: dict) -> list[Image.Image]:
     fourth = create_slide("Scan der Woche", "Community-Liebling")
     top_scan = stats.get("top_scan")
     if top_scan:
+        if top_scan.get("name_status") and top_scan["name_status"] != "available":
+            print(f"[weekly-report] Scan owner name status: {top_scan['name_status']}.")
         photo = load_public_image(str(top_scan["image_url"]), "scan photo") \
             if top_scan.get("image_url") else None
+        if not top_scan.get("image_url"):
+            print(
+                "[weekly-report] Scan photo unavailable "
+                f"({top_scan.get('image_status') or 'image_url_missing'})."
+            )
         if photo is not None:
             fourth = _Slide(
                 INSTAGRAM_SIZE,

@@ -314,8 +314,15 @@ werden abwechselnd als dezente Eckdekoration in die Slides komponiert.
 Die automatische Version rendert die vier Berichtswerte serverseitig. Top-5-Avatare und das
 Foto des Scan-Siegers werden einbezogen, aber nur wenn `public_profile` und
 `global_explorer_visibility` beide aktiv sind. Bei privaten Profilen wird der Name anonymisiert
-und Avatar/Scan-Foto ausgelassen. Externe Bild-URLs werden nur von Supabase-Storage,
-`workers.dev` und `floralog.de` geladen. Der Instagram-Zugriff nutzt
+und Avatar/Scan-Foto ausgelassen. Die ausgewählten Avatar-IDs kommen aus den Feldern
+`selected_face_asset`, `selected_plant_asset` und `selected_border_asset` in `PublicProfile`;
+die zugehörigen Bild-URLs werden ausschließlich über aktive Einträge in `public.LogoAsset`
+aufgelöst. Fehlen alte Auswahlwerte, verwendet der Snapshot dieselben Datenbank-Defaults wie
+die App (`face_default`, `plant_leaf`, `border_default`), nicht lokale Grafikdateien. Die
+Actions-Logs nennen bei fehlenden Bildern den Grund (z. B. nicht öffentliches Profil, fehlender
+Katalogeintrag, HTTP-Status oder nicht erlaubter Bildhost), ohne Bild-URLs oder Tokens auszugeben.
+Externe Bild-URLs werden nur von Supabase-Storage, `workers.dev` und `floralog.de` geladen.
+Der Instagram-Zugriff nutzt
 „Instagram API mit Instagram Login“ (`graph.instagram.com`); Webhooks werden dafür nicht benötigt.
 Instagram-Login-Tokens sind laut Meta 60 Tage gültig. Vor Ablauf muss ein gültiger Token erneuert
 und das GitHub Secret `INSTAGRAM_ACCESS_TOKEN` aktualisiert werden; andernfalls schlägt die

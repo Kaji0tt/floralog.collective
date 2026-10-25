@@ -98,3 +98,24 @@ def test_renderer_uses_public_profile_avatar_layers(monkeypatch) -> None:
         if red > 200 and green < 180 and blue > 200
     )
     assert photo_pixels > 100_000
+    assert slides_out[3].getpixel((600, 1000))[0] > 50
+
+
+def test_renderer_does_not_use_local_asset_when_supabase_avatar_cannot_load(monkeypatch) -> None:
+    from floralog_ai import slides
+
+    monkeypatch.setattr(slides, "load_public_image", lambda _url, _label: None)
+    snapshot = load_snapshot()
+    snapshot["leaderboard"][0]["avatar"] = {
+        "face": "https://floralog-assets-catalog.example.workers.dev/asset/custom_logo/default/face_default.png",
+        "plant": None,
+        "border": None,
+        "status": "ok",
+    }
+
+    slide = render_admin_weekly_report(snapshot)[1]
+    magenta_pixels = sum(
+        1 for red, green, blue in slide.getdata()
+        if red > 200 and green < 80 and blue > 200
+    )
+    assert magenta_pixels == 0

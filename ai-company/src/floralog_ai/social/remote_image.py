@@ -29,7 +29,8 @@ class _SafeRedirectHandler(HTTPRedirectHandler):
 
 def load_public_image(url: str, label: str) -> Image.Image | None:
     if not _is_allowed_url(url):
-        print(f"[weekly-report] Skipped {label}: image host is not allowlisted.")
+        host = urlparse(url).hostname or "unknown"
+        print(f"[weekly-report] Skipped {label}: image host '{host}' is not allowlisted.")
         return None
 
     request = Request(url, headers={"Accept": ", ".join(sorted(ALLOWED_IMAGE_TYPES))})
@@ -37,11 +38,20 @@ def load_public_image(url: str, label: str) -> Image.Image | None:
         with build_opener(_SafeRedirectHandler()).open(request, timeout=15) as response:
             content_type = response.headers.get_content_type()
             if content_type not in ALLOWED_IMAGE_TYPES:
-                print(f"[weekly-report] Skipped {label}: response is not an allowed image type.")
+                print(
+                    f"[weekly-report] Skipped {label}: response content type "
+                    f"'{content_type}' is not an allowed image type."
+                )
                 return None
             data = response.read(MAX_IMAGE_BYTES + 1)
-    except (HTTPError, URLError, TimeoutError, OSError):
-        print(f"[weekly-report] Skipped {label}: image could not be downloaded.")
+    except HTTPError as error:
+        print(f"[weekly-report] Skipped {label}: image server returned HTTP {error.code}.")
+        return None
+    except (URLError, TimeoutError, OSError) as error:
+        print(
+            f"[weekly-report] Skipped {label}: image request failed "
+            f"({type(error).__name__})."
+        )
         return None
 
     if not data or len(data) > MAX_IMAGE_BYTES:
