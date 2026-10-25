@@ -17,6 +17,7 @@ floralog-ai-reach = "floralog_ai.reach_main:main"
 floralog-ai-fetch-content = "floralog_ai.content_snapshot_client:main"
 floralog-ai-partners = "floralog_ai.partner_main:main"
 floralog-ai-render-background = "floralog_ai.slides:main"
+floralog-ai-weekly-report = "floralog_ai.weekly_report_main:main"
 
 [dependency-groups]
 dev = [

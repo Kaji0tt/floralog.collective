@@ -50,6 +50,7 @@ jobs:
       MASTODON_ACCESS_TOKEN: ${{ secrets.MASTODON_ACCESS_TOKEN }}
       INSTAGRAM_USER_ID: ${{ secrets.INSTAGRAM_USER_ID }}
       INSTAGRAM_ACCESS_TOKEN: ${{ secrets.INSTAGRAM_ACCESS_TOKEN }}
+      INSTAGRAM_API_MODE: ${{ vars.INSTAGRAM_API_MODE || 'facebook_login' }}
       INSTAGRAM_AI_LABEL: ${{ vars.INSTAGRAM_AI_LABEL || 'true' }}
       PINTEREST_BOARD_ID: ${{ secrets.PINTEREST_BOARD_ID }}
       PINTEREST_ACCESS_TOKEN: ${{ secrets.PINTEREST_ACCESS_TOKEN }}
@@ -124,6 +125,7 @@ jobs:
       MASTODON_ACCESS_TOKEN: ${{ secrets.MASTODON_ACCESS_TOKEN }}
       INSTAGRAM_USER_ID: ${{ secrets.INSTAGRAM_USER_ID }}
       INSTAGRAM_ACCESS_TOKEN: ${{ secrets.INSTAGRAM_ACCESS_TOKEN }}
+      INSTAGRAM_API_MODE: ${{ vars.INSTAGRAM_API_MODE || 'facebook_login' }}
       INSTAGRAM_HASHTAG_SEARCH: ${{ vars.INSTAGRAM_HASHTAG_SEARCH || 'false' }}
       IS_DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run }}
       GH_TOKEN: ${{ github.token }}

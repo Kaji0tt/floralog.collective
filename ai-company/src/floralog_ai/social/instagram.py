@@ -9,6 +9,7 @@ from floralog_ai.schemas import AccountSnapshot, PartnerCandidate, Platform, Pub
 from floralog_ai.social.compose import ComposedPost
 
 GRAPH_HOST = "https://graph.facebook.com"
+INSTAGRAM_LOGIN_HOST = "https://graph.instagram.com"
 DEFAULT_GRAPH_VERSION = "v25.0"
 INSIGHT_METRICS = "reach,saved,shares,total_interactions"
 MAX_INSIGHT_POSTS = 10
@@ -22,10 +23,20 @@ class InstagramClient:
 
     platform = Platform.INSTAGRAM
 
-    def __init__(self, user_id: str, access_token: str, graph_version: str = DEFAULT_GRAPH_VERSION):
+    def __init__(
+        self,
+        user_id: str,
+        access_token: str,
+        graph_version: str = DEFAULT_GRAPH_VERSION,
+        api_mode: str = "facebook_login",
+    ):
+        if api_mode not in {"facebook_login", "instagram_login"}:
+            raise ValueError("INSTAGRAM_API_MODE must be facebook_login or instagram_login.")
         self._user_id = user_id
         self._access_token = access_token
-        self._base = f"{GRAPH_HOST}/{graph_version}"
+        self._api_mode = api_mode
+        host = INSTAGRAM_LOGIN_HOST if api_mode == "instagram_login" else GRAPH_HOST
+        self._base = f"{host}/{graph_version}"
         self.ai_label = os.getenv("INSTAGRAM_AI_LABEL", "true").strip().lower() == "true"
 
     @classmethod
@@ -34,7 +45,12 @@ class InstagramClient:
         access_token = os.getenv("INSTAGRAM_ACCESS_TOKEN", "").strip()
         if not user_id or not access_token:
             return None
-        return cls(user_id, access_token, os.getenv("INSTAGRAM_GRAPH_VERSION") or DEFAULT_GRAPH_VERSION)
+        return cls(
+            user_id,
+            access_token,
+            os.getenv("INSTAGRAM_GRAPH_VERSION") or DEFAULT_GRAPH_VERSION,
+            os.getenv("INSTAGRAM_API_MODE", "facebook_login").strip().lower(),
+        )
 
     def fetch_account(self, limit: int = 25) -> AccountSnapshot:
         account = self._get(self._user_id, {"fields": "followers_count,username"})
@@ -163,10 +179,26 @@ class InstagramClient:
         raise ApiError(f"Instagram container {container_id} was not ready in time.")
 
     def _headers(self) -> dict[str, str]:
+        if self._api_mode == "instagram_login":
+            return {}
         return {"Authorization": f"Bearer {self._access_token}"}
 
     def _get(self, path: str, params: dict) -> dict:
-        return request_json("GET", f"{self._base}/{path}?{urlencode(params)}", headers=self._headers())
+        request_params = dict(params)
+        if self._api_mode == "instagram_login":
+            request_params["access_token"] = self._access_token
+        return request_json(
+            "GET",
+            f"{self._base}/{path}?{urlencode(request_params)}",
+            headers=self._headers(),
+        )
 
     def _post(self, path: str, payload: dict) -> dict:
+        if self._api_mode == "instagram_login":
+            return request_json(
+                "POST",
+                f"{self._base}/{path}",
+                headers=self._headers(),
+                form={**payload, "access_token": self._access_token},
+            )
         return request_json("POST", f"{self._base}/{path}", headers=self._headers(), payload=payload)

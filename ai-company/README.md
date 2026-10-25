@@ -38,6 +38,11 @@ deterministic checks in `reach_guardrails.py`. The same agent ranks partner cand
 tools; posting only happens in `reach_main.py` behind `--live --publish` and the
 `FLORALOG_REACH_POSTING_ENABLED=true` kill switch. Setup: `../docs/AI_COMPANY_SETUP.md`.
 
+The `Admin Weekly Report Instagram` workflow separately renders the four weekly report cards
+from a protected Supabase snapshot. It runs Mondays at 09:00 UTC and will not publish unless
+`FLORALOG_WEEKLY_REPORT_POSTING_ENABLED=true` is explicitly set. The Instagram API client supports
+both Facebook Login and Instagram Login; the report workflow uses Instagram Login.
+
 ## Phase 2 status
 
 The payment ledger migration, PayPal capture recording, funnel tracking, and aggregate KPI Edge

@@ -1,0 +1,28 @@
+{
+  "week_start": "2026-10-12T00:00:00.000Z",
+  "week_end": "2026-10-19T00:00:00.000Z",
+  "seeds_earned": 14250,
+  "unique_scanners": 18,
+  "new_players": 3,
+  "total_scans": 42,
+  "distinct_species": 16,
+  "rare_scans": 4,
+  "total_likes": 11,
+  "top_plant_name": "Rotbuche",
+  "top_plant_count": 8,
+  "quest_plant_label": "Gänseblümchen",
+  "quest_finds": 6,
+  "quest_discoverers": ["Beispielname"],
+  "leaderboard": [
+    {"name": "Beispielname", "weekly_seed_total": 1250},
+    {"name": "Naturfreund", "weekly_seed_total": 980},
+    {"name": "Pflanzenfan", "weekly_seed_total": 640}
+  ],
+  "top_scan": {
+    "image_url": null,
+    "like_count": 7,
+    "species_name": "Gänseblümchen",
+    "rarity": "Häufig",
+    "display_name": "Beispielname"
+  }
+}

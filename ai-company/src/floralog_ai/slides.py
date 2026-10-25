@@ -14,6 +14,7 @@ from floralog_ai.schemas.reach import (
     QuestHighlight,
     ScanOfTheWeekHighlight,
 )
+from floralog_ai.social.remote_image import load_public_image
 
 INSTAGRAM_SIZE = (1080, 1350)
 PINTEREST_SIZE = (1000, 1500)
@@ -134,11 +135,19 @@ def _wrap(draw: ImageDraw.ImageDraw, text: str, font, max_width: int, max_lines:
 
 
 class _Slide:
-    def __init__(self, size: tuple[int, int], week_key: str):
+    def __init__(
+        self,
+        size: tuple[int, int],
+        week_key: str,
+        background_image: Image.Image | None = None,
+    ):
         self.size = size
         self.width, self.height = size
         self.scale = self.width / 1080
         self.image = background(size).convert("RGBA")
+        if background_image is not None:
+            photo = ImageOps.fit(background_image.convert("RGB"), size).convert("RGBA")
+            self.image = Image.blend(self.image, photo, 0.42)
         panel = Image.new("RGBA", size, (0, 0, 0, 0))
         margin = int(64 * self.scale)
         ImageDraw.Draw(panel).rounded_rectangle(
@@ -272,6 +281,161 @@ def render_quest(quest: QuestHighlight, size: tuple[int, int], week_key: str) ->
         slide.body(quest.description)
     slide.body("Mach mit und sammle Pflanzen in deiner Umgebung.", color=MUTED)
     return slide.result()
+
+
+def render_admin_weekly_report(stats: dict) -> list[Image.Image]:
+    """Render the four weekly-report cards from the admin report's aggregate snapshot."""
+    from datetime import date
+
+    start = date.fromisoformat(str(stats["week_start"])[:10])
+    end = date.fromisoformat(str(stats["week_end"])[:10])
+    end = date.fromordinal(end.toordinal() - 1)
+    week_key = f"{start:%d.%m.}–{end:%d.%m.%Y}"
+
+    def create_slide(label: str, title: str) -> _Slide:
+        slide = _Slide(INSTAGRAM_SIZE, week_key)
+        slide.label(label)
+        slide.title(title, size=70, max_lines=2)
+        return slide
+
+    def draw_rows(slide: _Slide, rows: list[tuple[str, str]], *, start_y: int | None = None) -> None:
+        font = load_font(slide.px(35))
+        value_font = load_font(slide.px(40), True)
+        y = slide.y if start_y is None else slide.px(start_y)
+        for label, value in rows:
+            height = slide.px(112)
+            slide.draw.rounded_rectangle(
+                (slide.left, y, slide.width - slide.left, y + height),
+                radius=slide.px(24),
+                fill=(255, 252, 246, 230),
+                outline=(*LEAF, 65),
+                width=2,
+            )
+            slide.draw.text((slide.left + slide.px(28), y + slide.px(34)), label,
+                            font=font, fill=MUTED)
+            value_width = slide.draw.textlength(value, font=value_font)
+            slide.draw.text((slide.width - slide.left - slide.px(28) - value_width,
+                             y + slide.px(28)), value, font=value_font, fill=FOREST)
+            y += height + slide.px(18)
+
+    def draw_avatar(
+        slide: _Slide,
+        avatar: dict | None,
+        x: int,
+        y: int,
+        size: int,
+        fallback: str,
+    ) -> None:
+        size_px = slide.px(size)
+        layer = Image.new("RGBA", (size_px, size_px), (0, 0, 0, 0))
+        has_asset = False
+        if avatar:
+            for asset_type in ("plant", "border", "face"):
+                url = avatar.get(asset_type)
+                if not url:
+                    continue
+                asset = load_public_image(str(url), f"{asset_type} avatar asset")
+                if asset is None:
+                    continue
+                fitted = ImageOps.contain(asset, (size_px, size_px))
+                position = ((size_px - fitted.width) // 2, (size_px - fitted.height) // 2)
+                layer.alpha_composite(fitted, position)
+                has_asset = True
+        if not has_asset:
+            draw = ImageDraw.Draw(layer)
+            draw.ellipse((0, 0, size_px - 1, size_px - 1), fill=(*FOREST, 255))
+            font = load_font(slide.px(42), True)
+            text = (fallback or "?")[:1].upper()
+            bounds = draw.textbbox((0, 0), text, font=font)
+            draw.text(
+                ((size_px - (bounds[2] - bounds[0])) / 2,
+                 (size_px - (bounds[3] - bounds[1])) / 2 - bounds[1]),
+                text,
+                font=font,
+                fill="white",
+            )
+        mask = Image.new("L", (size_px, size_px), 0)
+        ImageDraw.Draw(mask).ellipse((0, 0, size_px - 1, size_px - 1), fill=255)
+        layer.putalpha(Image.composite(layer.getchannel("A"), Image.new("L", layer.size, 0), mask))
+        slide.image.alpha_composite(layer, (x, y))
+
+    def number(value: object) -> str:
+        return f"{int(value or 0):,}".replace(",", ".")
+
+    first = create_slide("Samen & Spieler", "Gemeinsam gesammelt")
+    first.stat(number(stats.get("seeds_earned")), "Samen verdient")
+    draw_rows(first, [
+        ("Aktive SpielerInnen", number(stats.get("unique_scanners"))),
+        ("Neue SpielerInnen", number(stats.get("new_players"))),
+    ])
+
+    second = create_slide("Rangliste", "Top 5 Samen")
+    leaderboard = stats.get("leaderboard") or []
+    if leaderboard:
+        font = load_font(second.px(35))
+        value_font = load_font(second.px(40), True)
+        y = second.y
+        for index, item in enumerate(leaderboard[:5], start=1):
+            height = second.px(132)
+            second.draw.rounded_rectangle(
+                (second.left, y, second.width - second.left, y + height),
+                radius=second.px(24),
+                fill=(255, 252, 246, 230),
+                outline=(*LEAF, 65),
+                width=2,
+            )
+            avatar_x = second.left + second.px(12)
+            avatar_y = y + (height - second.px(100)) // 2
+            name = str(item.get("name") or "Entdecker:in")
+            draw_avatar(second, item.get("avatar"), avatar_x, avatar_y, 100, name)
+            text_x = avatar_x + second.px(118)
+            second.draw.text((text_x, y + second.px(42)),
+                             f"{index}. {name[:20]}", font=font, fill=MUTED)
+            value = number(item.get("weekly_seed_total"))
+            value_width = second.draw.textlength(value, font=value_font)
+            second.draw.text((second.width - second.left - second.px(24) - value_width,
+                              y + second.px(40)), value, font=value_font, fill=FOREST)
+            y += height + second.px(12)
+    else:
+        second.body("Noch keine Daten für diese Woche.")
+
+    third = create_slide("Scan-Statistiken", "Diese Woche in Zahlen")
+    report_rows = [
+        ("Scans gesamt", number(stats.get("total_scans"))),
+        ("Verschiedene Arten", number(stats.get("distinct_species"))),
+        ("Selten oder seltener", number(stats.get("rare_scans"))),
+    ]
+    if stats.get("top_plant_name"):
+        report_rows.append((str(stats["top_plant_name"])[:24],
+                            f"{number(stats.get('top_plant_count'))}×"))
+    if stats.get("quest_plant_label"):
+        report_rows.append((str(stats["quest_plant_label"])[:24],
+                            f"{number(stats.get('quest_finds'))}×"))
+    draw_rows(third, report_rows)
+
+    fourth = create_slide("Scan der Woche", "Community-Liebling")
+    top_scan = stats.get("top_scan")
+    if top_scan:
+        photo = load_public_image(str(top_scan["image_url"]), "scan photo") \
+            if top_scan.get("image_url") else None
+        if photo is not None:
+            fourth = _Slide(INSTAGRAM_SIZE, week_key, background_image=photo)
+            fourth.label("Scan der Woche")
+            fourth.title("Community-Liebling", size=70, max_lines=2)
+        fourth.title(str(top_scan.get("species_name") or "Unbekannte Art"), size=58)
+        fourth.stat(number(top_scan.get("like_count")), "Likes diese Woche")
+        display_name = str(top_scan.get("display_name") or "Entdecker:in")
+        draw_avatar(fourth, top_scan.get("avatar"), fourth.left,
+                    fourth.y, 90, display_name)
+        fourth.draw.text((fourth.left + fourth.px(110), fourth.y + fourth.px(24)),
+                         display_name, font=load_font(fourth.px(34), True), fill=INK)
+        fourth.y += fourth.px(120)
+        if top_scan.get("rarity"):
+            fourth.body(str(top_scan["rarity"]), color=MUTED)
+    else:
+        fourth.body("Noch kein Scan mit Likes diese Woche.")
+
+    return [first.result(), second.result(), third.result(), fourth.result()]
 
 
 def _data_slides(content: ContentSnapshot, size: tuple[int, int]) -> dict[ContentPillar, Image.Image]:

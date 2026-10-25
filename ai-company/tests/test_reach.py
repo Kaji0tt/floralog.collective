@@ -25,6 +25,7 @@ from floralog_ai.schemas import (
     SocialPostDraft,
 )
 from floralog_ai.social.compose import INSTAGRAM_LINK_LINE, compose_post
+from floralog_ai.social.instagram import InstagramClient
 
 FIXTURES = Path(__file__).parents[1] / "fixtures"
 NOW = datetime(2026, 9, 28, 16, 0, tzinfo=UTC)
@@ -159,6 +160,37 @@ def test_instagram_caption_has_no_link_but_bio_hint() -> None:
     assert "http" not in composed.text
     assert INSTAGRAM_LINK_LINE in composed.text
     assert composed.title == "Rotbuche"
+
+
+def test_instagram_login_uses_instagram_host_and_form_token(monkeypatch) -> None:
+    calls = []
+
+    def capture_request(method, url, **kwargs):
+        calls.append((method, url, kwargs))
+        return {"id": "container-id"}
+
+    monkeypatch.setattr("floralog_ai.social.instagram.request_json", capture_request)
+    client = InstagramClient("17841444121800819", "private-token", api_mode="instagram_login")
+
+    client._get("me", {"fields": "username"})
+    client._post("me/media", {"image_url": "https://example.test/slide.jpg"})
+
+    assert calls[0][1].startswith("https://graph.instagram.com/v25.0/me?")
+    assert "access_token=private-token" in calls[0][1]
+    assert calls[0][2]["headers"] == {}
+    assert calls[1][1] == "https://graph.instagram.com/v25.0/me/media"
+    assert calls[1][2]["form"] == {
+        "image_url": "https://example.test/slide.jpg",
+        "access_token": "private-token",
+    }
+    assert calls[1][2]["headers"] == {}
+
+
+def test_instagram_default_mode_preserves_facebook_login() -> None:
+    client = InstagramClient("account-id", "private-token")
+
+    assert client._base == "https://graph.facebook.com/v25.0"
+    assert client._headers() == {"Authorization": "Bearer private-token"}
 
 
 def test_image_platforms_require_headline_and_respect_hashtag_limits() -> None:

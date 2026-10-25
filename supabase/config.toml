@@ -144,6 +144,11 @@ enabled = true
 verify_jwt = false
 entrypoint = "./functions/aiSocialMediaUpload/index.ts"
 
+[functions.adminWeeklyReportSnapshot]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/adminWeeklyReportSnapshot/index.ts"
+
 [functions.communityEventScheduler]
 enabled = true
 verify_jwt = false

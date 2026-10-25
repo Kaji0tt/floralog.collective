@@ -267,3 +267,37 @@ uv run floralog-ai-partners --candidates fixtures/partner_candidates.json
 ```
 
 Ergebnisse: `output/reach-report.md`, `output/media/*.jpg`, `output/partner-report.md`.
+
+### Admin-Wochenbericht als Instagram-Karussell
+
+Der separate Workflow `Actions > Admin Weekly Report Instagram` erstellt am Montag um 09:00 UTC
+ein Karussell mit den vier Wochenbericht-Karten. Er nutzt die Statistiken aus dem
+`AdminWeeklyReport`, rendert vier 1080 × 1350 JPEGs und postet sie nur, wenn die Repository-
+Variable `FLORALOG_WEEKLY_REPORT_POSTING_ENABLED=true` gesetzt ist. Standardmäßig ist die
+Veröffentlichung aus. Der Workflow `AI Reach Agent` bleibt davon unabhängig. Der neue
+Snapshot-Endpunkt benötigt keine Migration; deploye dafür die Edge Function
+`adminWeeklyReportSnapshot`.
+
+Vor der Aktivierung:
+
+1. `adminWeeklyReportSnapshot` deployen. Die Funktion verwendet `AI_KPI_SECRET` und den
+   vorhandenen Supabase Secret Key; sie gibt keine E-Mail-Adressen oder Scan-Fotos zurück.
+2. Prüfen, dass das identische `AI_KPI_SECRET` als GitHub Actions Secret und in Supabase
+   konfiguriert ist. Für den Bild-Upload müssen außerdem Bucket und Funktion
+   `aiSocialMediaUpload` eingerichtet sein (siehe Supabase-Schritte oben).
+3. In GitHub Actions `Admin Weekly Report Instagram` zunächst mit `dry_run=true` ausführen.
+   Das rendert Fixture-Daten ohne Supabase-Zugriff und ohne Instagram-Veröffentlichung.
+4. Danach mit `dry_run=false` und ohne Posting-Schalter die echten Wochenwerte abrufen und die
+   vier JPEGs als Artefakt ansehen.
+5. Erst nach Sichtprüfung `FLORALOG_WEEKLY_REPORT_POSTING_ENABLED=true` als Repository-Variable
+   setzen. Der Zeitplan läuft in UTC; der Montagstermin ist nicht an Sommer-/Winterzeit angepasst.
+
+Die automatische Version rendert die vier Berichtswerte serverseitig. Top-5-Avatare und das
+Foto des Scan-Siegers werden einbezogen, aber nur wenn `public_profile` und
+`global_explorer_visibility` beide aktiv sind. Bei privaten Profilen wird der Name anonymisiert
+und Avatar/Scan-Foto ausgelassen. Externe Bild-URLs werden nur von Supabase-Storage,
+`workers.dev` und `floralog.de` geladen. Der Instagram-Zugriff nutzt
+„Instagram API mit Instagram Login“ (`graph.instagram.com`); Webhooks werden dafür nicht benötigt.
+Instagram-Login-Tokens sind laut Meta 60 Tage gültig. Vor Ablauf muss ein gültiger Token erneuert
+und das GitHub Secret `INSTAGRAM_ACCESS_TOKEN` aktualisiert werden; andernfalls schlägt die
+Veröffentlichung fehl. Der Token darf nicht in Issues, Logs oder Chat-Nachrichten kopiert werden.
