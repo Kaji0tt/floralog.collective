@@ -321,7 +321,9 @@ aufgelöst. Fehlen alte Auswahlwerte, verwendet der Snapshot dieselben Datenbank
 die App (`face_default`, `plant_leaf`, `border_default`), nicht lokale Grafikdateien. Die
 Actions-Logs nennen bei fehlenden Bildern den Grund (z. B. nicht öffentliches Profil, fehlender
 Katalogeintrag, HTTP-Status oder nicht erlaubter Bildhost), ohne Bild-URLs oder Tokens auszugeben.
-Externe Bild-URLs werden nur von Supabase-Storage, `workers.dev`, `r2.dev` und `floralog.de` geladen.
+Der Bildabruf verwendet einen identifizierenden User-Agent, weil der generische Python-Downloader
+bei den öffentlichen R2-Bildern mit HTTP 403 abgewiesen wurde. Externe Bild-URLs werden nur von
+Supabase-Storage, `workers.dev`, `r2.dev` und `floralog.de` geladen.
 Der Instagram-Zugriff nutzt
 „Instagram API mit Instagram Login“ (`graph.instagram.com`); Webhooks werden dafür nicht benötigt.
 Instagram-Login-Tokens sind laut Meta 60 Tage gültig. Vor Ablauf muss ein gültiger Token erneuert

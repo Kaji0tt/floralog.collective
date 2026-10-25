@@ -33,7 +33,13 @@ def load_public_image(url: str, label: str) -> Image.Image | None:
         print(f"[weekly-report] Skipped {label}: image host '{host}' is not allowlisted.")
         return None
 
-    request = Request(url, headers={"Accept": ", ".join(sorted(ALLOWED_IMAGE_TYPES))})
+    request = Request(
+        url,
+        headers={
+            "Accept": ", ".join(sorted(ALLOWED_IMAGE_TYPES)),
+            "User-Agent": "Floralog-Weekly-Report/1.0 (+https://floralog.de)",
+        },
+    )
     try:
         with build_opener(_SafeRedirectHandler()).open(request, timeout=15) as response:
             content_type = response.headers.get_content_type()
@@ -45,7 +51,10 @@ def load_public_image(url: str, label: str) -> Image.Image | None:
                 return None
             data = response.read(MAX_IMAGE_BYTES + 1)
     except HTTPError as error:
-        print(f"[weekly-report] Skipped {label}: image server returned HTTP {error.code}.")
+        print(
+            f"[weekly-report] Skipped {label}: image server at "
+            f"'{urlparse(url).hostname}' returned HTTP {error.code}."
+        )
         return None
     except (URLError, TimeoutError, OSError) as error:
         print(

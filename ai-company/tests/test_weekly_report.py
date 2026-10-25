@@ -1,9 +1,12 @@
 from datetime import date
+from email.message import Message
+from io import BytesIO
 from pathlib import Path
 
 from PIL import Image, ImageDraw
 
 from floralog_ai.slides import render_admin_weekly_report, to_jpeg
+from floralog_ai.social import remote_image
 from floralog_ai.social.remote_image import _is_allowed_url
 from floralog_ai.weekly_report_main import completed_week_start, run_weekly_report
 
@@ -66,6 +69,47 @@ def test_image_url_allowlist_accepts_project_and_asset_hosts_only() -> None:
     assert _is_allowed_url("https://pub-abc123.r2.dev/custom_logo/default/face_default.png")
     assert not _is_allowed_url("http://mppxozsltkgjozcastgv.supabase.co/a.jpg")
     assert not _is_allowed_url("https://attacker.example/a.jpg")
+
+
+def test_public_image_request_uses_identifying_user_agent(monkeypatch) -> None:
+    image_bytes = BytesIO()
+    Image.new("RGB", (2, 2), (20, 80, 40)).save(image_bytes, format="PNG")
+    headers = Message()
+    headers["Content-Type"] = "image/png"
+    captured = {}
+
+    class Response:
+        def __init__(self):
+            self.headers = headers
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return None
+
+        def read(self, _limit):
+            return image_bytes.getvalue()
+
+    class Opener:
+        def open(self, request, timeout):
+            captured["request"] = request
+            captured["timeout"] = timeout
+            return Response()
+
+    monkeypatch.setattr(remote_image, "build_opener", lambda *_handlers: Opener())
+
+    result = remote_image.load_public_image(
+        "https://floralog-assets-catalog.green-term-27d0.workers.dev/"
+        "asset/custom_logo/default/face_default.png",
+        "test avatar",
+    )
+
+    assert result is not None and result.size == (2, 2)
+    assert captured["request"].get_header("User-agent") == (
+        "Floralog-Weekly-Report/1.0 (+https://floralog.de)"
+    )
+    assert captured["timeout"] == 15
 
 
 def test_renderer_uses_public_profile_avatar_layers(monkeypatch) -> None:

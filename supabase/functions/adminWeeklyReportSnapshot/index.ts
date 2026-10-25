@@ -86,7 +86,8 @@ function isPublicProfile(profile: Row | undefined): boolean {
 }
 
 function publicName(profile: Row | undefined): string {
-  if (!isPublicProfile(profile)) return "Entdecker:in";
+  if (profile && !isPublicProfile(profile)) return "- Privat -";
+  if (!profile) return "Entdecker:in";
   return String(profile?.display_name || profile?.full_name || "Entdecker:in");
 }
 
