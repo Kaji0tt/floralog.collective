@@ -407,8 +407,7 @@ def render_admin_weekly_report(stats: dict) -> list[Image.Image]:
         x: int,
         y: int,
         size: int,
-        fallback: str,
-    ) -> None:
+    ) -> bool:
         size_px = slide.px(size)
         layer = Image.new("RGBA", (size_px, size_px), (0, 0, 0, 0))
         has_asset = False
@@ -426,27 +425,11 @@ def render_admin_weekly_report(stats: dict) -> list[Image.Image]:
                 layer.alpha_composite(fitted, position)
                 has_asset = True
             if not has_asset:
-                print(f"[weekly-report] Avatar unavailable ({status}); using initials.")
+                print(f"[weekly-report] Avatar unavailable ({status}); hiding avatar slot.")
         else:
-            print("[weekly-report] Avatar unavailable (profile not public or missing); using initials.")
+            print("[weekly-report] Avatar unavailable (profile not public or missing); hiding avatar slot.")
         if not has_asset:
-            draw = ImageDraw.Draw(layer)
-            draw.ellipse((0, 0, size_px - 1, size_px - 1), fill=(*NIGHT_FOREST_LIGHT, 255))
-            draw.ellipse(
-                (2, 2, size_px - 3, size_px - 3),
-                outline=(*GOLD, 255),
-                width=max(1, size_px // 24),
-            )
-            font = load_font(slide.px(42), True)
-            text = (fallback or "?")[:1].upper()
-            bounds = draw.textbbox((0, 0), text, font=font)
-            draw.text(
-                ((size_px - (bounds[2] - bounds[0])) / 2,
-                 (size_px - (bounds[3] - bounds[1])) / 2 - bounds[1]),
-                text,
-                font=font,
-                fill="white",
-            )
+            return False
         mask = Image.new("L", (size_px, size_px), 0)
         ImageDraw.Draw(mask).ellipse((0, 0, size_px - 1, size_px - 1), fill=255)
         layer.putalpha(Image.composite(layer.getchannel("A"), Image.new("L", layer.size, 0), mask))
@@ -456,6 +439,7 @@ def render_admin_weekly_report(stats: dict) -> list[Image.Image]:
             outline=(*GOLD, 225),
             width=max(2, size_px // 28),
         )
+        return True
 
     def number(value: object) -> str:
         return f"{int(value or 0):,}".replace(",", ".")
@@ -488,8 +472,8 @@ def render_admin_weekly_report(stats: dict) -> list[Image.Image]:
             name_status = str(item.get("name_status") or "")
             if name_status and name_status != "available":
                 print(f"[weekly-report] Leaderboard rank {index} name status: {name_status}.")
-            draw_avatar(second, item.get("avatar"), avatar_x, avatar_y, 100, name)
-            text_x = avatar_x + second.px(118)
+            has_avatar = draw_avatar(second, item.get("avatar"), avatar_x, avatar_y, 100)
+            text_x = avatar_x + second.px(118) if has_avatar else second.left + second.px(20)
             second.draw.text(
                 (text_x, y + second.px(42)),
                 f"{index}. {name[:20]}",
@@ -535,25 +519,69 @@ def render_admin_weekly_report(stats: dict) -> list[Image.Image]:
                 f"({top_scan.get('image_status') or 'image_url_missing'})."
             )
         if photo is not None:
-            fourth = _Slide(
-                INSTAGRAM_SIZE,
-                week_key,
-                background_image=photo,
-                dark_theme=True,
-                autumn_variant=next_variant,
+            photo_width = fourth.width - 2 * fourth.left
+            photo_height = fourth.px(410)
+            photo_x = fourth.left
+            photo_y = fourth.y + fourth.px(8)
+            fitted_photo = ImageOps.fit(photo.convert("RGB"), (photo_width, photo_height))
+            photo_mask = Image.new("L", fitted_photo.size, 0)
+            ImageDraw.Draw(photo_mask).rounded_rectangle(
+                (0, 0, photo_width - 1, photo_height - 1),
+                radius=fourth.px(28),
+                fill=255,
             )
-            fourth.label("Scan der Woche")
-            fourth.title("Community-Liebling", size=70, max_lines=2)
-        fourth.title(str(top_scan.get("species_name") or "Unbekannte Art"), size=58)
-        fourth.stat(number(top_scan.get("like_count")), "Likes diese Woche")
+            fourth.image.paste(fitted_photo, (photo_x, photo_y), photo_mask)
+            fourth.draw.rounded_rectangle(
+                (photo_x, photo_y, photo_x + photo_width, photo_y + photo_height),
+                radius=fourth.px(28),
+                outline=(*GOLD, 180),
+                width=max(2, fourth.px(2)),
+            )
+            fourth.y = photo_y + photo_height + fourth.px(28)
+
+        species_name = str(top_scan.get("species_name") or "Unbekannte Art")
+        species_font = load_font(fourth.px(48), True)
+        species_lines = _wrap(fourth.draw, species_name, species_font, fourth.max_width, 2)
+        for line in species_lines:
+            fourth.draw.text((fourth.left, fourth.y), line, font=species_font, fill=GOLD_LIGHT)
+            fourth.y += int(species_font.size * 1.12)
+        fourth.y += fourth.px(8)
+
+        metadata_font = load_font(fourth.px(30), True)
+        rarity = str(top_scan.get("rarity") or "").strip()
+        if rarity:
+            fourth.draw.text(
+                (fourth.left, fourth.y),
+                rarity.upper(),
+                font=metadata_font,
+                fill=NIGHT_MUTED,
+            )
+        likes_text = f"{number(top_scan.get('like_count'))} LIKES"
+        likes_width = fourth.draw.textlength(likes_text, font=metadata_font)
+        fourth.draw.text(
+            (fourth.width - fourth.left - likes_width, fourth.y),
+            likes_text,
+            font=metadata_font,
+            fill=GOLD,
+        )
+        fourth.y += fourth.px(48)
+
         display_name = str(top_scan.get("display_name") or "Entdecker:in")
-        draw_avatar(fourth, top_scan.get("avatar"), fourth.left,
-                    fourth.y, 90, display_name)
-        fourth.draw.text((fourth.left + fourth.px(110), fourth.y + fourth.px(24)),
-                         display_name, font=load_font(fourth.px(34), True), fill=NIGHT_TEXT)
-        fourth.y += fourth.px(120)
-        if top_scan.get("rarity"):
-            fourth.body(str(top_scan["rarity"]), color=MUTED)
+        owner_avatar_x = fourth.left
+        has_avatar = draw_avatar(
+            fourth,
+            top_scan.get("avatar"),
+            owner_avatar_x,
+            fourth.y,
+            72,
+        )
+        owner_text_x = owner_avatar_x + fourth.px(92) if has_avatar else owner_avatar_x
+        fourth.draw.text(
+            (owner_text_x, fourth.y + fourth.px(18)),
+            display_name,
+            font=load_font(fourth.px(34), True),
+            fill=NIGHT_TEXT,
+        )
     else:
         fourth.body("Noch kein Scan mit Likes diese Woche.")
 

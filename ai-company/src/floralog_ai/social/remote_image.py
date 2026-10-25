@@ -7,7 +7,7 @@ from PIL import Image
 
 MAX_IMAGE_BYTES = 5 * 1024 * 1024
 ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp"}
-ALLOWED_HOSTS = ("supabase.co", "workers.dev", "floralog.de")
+ALLOWED_HOSTS = ("supabase.co", "workers.dev", "r2.dev", "floralog.de")
 
 
 def _is_allowed_url(url: str) -> bool:

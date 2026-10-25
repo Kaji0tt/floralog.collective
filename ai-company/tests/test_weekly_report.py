@@ -63,6 +63,7 @@ def test_weekly_report_dry_run_never_publishes(tmp_path: Path) -> None:
 def test_image_url_allowlist_accepts_project_and_asset_hosts_only() -> None:
     assert _is_allowed_url("https://mppxozsltkgjozcastgv.supabase.co/storage/v1/object/public/a.jpg")
     assert _is_allowed_url("https://floralog-assets.workers.dev/asset/logo.png")
+    assert _is_allowed_url("https://pub-abc123.r2.dev/custom_logo/default/face_default.png")
     assert not _is_allowed_url("http://mppxozsltkgjozcastgv.supabase.co/a.jpg")
     assert not _is_allowed_url("https://attacker.example/a.jpg")
 
@@ -77,6 +78,11 @@ def test_renderer_uses_public_profile_avatar_layers(monkeypatch) -> None:
     )
     snapshot = load_snapshot()
     snapshot["leaderboard"][0]["avatar"] = {
+        "face": "https://floralog-assets.workers.dev/asset/face.png",
+        "plant": None,
+        "border": None,
+    }
+    snapshot["top_scan"]["avatar"] = {
         "face": "https://floralog-assets.workers.dev/asset/face.png",
         "plant": None,
         "border": None,
@@ -97,8 +103,9 @@ def test_renderer_uses_public_profile_avatar_layers(monkeypatch) -> None:
         1 for red, green, blue in slides_out[3].getdata()
         if red > 200 and green < 180 and blue > 200
     )
-    assert photo_pixels > 100_000
-    assert slides_out[3].getpixel((600, 1000))[0] > 50
+    assert 100_000 < photo_pixels < 500_000
+    assert slides_out[3].getpixel((540, 600)) == (255, 0, 255)
+    assert slides_out[3].getpixel((40, 500)) != (255, 0, 255)
 
 
 def test_renderer_does_not_use_local_asset_when_supabase_avatar_cannot_load(monkeypatch) -> None:
