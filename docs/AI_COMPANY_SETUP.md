@@ -316,14 +316,20 @@ Foto des Scan-Siegers werden einbezogen, aber nur wenn `public_profile` und
 `global_explorer_visibility` beide aktiv sind. Bei privaten Profilen wird der Name anonymisiert
 und Avatar/Scan-Foto ausgelassen. Die ausgewählten Avatar-IDs kommen aus den Feldern
 `selected_face_asset`, `selected_plant_asset` und `selected_border_asset` in `PublicProfile`;
-die zugehörigen Bild-URLs werden ausschließlich über aktive Einträge in `public.LogoAsset`
-aufgelöst. Fehlen alte Auswahlwerte, verwendet der Snapshot dieselben Datenbank-Defaults wie
-die App (`face_default`, `plant_leaf`, `border_default`), nicht lokale Grafikdateien. Die
+`selected_border_color` färbt den ausgewählten Rahmen wie in der App ein. Die zugehörigen
+Bild-URLs werden ausschließlich über aktive Einträge in `public.LogoAsset` aufgelöst. Die
+Avatar-Ebenen verwenden dieselbe 1,5-fache Vergrößerung wie `CustomLogoAvatar`; der äußere
+zusätzliche Gold-Kreis entfällt, da der ausgewählte Rahmen selbst die Kontur bildet. Fehlen alte
+Auswahlwerte, verwendet der Snapshot dieselben Datenbank-Defaults wie die App
+(`face_default`, `plant_leaf`, `border_default`), nicht lokale Grafikdateien. Die
 Actions-Logs nennen bei fehlenden Bildern den Grund (z. B. nicht öffentliches Profil, fehlender
 Katalogeintrag, HTTP-Status oder nicht erlaubter Bildhost), ohne Bild-URLs oder Tokens auszugeben.
 Der Bildabruf verwendet einen identifizierenden User-Agent, weil der generische Python-Downloader
 bei den öffentlichen R2-Bildern mit HTTP 403 abgewiesen wurde. Externe Bild-URLs werden nur von
 Supabase-Storage, `workers.dev`, `r2.dev` und `floralog.de` geladen.
+Die Statistik „Geozonen erschlossen“ zählt die in `public."RobotPlantZoneCompletion"`
+protokollierten Zonenabschlüsse innerhalb des ausgewählten Berichtszeitraums (Montag bis
+einschließlich Sonntag, UTC). Sie zählt keine bloß aktiven oder teilweise erkundeten Zonen.
 Der Instagram-Zugriff nutzt
 „Instagram API mit Instagram Login“ (`graph.instagram.com`); Webhooks werden dafür nicht benötigt.
 Instagram-Login-Tokens sind laut Meta 60 Tage gültig. Vor Ablauf muss ein gültiger Token erneuert

@@ -39,6 +39,8 @@ NIGHT_TEXT = (245, 241, 224)
 NIGHT_MUTED = (183, 193, 174)
 
 _UNRENDERABLE = re.compile(r"[\U00002600-\U0010FFFF]")
+_HEX_COLOR = re.compile(r"^#?[0-9a-fA-F]{6}$")
+AVATAR_OVERSCALE = 1.5
 _FONT_NAMES = {
     True: ("Inter-Bold.ttf", "Inter-Bold.otf", "DejaVuSans-Bold.ttf", "arialbd.ttf"),
     False: ("Inter-Regular.ttf", "Inter-Regular.otf", "DejaVuSans.ttf", "arial.ttf"),
@@ -170,6 +172,28 @@ def _wrap(draw: ImageDraw.ImageDraw, text: str, font, max_width: int, max_lines:
     if len(lines) == max_lines and " ".join(lines) != _clean(text):
         lines[-1] = lines[-1].rstrip(".,;: ") + " …"
     return lines
+
+
+def _overscale_avatar_asset(asset: Image.Image, size: int) -> Image.Image:
+    fitted = ImageOps.contain(asset.convert("RGBA"), (size, size))
+    scaled = fitted.resize(
+        (round(fitted.width * AVATAR_OVERSCALE), round(fitted.height * AVATAR_OVERSCALE)),
+        Image.Resampling.LANCZOS,
+    )
+    layer = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+    layer.alpha_composite(scaled, ((size - scaled.width) // 2, (size - scaled.height) // 2))
+    return layer
+
+
+def _tint_border_asset(asset: Image.Image, border_color: object) -> Image.Image:
+    if not isinstance(border_color, str) or not _HEX_COLOR.fullmatch(border_color.strip()):
+        return asset.convert("RGBA")
+    color = border_color.strip().lstrip("#")
+    rgb = tuple(int(color[index:index + 2], 16) for index in (0, 2, 4))
+    alpha = asset.convert("RGBA").getchannel("A")
+    tinted = Image.new("RGBA", asset.size, (*rgb, 0))
+    tinted.putalpha(alpha)
+    return tinted
 
 
 class _Slide:
@@ -420,9 +444,10 @@ def render_admin_weekly_report(stats: dict) -> list[Image.Image]:
                 asset = load_public_image(str(url), f"{asset_type} avatar asset")
                 if asset is None:
                     continue
-                fitted = ImageOps.contain(asset, (size_px, size_px))
-                position = ((size_px - fitted.width) // 2, (size_px - fitted.height) // 2)
-                layer.alpha_composite(fitted, position)
+                if asset_type == "border":
+                    asset = _tint_border_asset(asset, avatar.get("border_color"))
+                fitted = _overscale_avatar_asset(asset, size_px)
+                layer.alpha_composite(fitted)
                 has_asset = True
             if not has_asset:
                 print(f"[weekly-report] Avatar unavailable ({status}); hiding avatar slot.")
@@ -434,11 +459,6 @@ def render_admin_weekly_report(stats: dict) -> list[Image.Image]:
         ImageDraw.Draw(mask).ellipse((0, 0, size_px - 1, size_px - 1), fill=255)
         layer.putalpha(Image.composite(layer.getchannel("A"), Image.new("L", layer.size, 0), mask))
         slide.image.alpha_composite(layer, (x, y))
-        ImageDraw.Draw(slide.image).ellipse(
-            (x, y, x + size_px - 1, y + size_px - 1),
-            outline=(*GOLD, 225),
-            width=max(2, size_px // 28),
-        )
         return True
 
     def number(value: object) -> str:
@@ -498,9 +518,7 @@ def render_admin_weekly_report(stats: dict) -> list[Image.Image]:
         ("Verschiedene Arten", number(stats.get("distinct_species"))),
         ("Selten oder seltener", number(stats.get("rare_scans"))),
     ]
-    if stats.get("top_plant_name"):
-        report_rows.append((str(stats["top_plant_name"])[:24],
-                            f"{number(stats.get('top_plant_count'))}×"))
+    report_rows.append(("Geozonen erschlossen", number(stats.get("zones_completed"))))
     if stats.get("quest_plant_label"):
         report_rows.append((str(stats["quest_plant_label"])[:24],
                             f"{number(stats.get('quest_finds'))}×"))

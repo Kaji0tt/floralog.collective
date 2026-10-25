@@ -146,7 +146,7 @@ Deno.serve(async (req) => {
   });
 
   try {
-    const [discoveries, newProfiles, ledger, quests] = await Promise.all([
+    const [discoveries, newProfiles, ledger, quests, completedZones] = await Promise.all([
       fetchRows((from, to) =>
         admin.from("UserPlantDiscovery").select("id, plant_id, auth_id, image_url")
           .gte("discovered_date", weekStartIso).lt("discovered_date", weekEndIso).range(from, to)),
@@ -162,6 +162,12 @@ Deno.serve(async (req) => {
         admin.from("WeeklyQuest")
           .select("id, title, target_species_name, target_genus_name, quest_number")
           .order("quest_number", { ascending: true }).range(from, to)),
+      fetchRows((from, to) =>
+        admin.from("RobotPlantZoneCompletion")
+          .select("id")
+          .gte("completed_at", weekStartIso)
+          .lt("completed_at", weekEndIso)
+          .range(from, to)),
     ]);
 
     const discoveryIds = discoveries.map((row) => String(row.id)).filter(Boolean);
@@ -280,13 +286,6 @@ Deno.serve(async (req) => {
       };
     };
 
-    const plantCounts = new Map<string, number>();
-    for (const discovery of discoveries) {
-      const plantId = String(discovery.plant_id || "");
-      if (plantId) plantCounts.set(plantId, (plantCounts.get(plantId) ?? 0) + 1);
-    }
-    const topPlant = [...plantCounts.entries()].sort((a, b) => b[1] - a[1])[0];
-
     const seedTotals = new Map<string, number>();
     for (const row of ledger) {
       const authId = String(row.auth_id || "");
@@ -332,8 +331,7 @@ Deno.serve(async (req) => {
       rare_scans: discoveries.filter((row) =>
         rarityLevel(plantById.get(String(row.plant_id || ""))?.rarity) >= 4).length,
       total_likes: likes.length,
-      top_plant_name: topPlant ? plantById.get(topPlant[0])?.species_name ?? null : null,
-      top_plant_count: topPlant?.[1] ?? 0,
+      zones_completed: completedZones.length,
       quest_plant_label: quest?.target_species_name || quest?.target_genus_name || null,
       quest_finds: questMatches.length,
       quest_discoverers: questDiscoverers,

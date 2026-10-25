@@ -5,7 +5,12 @@ from pathlib import Path
 
 from PIL import Image, ImageDraw
 
-from floralog_ai.slides import render_admin_weekly_report, to_jpeg
+from floralog_ai.slides import (
+    _overscale_avatar_asset,
+    _tint_border_asset,
+    render_admin_weekly_report,
+    to_jpeg,
+)
 from floralog_ai.social import remote_image
 from floralog_ai.social.remote_image import _is_allowed_url
 from floralog_ai.weekly_report_main import completed_week_start, run_weekly_report
@@ -25,11 +30,13 @@ def test_completed_week_start_is_previous_monday() -> None:
 
 
 def test_admin_report_renderer_creates_four_instagram_portrait_slides() -> None:
-    slides = render_admin_weekly_report(load_snapshot())
+    snapshot = load_snapshot()
+    slides = render_admin_weekly_report(snapshot)
 
     assert len(slides) == 4
     assert all(slide.size == (1080, 1350) for slide in slides)
     assert all(to_jpeg(slide).startswith(b"\xff\xd8\xff") for slide in slides)
+    assert snapshot["zones_completed"] == 5
     assert all(
         slide.getpixel((20, 20))[1] < 70
         for slide in slides
@@ -112,6 +119,29 @@ def test_public_image_request_uses_identifying_user_agent(monkeypatch) -> None:
     assert captured["timeout"] == 15
 
 
+def test_avatar_asset_overscale_matches_home_layer_zoom() -> None:
+    source = Image.new("RGBA", (100, 100), (0, 0, 0, 0))
+    ImageDraw.Draw(source).rectangle((40, 40, 60, 60), fill=(255, 0, 255, 255))
+
+    rendered = _overscale_avatar_asset(source, 100)
+    visible_alpha = rendered.getchannel("A").point(lambda value: 255 if value >= 128 else 0)
+    alpha_bounds = visible_alpha.getbbox()
+
+    assert alpha_bounds is not None
+    assert 30 <= alpha_bounds[2] - alpha_bounds[0] <= 33
+    assert 30 <= alpha_bounds[3] - alpha_bounds[1] <= 33
+
+
+def test_border_asset_uses_public_profile_hex_color() -> None:
+    source = Image.new("RGBA", (10, 10), (255, 255, 255, 0))
+    source.putpixel((5, 5), (255, 255, 255, 192))
+
+    tinted = _tint_border_asset(source, "#34c759")
+
+    assert tinted.getpixel((5, 5)) == (52, 199, 89, 192)
+    assert tinted.getpixel((0, 0)) == (52, 199, 89, 0)
+
+
 def test_renderer_uses_public_profile_avatar_layers(monkeypatch) -> None:
     from floralog_ai import slides
 
@@ -125,11 +155,13 @@ def test_renderer_uses_public_profile_avatar_layers(monkeypatch) -> None:
         "face": "https://floralog-assets.workers.dev/asset/face.png",
         "plant": None,
         "border": None,
+        "border_color": "#ff0000",
     }
     snapshot["top_scan"]["avatar"] = {
         "face": "https://floralog-assets.workers.dev/asset/face.png",
         "plant": None,
         "border": None,
+        "border_color": "#ff0000",
     }
     snapshot["top_scan"]["image_url"] = (
         "https://mppxozsltkgjozcastgv.supabase.co/storage/v1/object/public/scan.jpg"
