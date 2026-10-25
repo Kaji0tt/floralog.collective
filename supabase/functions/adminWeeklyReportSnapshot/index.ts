@@ -135,7 +135,7 @@ Deno.serve(async (req) => {
   try {
     const [discoveries, newProfiles, ledger, quests] = await Promise.all([
       fetchRows((from, to) =>
-        admin.from("UserPlantDiscovery").select("id, plant_id, auth_id")
+        admin.from("UserPlantDiscovery").select("id, plant_id, auth_id, image_url")
           .gte("discovered_date", weekStartIso).lt("discovered_date", weekEndIso).range(from, to)),
       fetchRows((from, to) =>
         admin.from("PublicProfile").select("id")

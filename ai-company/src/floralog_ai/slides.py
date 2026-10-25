@@ -20,6 +20,7 @@ INSTAGRAM_SIZE = (1080, 1350)
 PINTEREST_SIZE = (1000, 1500)
 MAX_INSTAGRAM_SLIDES = 5
 ASSETS_DIR = Path(__file__).resolve().parents[2] / "assets"
+WEEKLY_REPORT_DECORATIONS_DIR = Path(__file__).resolve().parents[2]
 BACKGROUND_OVERRIDE = ASSETS_DIR / "season2_background.png"
 
 CREAM = (253, 246, 236)
@@ -30,6 +31,12 @@ AMBER = (224, 163, 59)
 INK = (36, 59, 47)
 MUTED = (95, 111, 100)
 PANEL = (255, 252, 246, 225)
+NIGHT_FOREST = (5, 30, 25)
+NIGHT_FOREST_LIGHT = (10, 45, 36)
+GOLD = (238, 197, 120)
+GOLD_LIGHT = (250, 222, 164)
+NIGHT_TEXT = (245, 241, 224)
+NIGHT_MUTED = (183, 193, 174)
 
 _UNRENDERABLE = re.compile(r"[\U00002600-\U0010FFFF]")
 _FONT_NAMES = {
@@ -107,6 +114,37 @@ def draw_season2_background(size: tuple[int, int]) -> Image.Image:
     return Image.alpha_composite(image.convert("RGBA"), overlay).convert("RGB")
 
 
+def _draw_admin_report_background(size: tuple[int, int], variant: int) -> Image.Image:
+    width, height = size
+    image = Image.new("RGB", size, NIGHT_FOREST)
+    pixels = ImageDraw.Draw(image)
+    for y in range(height):
+        ratio = y / height
+        color = tuple(
+            round(dark + (light - dark) * ratio)
+            for dark, light in zip(NIGHT_FOREST, NIGHT_FOREST_LIGHT, strict=True)
+        )
+        pixels.line([(0, y), (width, y)], fill=color)
+
+    assets = [WEEKLY_REPORT_DECORATIONS_DIR / f"herbst{index}.png" for index in range(1, 4)]
+    asset_path = assets[variant % len(assets)]
+    if not asset_path.is_file():
+        raise FileNotFoundError(f"Weekly report decoration is missing: {asset_path}")
+    with Image.open(asset_path) as source:
+        plant = ImageOps.contain(source.convert("RGBA"), (width // 4, height // 3))
+    alpha = plant.getchannel("A").point(lambda value: value * 3 // 4)
+    plant.putalpha(alpha)
+
+    canvas = image.convert("RGBA")
+    positions = (
+        (width - plant.width + width // 24, -height // 24),
+        (-plant.width + width // 16, height - plant.height + height // 18),
+    )
+    for position in positions:
+        canvas.alpha_composite(plant, position)
+    return canvas.convert("RGB")
+
+
 def background(size: tuple[int, int]) -> Image.Image:
     if BACKGROUND_OVERRIDE.exists():
         with Image.open(BACKGROUND_OVERRIDE) as custom:
@@ -140,20 +178,28 @@ class _Slide:
         size: tuple[int, int],
         week_key: str,
         background_image: Image.Image | None = None,
+        dark_theme: bool = False,
+        autumn_variant: int = 0,
     ):
         self.size = size
         self.width, self.height = size
         self.scale = self.width / 1080
-        self.image = background(size).convert("RGBA")
+        self.dark_theme = dark_theme
+        self.image = (
+            _draw_admin_report_background(size, autumn_variant) if dark_theme else background(size)
+        ).convert("RGBA")
         if background_image is not None:
             photo = ImageOps.fit(background_image.convert("RGB"), size).convert("RGBA")
-            self.image = Image.blend(self.image, photo, 0.42)
+            self.image = Image.blend(self.image, photo, 0.78 if dark_theme else 0.42)
         panel = Image.new("RGBA", size, (0, 0, 0, 0))
         margin = int(64 * self.scale)
-        ImageDraw.Draw(panel).rounded_rectangle(
+        panel_draw = ImageDraw.Draw(panel)
+        panel_draw.rounded_rectangle(
             (margin, int(170 * self.scale), self.width - margin, self.height - int(150 * self.scale)),
             radius=int(48 * self.scale),
-            fill=PANEL,
+            fill=(5, 30, 25, 222) if dark_theme else PANEL,
+            outline=(GOLD[0], GOLD[1], GOLD[2], 90) if dark_theme else None,
+            width=max(2, self.px(2)) if dark_theme else 1,
         )
         self.image.alpha_composite(panel)
         self.draw = ImageDraw.Draw(self.image)
@@ -167,9 +213,17 @@ class _Slide:
         return int(value * self.scale)
 
     def _header(self) -> None:
+        brand = NIGHT_TEXT if self.dark_theme else FOREST
         self.draw.text(
-            (self.px(80), self.px(70)), "FLORALOG", font=load_font(self.px(44), True), fill=FOREST
+            (self.px(80), self.px(70)), "FLORALOG", font=load_font(self.px(44), True), fill=brand
         )
+        if self.dark_theme:
+            self.draw.line(
+                (self.px(80), self.px(132), self.px(335), self.px(132)),
+                fill=GOLD,
+                width=max(2, self.px(2)),
+            )
+            return
         badge_font = load_font(self.px(30), True)
         label = "SEASON 2"
         badge_width = self.draw.textlength(label, font=badge_font) + self.px(48)
@@ -181,39 +235,55 @@ class _Slide:
 
     def _footer(self, week_key: str) -> None:
         font = load_font(self.px(30))
+        color = GOLD if self.dark_theme else MUTED
         self.draw.text(
             (self.px(80), self.height - self.px(100)),
             "floralog.de  ·  Spielerisch entdecken",
             font=font,
-            fill=MUTED,
+            fill=color,
         )
         width = self.draw.textlength(week_key, font=font)
         self.draw.text(
-            (self.width - self.px(80) - width, self.height - self.px(100)), week_key, font=font, fill=MUTED
+            (self.width - self.px(80) - width, self.height - self.px(100)),
+            week_key,
+            font=font,
+            fill=color,
         )
 
     def label(self, text: str) -> None:
-        self.draw.text((self.left, self.y), _clean(text).upper(), font=load_font(self.px(32), True), fill=LEAF)
+        color = GOLD if self.dark_theme else LEAF
+        self.draw.text((self.left, self.y), _clean(text).upper(),
+                       font=load_font(self.px(32), True), fill=color)
         self.y += self.px(64)
 
     def title(self, text: str, size: int = 86, max_lines: int = 3) -> None:
         font = load_font(self.px(size), True)
+        color = GOLD_LIGHT if self.dark_theme else INK
         for line in _wrap(self.draw, text, font, self.max_width, max_lines):
-            self.draw.text((self.left, self.y), line, font=font, fill=INK)
+            self.draw.text((self.left, self.y), line, font=font, fill=color)
             self.y += int(font.size * 1.15)
         self.y += self.px(24)
 
     def body(self, text: str, size: int = 40, max_lines: int = 8, color=INK) -> None:
         font = load_font(self.px(size))
+        if self.dark_theme and color == INK:
+            color = NIGHT_TEXT
+        elif self.dark_theme and color == MUTED:
+            color = NIGHT_MUTED
         for line in _wrap(self.draw, text, font, self.max_width, max_lines):
             self.draw.text((self.left, self.y), line, font=font, fill=color)
             self.y += int(font.size * 1.35)
         self.y += self.px(20)
 
     def stat(self, value: str, caption: str) -> None:
-        self.draw.text((self.left, self.y), value, font=load_font(self.px(96), True), fill=FOREST)
+        value_color = GOLD_LIGHT if self.dark_theme else FOREST
+        caption_color = NIGHT_MUTED if self.dark_theme else MUTED
+        self.draw.text((self.left, self.y), value, font=load_font(self.px(96), True), fill=value_color)
         self.draw.text(
-            (self.left, self.y + self.px(110)), caption, font=load_font(self.px(36)), fill=MUTED
+            (self.left, self.y + self.px(110)),
+            caption,
+            font=load_font(self.px(36)),
+            fill=caption_color,
         )
         self.y += self.px(190)
 
@@ -291,9 +361,12 @@ def render_admin_weekly_report(stats: dict) -> list[Image.Image]:
     end = date.fromisoformat(str(stats["week_end"])[:10])
     end = date.fromordinal(end.toordinal() - 1)
     week_key = f"{start:%d.%m.}–{end:%d.%m.%Y}"
+    next_variant = 0
 
     def create_slide(label: str, title: str) -> _Slide:
-        slide = _Slide(INSTAGRAM_SIZE, week_key)
+        nonlocal next_variant
+        slide = _Slide(INSTAGRAM_SIZE, week_key, dark_theme=True, autumn_variant=next_variant)
+        next_variant += 1
         slide.label(label)
         slide.title(title, size=70, max_lines=2)
         return slide
@@ -307,15 +380,23 @@ def render_admin_weekly_report(stats: dict) -> list[Image.Image]:
             slide.draw.rounded_rectangle(
                 (slide.left, y, slide.width - slide.left, y + height),
                 radius=slide.px(24),
-                fill=(255, 252, 246, 230),
-                outline=(*LEAF, 65),
-                width=2,
+                fill=(9, 43, 35, 230),
+                outline=(*GOLD, 105),
+                width=max(2, slide.px(2)),
             )
-            slide.draw.text((slide.left + slide.px(28), y + slide.px(34)), label,
-                            font=font, fill=MUTED)
+            slide.draw.text(
+                (slide.left + slide.px(28), y + slide.px(34)),
+                label,
+                font=font,
+                fill=NIGHT_MUTED,
+            )
             value_width = slide.draw.textlength(value, font=value_font)
-            slide.draw.text((slide.width - slide.left - slide.px(28) - value_width,
-                             y + slide.px(28)), value, font=value_font, fill=FOREST)
+            slide.draw.text(
+                (slide.width - slide.left - slide.px(28) - value_width, y + slide.px(28)),
+                value,
+                font=value_font,
+                fill=GOLD_LIGHT,
+            )
             y += height + slide.px(18)
 
     def draw_avatar(
@@ -343,7 +424,12 @@ def render_admin_weekly_report(stats: dict) -> list[Image.Image]:
                 has_asset = True
         if not has_asset:
             draw = ImageDraw.Draw(layer)
-            draw.ellipse((0, 0, size_px - 1, size_px - 1), fill=(*FOREST, 255))
+            draw.ellipse((0, 0, size_px - 1, size_px - 1), fill=(*NIGHT_FOREST_LIGHT, 255))
+            draw.ellipse(
+                (2, 2, size_px - 3, size_px - 3),
+                outline=(*GOLD, 255),
+                width=max(1, size_px // 24),
+            )
             font = load_font(slide.px(42), True)
             text = (fallback or "?")[:1].upper()
             bounds = draw.textbbox((0, 0), text, font=font)
@@ -358,6 +444,11 @@ def render_admin_weekly_report(stats: dict) -> list[Image.Image]:
         ImageDraw.Draw(mask).ellipse((0, 0, size_px - 1, size_px - 1), fill=255)
         layer.putalpha(Image.composite(layer.getchannel("A"), Image.new("L", layer.size, 0), mask))
         slide.image.alpha_composite(layer, (x, y))
+        ImageDraw.Draw(slide.image).ellipse(
+            (x, y, x + size_px - 1, y + size_px - 1),
+            outline=(*GOLD, 225),
+            width=max(2, size_px // 28),
+        )
 
     def number(value: object) -> str:
         return f"{int(value or 0):,}".replace(",", ".")
@@ -380,21 +471,29 @@ def render_admin_weekly_report(stats: dict) -> list[Image.Image]:
             second.draw.rounded_rectangle(
                 (second.left, y, second.width - second.left, y + height),
                 radius=second.px(24),
-                fill=(255, 252, 246, 230),
-                outline=(*LEAF, 65),
-                width=2,
+                fill=(9, 43, 35, 230),
+                outline=(*GOLD, 105),
+                width=max(2, second.px(2)),
             )
             avatar_x = second.left + second.px(12)
             avatar_y = y + (height - second.px(100)) // 2
             name = str(item.get("name") or "Entdecker:in")
             draw_avatar(second, item.get("avatar"), avatar_x, avatar_y, 100, name)
             text_x = avatar_x + second.px(118)
-            second.draw.text((text_x, y + second.px(42)),
-                             f"{index}. {name[:20]}", font=font, fill=MUTED)
+            second.draw.text(
+                (text_x, y + second.px(42)),
+                f"{index}. {name[:20]}",
+                font=font,
+                fill=NIGHT_TEXT,
+            )
             value = number(item.get("weekly_seed_total"))
             value_width = second.draw.textlength(value, font=value_font)
-            second.draw.text((second.width - second.left - second.px(24) - value_width,
-                              y + second.px(40)), value, font=value_font, fill=FOREST)
+            second.draw.text(
+                (second.width - second.left - second.px(24) - value_width, y + second.px(40)),
+                value,
+                font=value_font,
+                fill=GOLD_LIGHT,
+            )
             y += height + second.px(12)
     else:
         second.body("Noch keine Daten für diese Woche.")
@@ -419,7 +518,13 @@ def render_admin_weekly_report(stats: dict) -> list[Image.Image]:
         photo = load_public_image(str(top_scan["image_url"]), "scan photo") \
             if top_scan.get("image_url") else None
         if photo is not None:
-            fourth = _Slide(INSTAGRAM_SIZE, week_key, background_image=photo)
+            fourth = _Slide(
+                INSTAGRAM_SIZE,
+                week_key,
+                background_image=photo,
+                dark_theme=True,
+                autumn_variant=next_variant,
+            )
             fourth.label("Scan der Woche")
             fourth.title("Community-Liebling", size=70, max_lines=2)
         fourth.title(str(top_scan.get("species_name") or "Unbekannte Art"), size=58)
@@ -428,7 +533,7 @@ def render_admin_weekly_report(stats: dict) -> list[Image.Image]:
         draw_avatar(fourth, top_scan.get("avatar"), fourth.left,
                     fourth.y, 90, display_name)
         fourth.draw.text((fourth.left + fourth.px(110), fourth.y + fourth.px(24)),
-                         display_name, font=load_font(fourth.px(34), True), fill=INK)
+                         display_name, font=load_font(fourth.px(34), True), fill=NIGHT_TEXT)
         fourth.y += fourth.px(120)
         if top_scan.get("rarity"):
             fourth.body(str(top_scan["rarity"]), color=MUTED)

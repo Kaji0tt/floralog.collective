@@ -40,8 +40,10 @@ tools; posting only happens in `reach_main.py` behind `--live --publish` and the
 
 The `Admin Weekly Report Instagram` workflow separately renders the four weekly report cards
 from a protected Supabase snapshot. It runs Mondays at 09:00 UTC and will not publish unless
-`FLORALOG_WEEKLY_REPORT_POSTING_ENABLED=true` is explicitly set. The Instagram API client supports
-both Facebook Login and Instagram Login; the report workflow uses Instagram Login.
+`FLORALOG_WEEKLY_REPORT_POSTING_ENABLED=true` is explicitly set; manual runs also require the
+`publish` input. Use `dry_run=false` and `publish=false` to render live Supabase data without
+posting. The Instagram API client supports both Facebook Login and Instagram Login; the report
+workflow uses Instagram Login.
 
 ## Phase 2 status
 

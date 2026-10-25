@@ -4,10 +4,15 @@ on:
   workflow_dispatch:
     inputs:
       dry_run:
-        description: Render fixture slides only; do not access Supabase or Instagram
+        description: true renders fixture examples; false fetches live Supabase data
         required: true
         type: boolean
         default: true
+      publish:
+        description: Publish to Instagram (requires FLORALOG_WEEKLY_REPORT_POSTING_ENABLED=true)
+        required: true
+        type: boolean
+        default: false
       week_start:
         description: Optional Monday date (YYYY-MM-DD) for a live snapshot
         required: false
@@ -41,7 +46,7 @@ jobs:
       FLORALOG_WEEKLY_REPORT_POSTING_ENABLED: ${{ vars.FLORALOG_WEEKLY_REPORT_POSTING_ENABLED || 'false' }}
       IS_DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run }}
       WEEK_START: ${{ inputs.week_start }}
-      SHOULD_PUBLISH: ${{ github.event_name == 'schedule' && github.run_attempt == 1 && vars.FLORALOG_WEEKLY_REPORT_POSTING_ENABLED == 'true' }}
+      SHOULD_PUBLISH: ${{ github.run_attempt == 1 && vars.FLORALOG_WEEKLY_REPORT_POSTING_ENABLED == 'true' && (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.publish)) }}
 
     steps:
       - uses: actions/checkout@v4
@@ -60,6 +65,10 @@ jobs:
         run: |
           mkdir -p output/weekly-report
           if [[ "$IS_DRY_RUN" == "true" ]]; then
+            if [[ "$SHOULD_PUBLISH" == "true" ]]; then
+              echo "Cannot publish fixture data. Set dry_run=false to post live data."
+              exit 1
+            fi
             uv run python -m floralog_ai.weekly_report_main \
               --snapshot fixtures/weekly_report_snapshot.json
           else

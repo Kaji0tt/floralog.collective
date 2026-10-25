@@ -273,8 +273,10 @@ Ergebnisse: `output/reach-report.md`, `output/media/*.jpg`, `output/partner-repo
 Der separate Workflow `Actions > Admin Weekly Report Instagram` erstellt am Montag um 09:00 UTC
 ein Karussell mit den vier Wochenbericht-Karten. Er nutzt die Statistiken aus dem
 `AdminWeeklyReport`, rendert vier 1080 × 1350 JPEGs und postet sie nur, wenn die Repository-
-Variable `FLORALOG_WEEKLY_REPORT_POSTING_ENABLED=true` gesetzt ist. Standardmäßig ist die
-Veröffentlichung aus. Der Workflow `AI Reach Agent` bleibt davon unabhängig. Der neue
+Variable `FLORALOG_WEEKLY_REPORT_POSTING_ENABLED=true` gesetzt ist und bei einem manuellen Lauf
+zusätzlich `publish=true` gewählt wurde. Beim Wochen-Cron genügt die Variable als ausdrücklicher
+Posting-Kill-Switch. Standardmäßig ist die Veröffentlichung aus. Der Workflow `AI Reach Agent`
+bleibt davon unabhängig. Der neue
 Snapshot-Endpunkt benötigt keine Migration; deploye dafür die Edge Function
 `adminWeeklyReportSnapshot`.
 
@@ -285,12 +287,29 @@ Vor der Aktivierung:
 2. Prüfen, dass das identische `AI_KPI_SECRET` als GitHub Actions Secret und in Supabase
    konfiguriert ist. Für den Bild-Upload müssen außerdem Bucket und Funktion
    `aiSocialMediaUpload` eingerichtet sein (siehe Supabase-Schritte oben).
-3. In GitHub Actions `Admin Weekly Report Instagram` zunächst mit `dry_run=true` ausführen.
-   Das rendert Fixture-Daten ohne Supabase-Zugriff und ohne Instagram-Veröffentlichung.
-4. Danach mit `dry_run=false` und ohne Posting-Schalter die echten Wochenwerte abrufen und die
-   vier JPEGs als Artefakt ansehen.
-5. Erst nach Sichtprüfung `FLORALOG_WEEKLY_REPORT_POSTING_ENABLED=true` als Repository-Variable
-   setzen. Der Zeitplan läuft in UTC; der Montagstermin ist nicht an Sommer-/Winterzeit angepasst.
+3. Für eine lokale Vorschau ohne echte Daten: In GitHub Actions `Admin Weekly Report Instagram`
+   mit `dry_run=true` und `publish=false` ausführen. Das rendert Beispieldaten aus
+   `ai-company/fixtures/weekly_report_snapshot.json`; es ruft weder Supabase noch Instagram auf.
+4. Für einen **Live-Daten-Dry-run ohne Instagram-Post** manuell denselben Workflow ausführen mit
+   `dry_run=false` und `publish=false`. `week_start` leer lassen, um die letzte abgeschlossene
+   Woche zu verwenden, oder ein Montag-Datum im Format `YYYY-MM-DD` eingeben. Anschließend das
+   Artefakt `admin-weekly-report-<run_id>` aus dem Workflow-Lauf herunterladen und alle vier
+   JPEGs prüfen. Es werden echte Supabase-Werte geladen, aber nichts wird veröffentlicht.
+5. Erst nach Sichtprüfung für einen **manuellen Instagram-Post** `dry_run=false` und
+   `publish=true` auswählen. Zusätzlich muss die Repository-Variable
+   `FLORALOG_WEEKLY_REPORT_POSTING_ENABLED=true` gesetzt sein. Die Secrets
+   `INSTAGRAM_USER_ID` und `INSTAGRAM_ACCESS_TOKEN` sowie `AI_KPI_SECRET` müssen gültig sein.
+   Dieser Lauf veröffentlicht tatsächlich auf Instagram.
+6. Soll auch der wöchentliche Cron automatisch posten, bleibt die Variable
+   `FLORALOG_WEEKLY_REPORT_POSTING_ENABLED=true` gesetzt. Der Cron läuft montags um 09:00 UTC;
+   der Termin ist nicht an Sommer-/Winterzeit angepasst. Zum Deaktivieren der automatischen
+   Posts die Variable wieder entfernen oder auf `false` setzen.
+
+Wichtig: `dry_run=true` bedeutet ausschließlich Fixture-Daten. Für echte Supabase-Daten ohne
+Posting muss `dry_run=false` und `publish=false` eingestellt werden. Das manuelle
+`publish=true` allein reicht nicht: Ohne den zusätzlichen Repository-Kill-Switch wird nicht
+gepostet. Die drei transparenten Herbstgrafiken `ai-company/herbst1.png` bis `herbst3.png`
+werden abwechselnd als dezente Eckdekoration in die Slides komponiert.
 
 Die automatische Version rendert die vier Berichtswerte serverseitig. Top-5-Avatare und das
 Foto des Scan-Siegers werden einbezogen, aber nur wenn `public_profile` und

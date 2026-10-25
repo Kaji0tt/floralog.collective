@@ -1,7 +1,7 @@
 from datetime import date
 from pathlib import Path
 
-from PIL import Image
+from PIL import Image, ImageDraw
 
 from floralog_ai.slides import render_admin_weekly_report, to_jpeg
 from floralog_ai.social.remote_image import _is_allowed_url
@@ -27,6 +27,28 @@ def test_admin_report_renderer_creates_four_instagram_portrait_slides() -> None:
     assert len(slides) == 4
     assert all(slide.size == (1080, 1350) for slide in slides)
     assert all(to_jpeg(slide).startswith(b"\xff\xd8\xff") for slide in slides)
+    assert all(
+        slide.getpixel((20, 20))[1] < 70
+        for slide in slides
+    )
+
+
+def test_admin_report_background_composites_transparent_autumn_asset(
+    monkeypatch, tmp_path: Path
+) -> None:
+    from floralog_ai import slides
+
+    monkeypatch.setattr(slides, "WEEKLY_REPORT_DECORATIONS_DIR", tmp_path)
+    asset_path = tmp_path / "herbst1.png"
+    Image.new("RGBA", (400, 500), (0, 0, 0, 0)).save(asset_path)
+    without_art = slides._draw_admin_report_background((1080, 1350), 0)
+    asset = Image.new("RGBA", (400, 500), (0, 0, 0, 0))
+    ImageDraw.Draw(asset).rectangle((200, 0, 399, 499), fill=(255, 0, 0, 255))
+    asset.save(asset_path)
+    actual = slides._draw_admin_report_background((1080, 1350), 0)
+
+    assert actual.getpixel((990, 10))[0] > without_art.getpixel((990, 10))[0]
+    assert actual.getpixel((870, 10)) == without_art.getpixel((870, 10))
 
 
 def test_weekly_report_dry_run_never_publishes(tmp_path: Path) -> None:
