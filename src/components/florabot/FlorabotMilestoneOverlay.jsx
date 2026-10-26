@@ -12,13 +12,14 @@ import {
  * Shown when the user's wallet_balance crosses a milestone threshold for the first time.
  *
  * @param {{
- *   milestone: import("@/lib/florabotMilestones").FlorabotMilestone,
+ *   milestone: { id: string, threshold: number, eyebrow?: string, messages: Array<{title: string, body: string}> },
  *   profile?: object,
  *   logoAssets?: Array<any>,
  *   onDismiss: (milestoneId: string) => void
+ *   finalButtonLabel?: string
  * }} props
  */
-export default function FlorabotMilestoneOverlay({ milestone, profile, logoAssets = [], onDismiss }) {
+export default function FlorabotMilestoneOverlay({ milestone, profile, logoAssets = [], onDismiss, finalButtonLabel = "Verstanden!" }) {
   const { isLightUi } = useUiTheme();
   const [slideIndex, setSlideIndex] = useState(0);
 
@@ -26,7 +27,7 @@ export default function FlorabotMilestoneOverlay({ milestone, profile, logoAsset
 
   const messages = milestone.messages || [];
   const isLast = slideIndex >= messages.length - 1;
-  const currentMsg = messages[slideIndex] || {};
+  const currentMsg = messages[slideIndex] || { title: "", body: "" };
   const storyVariables = buildStoryProfileVariables(profile);
   const resolvedTitle = interpolatePercentVariables(currentMsg.title, storyVariables);
   const resolvedBody = interpolatePercentVariables(currentMsg.body, storyVariables);
@@ -75,7 +76,7 @@ export default function FlorabotMilestoneOverlay({ milestone, profile, logoAsset
               }`}
               whileTap={{ scale: 0.96 }}
             >
-              {isLast ? "Verstanden!" : "Weiter"}
+              {isLast ? finalButtonLabel : "Weiter"}
             </motion.button>
           </div>
 

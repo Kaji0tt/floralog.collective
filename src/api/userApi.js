@@ -2,6 +2,7 @@
 
 import { getCurrentAuthUser, getUserProfile, upsertUserProfile } from './authService';
 import { supabase } from './supabaseClient';
+import { normalizeBotName, createFallbackBotName } from '@/lib/botNames';
 const baseUserProxyUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/baseUserProxy`;
 
 /**
@@ -100,53 +101,6 @@ const resolveLegacyNameFallback = async (authUser) => {
     console.warn('[userApi] baseUser fallback lookup failed:', getErrorMessage(error));
     return null;
   }
-};
-
-/**
- * @param {unknown} value
- */
-const normalizeBotName = (value) => {
-  const cleaned = String(value || '')
-    .replace(/[^A-Za-z\u00C0-\u017F\-\s]/g, '')
-    .replace(/\s+/g, ' ')
-    .trim()
-    .slice(0, 28);
-  return cleaned || null;
-};
-
-/**
- * @param {unknown} value
- */
-const hashSeed = (value) => {
-  const text = String(value || 'floralog');
-  let hash = 2166136261;
-  for (let i = 0; i < text.length; i += 1) {
-    hash ^= text.charCodeAt(i);
-    hash = Math.imul(hash, 16777619);
-  }
-  return Math.abs(hash >>> 0);
-};
-
-/**
- * @param {unknown} seedSource
- */
-const createFallbackBotName = (seedSource) => {
-  const seed = hashSeed(seedSource);
-  const consonants = 'bcdfghjklmnprstvz';
-  const vowels = 'aeiou';
-  const syllableCount = 2 + (seed % 2);
-
-  let name = '';
-  for (let i = 0; i < syllableCount; i += 1) {
-    const c = consonants[(seed + i * 7) % consonants.length];
-    const v = vowels[(seed + i * 11) % vowels.length];
-    name += `${c}${v}`;
-  }
-
-  const suffixes = ['ra', 'lo', 'na', 'ri', 'ta', 'mo'];
-  name += suffixes[seed % suffixes.length];
-
-  return `${name.charAt(0).toUpperCase()}${name.slice(1)}`;
 };
 
 /**
@@ -273,4 +227,3 @@ export const updateCurrentUserProfile = async (updates) => {
     ...profile
   };
 };
-

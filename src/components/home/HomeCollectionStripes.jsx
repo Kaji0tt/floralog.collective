@@ -587,8 +587,9 @@ export function HomeMilestoneStripe({
 export default function HomeCollectionStripes({
   profile,
   logoAssets = [],
-  onLogoClick,
-  onBadgeClick,
+  onLogoClick = undefined,
+  onBadgeClick = undefined,
+  logoInteractive = true,
   elevateLogo = false,
   profileBadges = null,
   heroTitleRef = null,
@@ -943,8 +944,9 @@ export default function HomeCollectionStripes({
               ref={logoButtonRef}
               data-logo-click-target="true"
               onClick={() => onLogoClick?.()}
+              disabled={!logoInteractive}
               className={`relative shrink-0 scale-[1.24] ${elevateLogo ? "z-[260]" : ""}`}
-              aria-label="Florabot Overlay öffnen"
+              aria-label={logoInteractive ? "Florabot Overlay öffnen" : "Florabot"}
             >
               <FlorabotLogo
                 profile={profile}

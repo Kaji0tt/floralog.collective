@@ -1,4 +1,6 @@
 import CustomLogoAvatar from "@/components/profile/CustomLogoAvatar";
+import { useUiTheme } from "@/lib/UiThemeContext";
+import { Dices } from "lucide-react";
 import {
   LOGO_ACCESSORY_SECTIONS,
   BORDER_COLOR_PRESETS,
@@ -15,15 +17,15 @@ const getSectionOptions = (key, allowedIds) => {
   return section.options.filter((option) => allowedIds.has(option.value));
 };
 
-const OptionArea = ({ option, isSelected, onSelect, isFace }) => (
+const OptionArea = ({ option, isSelected, onSelect, isFace = false, isLightUi }) => (
   <button
     type="button"
     onClick={() => onSelect(option.value)}
     aria-pressed={isSelected}
     className={`relative aspect-square rounded-xl border p-1.5 transition-all ${
       isSelected
-        ? "border-amber-200/80 ring-2 ring-amber-200/60 bg-black/45"
-        : "border-white/15 bg-black/25 hover:bg-black/35"
+        ? isLightUi ? "border-lime-700 ring-2 ring-lime-600/60 bg-white/80" : "border-amber-200/80 ring-2 ring-amber-200/60 bg-black/45"
+        : isLightUi ? "border-stone-300 bg-white/50 hover:bg-white/80" : "border-white/15 bg-black/25 hover:bg-black/35"
     }`}
   >
     <img
@@ -37,14 +39,17 @@ const OptionArea = ({ option, isSelected, onSelect, isFace }) => (
 
 /**
  * @param {{
- *   draft: { selected_face_asset: string, selected_border_asset: string, selected_border_color: string | null },
+ *   draft: { bot_name?: string | null, selected_face_asset: string, selected_border_asset: string, selected_border_color: string | null },
+ *   onRerollName?: () => void,
  *   onSelectFace: (value: string) => void,
  *   onSelectBorder: (value: string) => void,
  *   onSelectColor: (value: string | null) => void,
  *   onContinue: () => void,
  * }} props
  */
-export default function GuestLogoCustomizerStep({ draft, onSelectFace, onSelectBorder, onSelectColor, onContinue }) {
+export default function GuestLogoCustomizerStep({ draft, onRerollName, onSelectFace, onSelectBorder, onSelectColor, onContinue }) {
+  const { isLightUi } = useUiTheme();
+  const labelClass = `mb-2 text-xs uppercase tracking-[0.14em] ${isLightUi ? "text-stone-600" : "text-amber-100/75"}`;
   const previewAssets = resolveEquippedLogoAssets(draft);
   const borderOptions = getSectionOptions("border", GUEST_STARTER_BORDER_IDS);
   const faceOptions = getSectionOptions("face", GUEST_STARTER_FACE_IDS);
@@ -60,8 +65,21 @@ export default function GuestLogoCustomizerStep({ draft, onSelectFace, onSelectB
         />
       </div>
 
+      {onRerollName && <div className="flex items-center justify-center gap-3">
+        <p className="text-lg font-semibold" aria-live="polite">{draft.bot_name}</p>
+        <button
+          type="button"
+          onClick={onRerollName}
+          aria-label="Florabot-Namen neu würfeln"
+          title="Namen neu würfeln"
+          className={`rounded-xl border p-2 ${isLightUi ? "border-stone-300 hover:bg-white/70" : "border-white/20 hover:bg-white/10"}`}
+        >
+          <Dices className="h-5 w-5" />
+        </button>
+      </div>}
+
       <div>
-        <p className="mb-2 text-xs uppercase tracking-[0.14em] text-amber-100/75">Rahmen</p>
+        <p className={labelClass}>Rahmen</p>
         <div className="grid grid-cols-4 gap-2">
           {borderOptions.map((option) => (
             <OptionArea
@@ -69,13 +87,14 @@ export default function GuestLogoCustomizerStep({ draft, onSelectFace, onSelectB
               option={option}
               isSelected={draft.selected_border_asset === option.value}
               onSelect={onSelectBorder}
+              isLightUi={isLightUi}
             />
           ))}
         </div>
       </div>
 
       <div>
-        <p className="mb-2 text-xs uppercase tracking-[0.14em] text-amber-100/75">Gesicht</p>
+        <p className={labelClass}>Gesicht</p>
         <div className="grid grid-cols-4 gap-2">
           {faceOptions.map((option) => (
             <OptionArea
@@ -84,20 +103,21 @@ export default function GuestLogoCustomizerStep({ draft, onSelectFace, onSelectB
               isSelected={draft.selected_face_asset === option.value}
               onSelect={onSelectFace}
               isFace
+              isLightUi={isLightUi}
             />
           ))}
         </div>
       </div>
 
       <div>
-        <p className="mb-2 text-xs uppercase tracking-[0.14em] text-amber-100/75">Rahmenfarbe</p>
+        <p className={labelClass}>Rahmenfarbe</p>
         <div className="flex flex-wrap gap-2">
           <button
             type="button"
             onClick={() => onSelectColor(null)}
             aria-label="Keine Farbe"
-            className={`flex h-7 w-7 items-center justify-center rounded-full border-2 text-[10px] text-stone-200 ${
-              !draft.selected_border_color ? "border-amber-200" : "border-white/20"
+            className={`flex h-7 w-7 items-center justify-center rounded-full border-2 text-[10px] ${isLightUi ? "text-stone-700" : "text-stone-200"} ${
+              !draft.selected_border_color ? isLightUi ? "border-lime-700" : "border-amber-200" : isLightUi ? "border-stone-400" : "border-white/20"
             }`}
             style={{ background: "repeating-conic-gradient(#00000000 0% 25%, #ffffff22 0% 50%)" }}
           >
@@ -110,7 +130,7 @@ export default function GuestLogoCustomizerStep({ draft, onSelectFace, onSelectB
               onClick={() => onSelectColor(hex)}
               aria-label={hex}
               className={`h-7 w-7 rounded-full border-2 transition-transform ${
-                draft.selected_border_color === hex ? "border-amber-200 scale-110" : "border-white/20"
+                draft.selected_border_color === hex ? isLightUi ? "border-lime-700 scale-110" : "border-amber-200 scale-110" : isLightUi ? "border-stone-400" : "border-white/20"
               }`}
               style={{ backgroundColor: hex }}
             />

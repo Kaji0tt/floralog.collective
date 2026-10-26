@@ -9,6 +9,7 @@ import { checkAndUnlockAchievements } from "@/components/achievements/achievemen
 import { updateQuestProgress } from "@/components/utils/questProgress";
 import { readGuestLogoCustomizationDraft, clearGuestLogoCustomizationDraft } from "@/lib/guestLogoCustomizationStorage";
 import { LOGO_ACCESSORY_DEFAULTS } from "@/lib/logoAccessoryAssets";
+import { normalizeBotName } from "@/lib/botNames";
 import HomeShellLoader from "@/components/navigation/HomeShellLoader";
 
 export default function GuestProgressTransfer({ children }) {
@@ -38,8 +39,16 @@ export default function GuestProgressTransfer({ children }) {
           const isDefault = (profile?.selected_face_asset || LOGO_ACCESSORY_DEFAULTS.selected_face_asset) === LOGO_ACCESSORY_DEFAULTS.selected_face_asset
             && (profile?.selected_border_asset || LOGO_ACCESSORY_DEFAULTS.selected_border_asset) === LOGO_ACCESSORY_DEFAULTS.selected_border_asset
             && !profile?.selected_border_color;
-          if (isDefault) {
-            const updated = await updateCurrentUserProfile(draft);
+          const updates = {
+            ...(isDefault ? {
+              selected_face_asset: draft.selected_face_asset,
+              selected_border_asset: draft.selected_border_asset,
+              selected_border_color: draft.selected_border_color,
+            } : {}),
+            ...(!normalizeBotName(profile?.bot_name) && draft.bot_name ? { bot_name: draft.bot_name } : {}),
+          };
+          if (Object.keys(updates).length) {
+            const updated = await updateCurrentUserProfile(updates);
             if (!updated) throw new Error("Dein Florabot konnte noch nicht uebernommen werden.");
             updateProfile({ ...profile, ...updated });
             window.dispatchEvent(new CustomEvent("userUpdated", { detail: { ...user, ...profile, ...updated } }));

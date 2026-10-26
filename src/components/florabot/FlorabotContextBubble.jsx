@@ -22,6 +22,7 @@ export default function FlorabotContextBubble({ message, profile, logoAssets = [
 
   return (
     <motion.div
+      data-ui="florabot-context-bubble"
       className="fixed bottom-[5.5rem] inset-x-0 z-[180] flex justify-center px-4 pointer-events-none"
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}

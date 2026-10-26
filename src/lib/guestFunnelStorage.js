@@ -1,6 +1,6 @@
 export const GUEST_FUNNEL_KEY = "floralog:guestFunnel:v1";
 const CHANGE_EVENT = "guestFunnelChanged";
-let memoryState = { version: 1, phase: "intro", token: null, introSeen: false };
+let memoryState = { version: 1, phase: "intro", token: null, introSeen: false, scanHintDismissed: false };
 let storageWarning = false;
 
 const phases = new Set(["intro", "customization", "home_ready", "scan_pending", "reward_pending", "account_required", "claimed"]);
@@ -16,6 +16,7 @@ export function readGuestFunnel() {
           phase: value.phase,
           token: typeof value.token === "string" ? value.token : null,
           introSeen: value.introSeen === true,
+          scanHintDismissed: value.scanHintDismissed === true,
         };
       }
     }

@@ -84,8 +84,18 @@ To add them here, export API schemas (OpenAPI / JSON Schema) or example response
 
 ## Guest-first funnel
 
-Guests now enter Home Lite instead of the login landing page. The first visit
-introduces Florabot and offers the free starter customization. The draft and a
+Guests now enter the existing Home layout in guest mode instead of the login
+landing page. Authenticated and guest Home share the screen layout, default
+gradient background, Florabot hero, event stripe and bottom navigation components.
+The first visit introduces Florabot in the milestone overlay and offers the free
+starter customization in the same overlay shell. Afterwards the existing Florabot
+context bubble explains the camera action; its X dismissal survives reloads.
+Florabot introduces itself with a locally generated random name. The dice in the
+customizer rerolls it; the name survives reloads and appears under "Neuling" on
+Home. At account transfer, an existing bot name is preserved; an unnamed account
+receives the guest name.
+No separate guest background artwork or permanent onboarding/scan CTA cards are
+rendered on Home. The draft and a
 versioned funnel state survive reloads in localStorage; photos and reward amounts
 are never trusted from localStorage.
 
@@ -156,7 +166,7 @@ overwritten by the guest draft.
 - Claim integration: run [test-guest-claim.sql](scripts/test-guest-claim.sql) with
   `psql -v ON_ERROR_STOP=1 -f scripts\test-guest-claim.sql` against an isolated,
   migrated test database. Test records are rolled back; do not use production.
-- Browser integration: start Vite on `127.0.0.1:5317`, then run
+- Browser integration: start Vite on `127.0.0.1:5173`, then run
   `node scripts\guest-funnel.browser.mjs` with Playwright and Edge available.
   An optional second argument is an installed Playwright module's `file:///`
   import URL, allowing session-local tooling without adding app dependencies.
@@ -164,6 +174,9 @@ overwritten by the guest draft.
   verifies onboarding, persistence, disabled navigation, failed-scan retries,
   scanner integration, cross-tab reward exclusivity and reward-before-login
   sequencing, not a live PlantNet/OAuth integration.
+  Port 5173 is in the Edge Function origin allowlist; arbitrary other local ports
+  are not. Event loading failures remain visible in the stripe area with retry,
+  rather than leaving that area blank.
 - Run the existing build, lint and typecheck commands. A real staging scan,
   email-confirmation flow and Google web/native round-trip remain deployment
   acceptance checks; local mocks cannot validate provider configuration.

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Settings, Bug, Info, HeartPulse, Palette, Bell, Menu, CircleAlert } from "lucide-react";
+import { Settings, Bug, Info, HeartPulse, Palette, Bell, Menu, CircleAlert, LogIn } from "lucide-react";
 import { trackAction } from "@/api/analyticsService";
 import ImpressumDialog from "@/components/legal/ImpressumDialog";
 import ServerNewsDialog from "@/components/home/ServerNewsDialog";
@@ -16,16 +16,17 @@ export default function HomeHeroSideNav({
   playerSparks = 0,
   playerAmber = 0,
   user = null,
-  onOpenSettings,
-  onOpenBugReport,
-  onOpenAmberPurchase,
-  onToggleHealthView,
-  onOpenCustomize,
-  onOpenServerNews,
+  onOpenSettings = undefined,
+  onOpenBugReport = undefined,
+  onOpenAmberPurchase = undefined,
+  onToggleHealthView = undefined,
+  onOpenCustomize = undefined,
+  onOpenServerNews = undefined,
   hasUnreadServerNews = false,
   hasOpenQuiz = false,
-  onOpenQuiz,
+  onOpenQuiz = undefined,
   isHealthViewActive = false,
+  guestMode = false,
   className = "",
 }) {
   const [expandedKey, setExpandedKey] = useState(/** @type {"options" | null} */ (null));
@@ -55,12 +56,12 @@ export default function HomeHeroSideNav({
               <button
                 type="button"
                 onClick={() => { setExpandedKey(null); onOpenSettings?.(); }}
-                aria-label="Einstellungen"
+                aria-label={guestMode ? "Anmelden" : "Einstellungen"}
                 className="flex h-8 w-8 items-center justify-center"
               >
-                <Settings className={`h-4 w-4 ${iconTone}`} />
+                {guestMode ? <LogIn className={`h-4 w-4 ${iconTone}`} /> : <Settings className={`h-4 w-4 ${iconTone}`} />}
               </button>
-              <button
+              {!guestMode && <button
                 type="button"
                 onClick={() => {
                   trackAction("home_bug_report_open", { sourcePage: "Home" });
@@ -71,8 +72,8 @@ export default function HomeHeroSideNav({
                 className="flex h-8 w-8 items-center justify-center"
               >
                 <Bug className={`h-4 w-4 ${iconTone}`} />
-              </button>
-              <button
+              </button>}
+              {!guestMode && <button
                 type="button"
                 onClick={() => {
                   trackAction("home_server_news_open", { sourcePage: "Home" });
@@ -90,7 +91,7 @@ export default function HomeHeroSideNav({
                 {hasUnreadServerNews ? (
                   <span className="absolute right-0.5 top-0.5 h-2 w-2 rounded-full border border-white/90 bg-red-500" aria-hidden="true" />
                 ) : null}
-              </button>
+              </button>}
               <button
                 type="button"
                 onClick={() => {
@@ -130,7 +131,7 @@ export default function HomeHeroSideNav({
           </button>
         ) : null}
 
-        <button
+        {!guestMode && <button
           type="button"
           onClick={() => onToggleHealthView?.()}
           aria-pressed={isHealthViewActive}
@@ -140,16 +141,16 @@ export default function HomeHeroSideNav({
           }`}
         >
           <HeartPulse className={`h-5 w-5 ${isHealthViewActive ? "text-rose-300" : iconTone}`} />
-        </button>
+        </button>}
 
-        <button
+        {!guestMode && <button
           type="button"
           onClick={() => onOpenCustomize?.()}
           aria-label="Anpassen"
           className={`${CIRCLE_BUTTON_CLASS} rounded-full border backdrop-blur-xl ${glassBorder}`}
         >
           <Palette className={`h-5 w-5 ${iconTone}`} />
-        </button>
+        </button>}
       </div>
 
       <ImpressumDialog open={impressumOpen} onOpenChange={setImpressumOpen} />

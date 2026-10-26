@@ -1,3 +1,5 @@
+import { normalizeBotName } from "./botNames.js";
+
 export const GUEST_LOGO_CUSTOMIZATION_STORAGE_KEY = "floralog:guestLogoCustomization";
 
 const safeStorageGet = (key) => {
@@ -39,6 +41,7 @@ export const readGuestLogoCustomizationDraft = () => {
     const faces = ["face_default", "face_bug", "face_mask", "face_smile"];
     const borders = ["border_default", "border_hacked", "border_orbit", "border_triad"];
     return {
+      bot_name: normalizeBotName(parsed.bot_name),
       selected_face_asset: faces.includes(parsed.selected_face_asset) ? parsed.selected_face_asset : "face_default",
       selected_border_asset: borders.includes(parsed.selected_border_asset) ? parsed.selected_border_asset : "border_default",
       selected_border_color: /^#[0-9a-f]{6}$/i.test(parsed.selected_border_color || "") ? parsed.selected_border_color : null,

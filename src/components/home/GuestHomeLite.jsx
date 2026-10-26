@@ -1,27 +1,33 @@
 import { useEffect, useRef, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { Camera, MapPin, Trophy, Users, BookOpen } from "lucide-react";
+import { MapPin, Trophy, Leaf, BookOpen } from "lucide-react";
 import { AnimatePresence } from "framer-motion";
-import FlorabotLogo from "@/components/florabot/FlorabotLogo";
+import FlorabotMilestoneOverlay from "@/components/florabot/FlorabotMilestoneOverlay";
+import FlorabotOverlayShell from "@/components/florabot/FlorabotOverlayShell";
+import FlorabotContextBubble from "@/components/florabot/FlorabotContextBubble";
+import { HomeScreenLayout, HomeHeroHeading, HomeHeroSection, HomeBottomArea } from "./HomeScreenLayout";
+import HomeCollectionStripes from "./HomeCollectionStripes";
+import HomeHeroSideNav from "./HomeHeroSideNav";
 import GuestLogoCustomizerStep from "./GuestLogoCustomizerStep";
 import GuestAccountDialog from "./GuestAccountDialog";
 import HomeEventStripe from "./HomeEventStripe";
+import GoldGradientCard from "./GoldGradientCard";
 import HomeBottomNavigation from "@/components/navigation/HomeBottomNavigation";
 import ScanFeedbackNotification from "@/components/notifications/ScanFeedbackNotification";
 import { readGuestFunnel, updateGuestFunnel, subscribeGuestFunnel, hasGuestStorageWarning, needsGuestAccount } from "@/lib/guestFunnelStorage";
 import { readGuestLogoCustomizationDraft, persistGuestLogoCustomizationDraft } from "@/lib/guestLogoCustomizationStorage";
 import { LOGO_ACCESSORY_DEFAULTS } from "@/lib/logoAccessoryAssets";
+import { createRandomBotName } from "@/lib/botNames";
 import { callGuestScan } from "@/api/guestScanService";
 import { useUiTheme } from "@/lib/UiThemeContext";
 import { STORY_COPY } from "@/lib/story/storyDefinition";
 import { getCurrentWeeklyQuest, getCurrentMonthlyQuest } from "@/components/quests/QuestRotationHelper";
 
-const background = new URL("../../../guestfunnel-bg.png", import.meta.url).href;
 const navItems = [
   { label: "Map", icon: MapPin, isDisabled: true },
   { label: "Aufgaben", icon: Trophy, isDisabled: true },
-  { label: "Community", icon: Users, isDisabled: true },
+  { label: "Sammlung", icon: Leaf, isDisabled: true },
   { label: "Log", icon: BookOpen, isDisabled: true },
 ];
 
@@ -29,7 +35,13 @@ export default function GuestHomeLite() {
   const navigate = useNavigate();
   const { isLightUi } = useUiTheme();
   const [state, setState] = useState(readGuestFunnel);
-  const [draft, setDraft] = useState(() => readGuestLogoCustomizationDraft() || { ...LOGO_ACCESSORY_DEFAULTS, selected_border_color: null });
+  const [draft, setDraft] = useState(() => {
+    const saved = readGuestLogoCustomizationDraft();
+    return {
+      ...(saved || { ...LOGO_ACCESSORY_DEFAULTS, selected_border_color: null }),
+      bot_name: saved?.bot_name || createRandomBotName(),
+    };
+  });
   const [authOpen, setAuthOpen] = useState(false);
   const [feedback, setFeedback] = useState(null);
   const [error, setError] = useState("");
@@ -37,7 +49,7 @@ export default function GuestHomeLite() {
   const [retry, setRetry] = useState(0);
   const releaseFeedbackRef = useRef(null);
   const [feedbackElsewhere, setFeedbackElsewhere] = useState(false);
-  const { data: events = [], error: eventsError } = useQuery({
+  const { data: events = [], error: eventsError, isPending: eventsPending, refetch: refetchEvents } = useQuery({
     queryKey: ["guestHomeEvents"],
     queryFn: async () => {
       const data = await callGuestScan("events");
@@ -50,6 +62,8 @@ export default function GuestHomeLite() {
       ];
     },
     staleTime: 60000,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: true,
     retry: 1,
   });
 
@@ -62,6 +76,9 @@ export default function GuestHomeLite() {
     window.addEventListener("guestLogoStorageFailed", failed);
     return () => window.removeEventListener("guestLogoStorageFailed", failed);
   }, []);
+  useEffect(() => {
+    persistGuestLogoCustomizationDraft(draft);
+  }, [draft]);
 
   useEffect(() => {
     let cancelled = false;
@@ -107,7 +124,6 @@ export default function GuestHomeLite() {
   const changeDraft = (patch) => {
     const next = { ...draft, ...patch };
     setDraft(next);
-    persistGuestLogoCustomizationDraft(next);
   };
   const completeIntro = () => updateGuestFunnel({ phase: "home_ready", introSeen: true });
   const scan = () => {
@@ -128,50 +144,72 @@ export default function GuestHomeLite() {
   const copy = STORY_COPY.guestFunnel;
 
   return (
-    <div className={`min-h-dvh ${isLightUi ? "text-stone-900" : "text-stone-100"}`} style={{ backgroundImage: `linear-gradient(${isLightUi ? "rgba(245,240,220,.7),rgba(225,235,210,.8)" : "rgba(4,14,8,.55),rgba(4,14,8,.9)"}),url(${background})`, backgroundSize: "cover", backgroundPosition: "center" }}>
-      <main className="mx-auto flex min-h-dvh max-w-md flex-col px-5 pb-5 pt-[max(1rem,env(safe-area-inset-top))]">
-        <header className="flex items-center justify-between text-sm">
-          <span className="font-semibold">floralog.collective</span>
-          <button onClick={() => setAuthOpen(true)} className="rounded-lg border border-current/20 px-3 py-2 text-xs">Anmelden</button>
-        </header>
-        <div className="flex flex-1 flex-col items-center justify-center py-6">
-          <FlorabotLogo profile={draft} sizeClass={onboarding ? "h-36 w-36" : "h-[min(65vw,34vh)] w-[min(65vw,34vh)]"} className="drop-shadow-[0_0_25px_rgba(190,242,100,.3)]" />
-          {state.phase === "intro" ? (
-            <section className="w-full space-y-4 rounded-3xl border border-current/15 bg-black/10 p-5 text-center">
-              <h1 className="text-xl font-semibold">{copy.welcomeTitle}</h1>
-              <p className="text-sm leading-relaxed">{copy.welcomeBody}</p>
-              <button onClick={() => updateGuestFunnel({ phase: "customization" })} className="w-full rounded-xl bg-lime-500 px-4 py-3 font-semibold text-stone-950">Deinen Florabot gestalten</button>
-              <button onClick={completeIntro} className="text-xs opacity-70">Ueberspringen</button>
-            </section>
-          ) : state.phase === "customization" ? (
-            <section className="w-full rounded-3xl border border-current/15 bg-black/20 p-5 text-stone-100">
-              <h1 className="mb-4 text-center text-lg font-semibold">Dein eigener Naturbegleiter</h1>
-              <GuestLogoCustomizerStep draft={draft} onSelectFace={(value) => changeDraft({ selected_face_asset: value })} onSelectBorder={(value) => changeDraft({ selected_border_asset: value })} onSelectColor={(value) => changeDraft({ selected_border_color: value })} onContinue={completeIntro} />
-            </section>
-          ) : (
-            <section className="w-full space-y-4 text-center">
-              <h1 className="text-2xl font-semibold">{needsGuestAccount(state) ? "Euer Abenteuer hat begonnen!" : copy.scanTitle}</h1>
-              <button onClick={scan} className="w-full rounded-2xl border border-current/15 bg-black/10 p-4 text-sm leading-relaxed">
-                {needsGuestAccount(state) ? "Sichere euren Fund und eure Samen mit einem kostenlosen Konto." : copy.scanBody}
-              </button>
-              <button onClick={scan} className="flex w-full items-center justify-center gap-2 rounded-2xl bg-emerald-500 px-5 py-4 font-semibold text-white shadow-lg hover:bg-emerald-400">
-                <Camera className="h-5 w-5" />{needsGuestAccount(state) ? "Fund sichern und weiterscannen" : "Erste Pflanze scannen"}
-              </button>
-              {!needsGuestAccount(state) && <p className="text-xs opacity-70">Ohne Konto ausprobieren. Erst entdecken, dann entscheiden.</p>}
-            </section>
-          )}
+    <>
+      <HomeScreenLayout user={draft}>
+        <HomeHeroHeading>
+          <h1 className="-m-3 truncate p-3 font-bold leading-tight text-2xl md:text-3xl [text-shadow:0_1px_2px_rgba(0,0,0,0.9),0_0_10px_rgba(0,0,0,0.75),0_0_20px_rgba(0,0,0,0.55)]">
+            Neuling
+          </h1>
+          <p className={`-mx-3 -mb-3 -mt-2.5 truncate p-3 text-sm md:text-base [text-shadow:0_1px_2px_rgba(0,0,0,0.9),0_0_8px_rgba(0,0,0,0.7)] ${isLightUi ? "text-stone-700/90" : "text-stone-200/85"}`}>
+            und {draft.bot_name}
+          </p>
+        </HomeHeroHeading>
+        <div className="relative flex flex-1 min-h-0 flex-col overflow-visible py-[clamp(0.5rem,1.5vh,1rem)]" data-ui="home-content-stack">
+          <HomeHeroSection>
+            <HomeHeroSideNav guestMode isLightUi={isLightUi} onOpenSettings={() => setAuthOpen(true)} />
+            <div className="relative flex min-h-0 flex-1 flex-col gap-2">
+              <HomeCollectionStripes profile={draft} className="flex-1 min-h-0" logoInteractive={false} />
+            </div>
+          </HomeHeroSection>
         </div>
-        {storageFailed && <p role="alert" className="mb-3 text-sm">Dein Browser kann den Fortschritt nicht dauerhaft speichern. Bitte lasse diese Seite bis zur Anmeldung geoeffnet.</p>}
-        {feedbackElsewhere && <p role="status" className="mb-3 text-sm">Dein Scan-Feedback ist in einem anderen Tab geoeffnet. Schliesse es dort ab oder schliesse den anderen Tab und tippe hier erneut auf die Kamera.</p>}
-        {error && <div role="alert" className="mb-3 text-sm">{error} <button className="underline" onClick={() => setRetry((value) => value + 1)}>Erneut versuchen</button>{error.includes("abgelaufen") && <button className="ml-2 underline" onClick={() => { updateGuestFunnel({ token: null, phase: "home_ready" }); setError(""); }}>Abgelaufenen Versuch verwerfen</button>}</div>}
-        {!onboarding && <div className="mb-8"><HomeEventStripe isLightUi={isLightUi} events={events.map((event) => ({ ...event, onClick: scan }))} />{eventsError && <p role="status" className="mt-2 text-xs">Aktuelle Aktionen konnten nicht geladen werden.</p>}</div>}
-        {!onboarding && <HomeBottomNavigation navItems={navItems} onCenterAction={scan} highlightCenterAction={!needsGuestAccount(state)} />}
-        <footer className="mt-5 flex justify-center gap-4 pb-[env(safe-area-inset-bottom)] text-xs opacity-70">
-          <Link to="/Impressum">Impressum</Link><Link to="/Datenschutz">Datenschutz</Link><Link to="/guest-landing">Hilfe &amp; App</Link>
-        </footer>
-      </main>
+        <HomeBottomArea>
+          {storageFailed && <p role="alert" className="mb-3 text-sm">Dein Browser kann den Fortschritt nicht dauerhaft speichern. Bitte lasse diese Seite bis zur Anmeldung geöffnet.</p>}
+          {feedbackElsewhere && <p role="status" className="mb-3 text-sm">Dein Scan-Feedback ist in einem anderen Tab geöffnet. Schließe es dort ab oder schließe den anderen Tab und tippe hier erneut auf die Kamera.</p>}
+          {error && <div role="alert" className="mb-3 text-sm">{error} <button className="underline" onClick={() => setRetry((value) => value + 1)}>Erneut versuchen</button>{error.includes("abgelaufen") && <button className="ml-2 underline" onClick={() => { updateGuestFunnel({ token: null, phase: "home_ready" }); setError(""); }}>Abgelaufenen Versuch verwerfen</button>}</div>}
+          <div className="mb-[clamp(0.35rem,0.8vh,0.55rem)]">
+            {events.length > 0 && <HomeEventStripe isLightUi={isLightUi} events={events.map((event) => ({ ...event, onClick: scan }))} />}
+            {(events.length === 0 || eventsError) && (
+              <GoldGradientCard blur contentClassName="px-4 py-3 text-sm">
+                <p role={eventsError ? "alert" : "status"}>
+                  {eventsError ? "Aktuelle Aktionen konnten nicht geladen werden." : eventsPending ? "Aktuelle Aktionen werden geladen …" : "Gerade sind keine Aktionen verfügbar."}
+                </p>
+                {eventsError && <button type="button" onClick={() => refetchEvents()} className="mt-1 underline">Aktionen erneut laden</button>}
+              </GoldGradientCard>
+            )}
+          </div>
+          <HomeBottomNavigation navItems={navItems} onCenterAction={scan} highlightCenterAction={!state.scanHintDismissed && !needsGuestAccount(state)} />
+        </HomeBottomArea>
+      </HomeScreenLayout>
+      <AnimatePresence mode="wait">
+        {state.phase === "intro" && (
+          <FlorabotMilestoneOverlay
+            key="guest-intro"
+            milestone={{ id: "guest_intro", threshold: 0, eyebrow: "Willkommen", messages: [{ title: copy.welcomeTitle, body: copy.welcomeBody }] }}
+            profile={draft}
+            finalButtonLabel="Deinen Florabot gestalten"
+            onDismiss={() => updateGuestFunnel({ phase: "customization" })}
+          />
+        )}
+        {state.phase === "customization" && (
+          <FlorabotOverlayShell key="guest-customization" showLogo={false} overlayClassName="overflow-y-auto px-5 !justify-start">
+            <div className={`my-auto w-full max-w-sm py-6 ${isLightUi ? "text-stone-800" : "text-stone-100"}`}>
+              <h1 className="mb-4 text-center text-xl font-semibold">Dein eigener Naturbegleiter</h1>
+              <GuestLogoCustomizerStep draft={draft} onRerollName={() => changeDraft({ bot_name: createRandomBotName(draft.bot_name) })} onSelectFace={(value) => changeDraft({ selected_face_asset: value })} onSelectBorder={(value) => changeDraft({ selected_border_asset: value })} onSelectColor={(value) => changeDraft({ selected_border_color: value })} onContinue={completeIntro} />
+            </div>
+          </FlorabotOverlayShell>
+        )}
+      </AnimatePresence>
+      <AnimatePresence>
+        {!onboarding && !state.scanHintDismissed && !needsGuestAccount(state) && !authOpen && (
+          <FlorabotContextBubble
+            message={copy.scanBody}
+            profile={draft}
+            onDismiss={() => updateGuestFunnel({ scanHintDismissed: true })}
+          />
+        )}
+      </AnimatePresence>
       <AnimatePresence>{feedback && <ScanFeedbackNotification feedback={feedback} profile={draft} onComplete={finishFeedback} />}</AnimatePresence>
       <GuestAccountDialog open={authOpen && !feedback} hasReward={needsGuestAccount(state)} onClose={() => setAuthOpen(false)} />
-    </div>
+    </>
   );
 }

@@ -2,6 +2,17 @@ import { motion } from "framer-motion";
 import { useUiTheme } from "@/lib/UiThemeContext";
 import FlorabotLogo from "./FlorabotLogo";
 
+/**
+ * @param {{
+ *   title?: React.ReactNode, titleSubline?: React.ReactNode, titleSublineClassName?: string,
+ *   titleBadge?: React.ReactNode, eyebrow?: React.ReactNode, eyebrowClassName?: string,
+ *   profile?: object, logoAssets?: Array<object>, showLogo?: boolean,
+ *   logoSizeClass?: string, logoPadding?: string, logoClassName?: string,
+ *   dockContentBottom?: boolean, overlayClassName?: string, dockContainerClassName?: string,
+ *   contentSectionClassName?: string, footerSectionClassName?: string,
+ *   children?: React.ReactNode, footer?: React.ReactNode
+ * }} props
+ */
 export default function FlorabotOverlayShell({
   title,
   titleSubline,
@@ -93,6 +104,7 @@ export default function FlorabotOverlayShell({
   return (
     <motion.div
       className={`fixed inset-0 z-[190] flex flex-col items-center justify-center ${overlayClassName || ""}`}
+      data-ui="florabot-story-overlay"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
