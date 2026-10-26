@@ -286,7 +286,9 @@ Vor der Aktivierung:
    vorhandenen Supabase Secret Key; sie gibt keine E-Mail-Adressen oder Scan-Fotos zurück.
 2. Prüfen, dass das identische `AI_KPI_SECRET` als GitHub Actions Secret und in Supabase
    konfiguriert ist. Für den Bild-Upload müssen außerdem Bucket und Funktion
-   `aiSocialMediaUpload` eingerichtet sein (siehe Supabase-Schritte oben).
+   `aiSocialMediaUpload` eingerichtet sein (siehe Supabase-Schritte oben), einschließlich
+   der Tabelle `public."AiMediaUpload"` aus
+   `supabase/migrations/20260929130000_create_social_media_bucket.sql`.
 3. Für eine lokale Vorschau ohne echte Daten: In GitHub Actions `Admin Weekly Report Instagram`
    mit `dry_run=true` und `publish=false` ausführen. Das rendert Beispieldaten aus
    `ai-company/fixtures/weekly_report_snapshot.json`; es ruft weder Supabase noch Instagram auf.
@@ -295,6 +297,7 @@ Vor der Aktivierung:
    Woche zu verwenden, oder ein Montag-Datum im Format `YYYY-MM-DD` eingeben. Anschließend das
    Artefakt `admin-weekly-report-<run_id>` aus dem Workflow-Lauf herunterladen und alle vier
    JPEGs prüfen. Es werden echte Supabase-Werte geladen, aber nichts wird veröffentlicht.
+   Dieser Test prüft weder den Upload-Endpunkt noch den Instagram-Zugriff.
 5. Erst nach Sichtprüfung für einen **manuellen Instagram-Post** `dry_run=false` und
    `publish=true` auswählen. Zusätzlich muss die Repository-Variable
    `FLORALOG_WEEKLY_REPORT_POSTING_ENABLED=true` gesetzt sein. Die Secrets
@@ -310,6 +313,42 @@ Posting muss `dry_run=false` und `publish=false` eingestellt werden. Das manuell
 `publish=true` allein reicht nicht: Ohne den zusätzlichen Repository-Kill-Switch wird nicht
 gepostet. Die drei transparenten Herbstgrafiken `ai-company/herbst1.png` bis `herbst3.png`
 werden abwechselnd als dezente Eckdekoration in die Slides komponiert.
+
+#### Fehler beim Upload: HTTP 404
+
+Antwortet `/functions/v1/aiSocialMediaUpload` mit
+`{"code":"NOT_FOUND","message":"Requested function was not found"}`, fehlt die Function
+im angesprochenen Projekt. Fertige JPEGs im Actions-Artefakt bestätigen nur das Rendering,
+nicht die Veröffentlichung. Der Instagram-Aufruf erfolgt erst nach allen vier Uploads.
+
+Im Repository-Hauptverzeichnis gezielt deployen:
+
+```powershell
+supabase functions deploy aiSocialMediaUpload --project-ref mppxozsltkgjozcastgv
+```
+
+Die vorhandene `supabase/config.toml` setzt für diese Function `verify_jwt=false`;
+sie authentifiziert selbst über `AI_KPI_SECRET`. Bucket und Upload-Tabelle müssen zuvor
+über die oben genannte Migration im Supabase SQL Editor eingerichtet sein.
+
+Bei `Invalid access token` zuerst die CLI-Anmeldung erneuern (`supabase login`).
+Eine gesetzte Umgebungsvariable `SUPABASE_ACCESS_TOKEN` muss ebenfalls gültig sein;
+einen veralteten Wert für die aktuelle PowerShell-Sitzung vor dem Login entfernen:
+
+```powershell
+if (Test-Path Env:\SUPABASE_ACCESS_TOKEN) {
+    Remove-Item Env:\SUPABASE_ACCESS_TOKEN
+}
+supabase login
+supabase functions list --project-ref mppxozsltkgjozcastgv
+```
+
+Keine Tokens in Logs oder Chats teilen. Nach erfolgreichem Deployment einen **neuen**
+Lauf über `Run workflow` mit `dry_run=false`, `publish=true` und dem gewünschten
+Montag als `week_start` starten. `Re-run jobs` veröffentlicht absichtlich nicht
+(`github.run_attempt == 1` ist Voraussetzung), um versehentliche Doppelposts zu vermeiden.
+Vor einem neuen Veröffentlichungsversuch immer prüfen, ob bereits ein Post existiert;
+bei dem hier beschriebenen Abbruch vor dem Instagram-Aufruf wurde keiner erstellt.
 
 Die automatische Version rendert die vier Berichtswerte serverseitig. Top-5-Avatare und das
 Foto des Scan-Siegers werden einbezogen, aber nur wenn `public_profile` und
