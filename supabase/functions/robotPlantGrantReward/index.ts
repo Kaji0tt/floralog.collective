@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { scanBaseReward, scanRewardTotal, rarityMultiplier as computeRarityMultiplier } from "../_shared/scanReward.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -108,13 +109,6 @@ function isMissingRpcFunctionError(error: unknown): boolean {
 }
 
 const REWARD_FORMULA_CONFIG = {
-  baseByEvent: {
-    scan: 10,
-    new_scan: 30,
-    new_season_scan: 40,
-    season_rediscovery: 20,
-    new_global_scan: 50,
-  },
   zoneMultiplier: { min: 1, max: 2.5, default: 1, start: 1.5, decrementPerAdditionalScan: 0.1 },
   noveltyMultiplier: { min: 0.2, max: 1, decrementPerDuplicateScan: 0.2 },
   careMultiplier: { min: 1, max: 2 },
@@ -157,16 +151,6 @@ const ROBOT_PLANT_DEFAULT_STATE = {
   streak_days: 0,
   scan_streak_joker_count: SCAN_STREAK_INITIAL_JOKER_COUNT,
   last_streak_scan_date: null as string | null,
-};
-
-const NORMALIZED_RARITY_MULTIPLIERS: Record<string, number> = {
-  haufig: 1,
-  haeufig: 1,
-  gelegentlich: 2,
-  selten: 2,
-  sehrselten: 3,
-  extremselten: 3,
-  ausgestorbenoderverschollen: 3,
 };
 
 const EARTH_RADIUS_M = 6371000;
@@ -415,18 +399,6 @@ const computeDataQualityGainFromZoneMultiplier = (zoneMultiplier: number): numbe
   return Math.max(1, derivedGain);
 };
 
-const normalizeRarityKey = (rarity: string | null | undefined): string =>
-  String(rarity ?? "")
-    .trim()
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/\s+/g, "");
-
-const computeRarityMultiplier = (rarity: string | null | undefined): number => {
-  return NORMALIZED_RARITY_MULTIPLIERS[normalizeRarityKey(rarity)] ?? 1;
-};
-
 const parseDiscoveryLocation = (
   location: string | null | undefined,
 ): { lat: number; lng: number } | null => {
@@ -496,7 +468,7 @@ const computeScanRewardBreakdown = ({
   isFirstScanOfDay?: boolean;
   zoneMultiplier: number;
 }): RewardBreakdown => {
-  const baseReward = REWARD_FORMULA_CONFIG.baseByEvent[eventSource as keyof typeof REWARD_FORMULA_CONFIG.baseByEvent] ?? 0;
+  const baseReward = scanBaseReward(eventSource);
   const healthState = computePlantHealthState({
     energyValue,
     dataQualityValue,
@@ -521,12 +493,7 @@ const computeScanRewardBreakdown = ({
     ? REWARD_FORMULA_CONFIG.firstScanOfDayMultiplier.max
     : REWARD_FORMULA_CONFIG.firstScanOfDayMultiplier.default;
 
-  const rawPreStreak =
-    adjustedBaseReward * effectiveZoneMultiplier * rarityMultiplier * noveltyMultiplier * careMultiplier * firstScanOfDayMultiplier;
-  const preStreakReward = Math.max(
-    REWARD_FORMULA_CONFIG.absoluteMinReward,
-    Math.round(rawPreStreak),
-  );
+  const preStreakReward = scanRewardTotal(adjustedBaseReward, effectiveZoneMultiplier, rarityMultiplier, noveltyMultiplier, careMultiplier, firstScanOfDayMultiplier);
   const finalReward = preStreakReward;
 
   return {
@@ -552,17 +519,7 @@ const applyFlatRewardBonusBeforeMultipliers = (
   flatBonus: number,
 ): RewardBreakdown => {
   const adjustedBaseReward = reward.adjustedBaseReward + flatBonus;
-  const rawPreStreak =
-    adjustedBaseReward *
-    reward.zoneMultiplier *
-    reward.rarityMultiplier *
-    reward.noveltyMultiplier *
-    reward.careMultiplier *
-    reward.firstScanOfDayMultiplier;
-  const preStreakReward = Math.max(
-    REWARD_FORMULA_CONFIG.absoluteMinReward,
-    Math.round(rawPreStreak),
-  );
+  const preStreakReward = scanRewardTotal(adjustedBaseReward, reward.zoneMultiplier, reward.rarityMultiplier, reward.noveltyMultiplier, reward.careMultiplier, reward.firstScanOfDayMultiplier);
 
   return {
     ...reward,

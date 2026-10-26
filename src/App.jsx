@@ -17,6 +17,8 @@ import ConfirmEmail from '@/pages/ConfirmEmail';
 import ForgotPassword from '@/pages/ForgotPassword';
 import ResetPassword from '@/pages/ResetPassword';
 import GuestPlaytestSignup from '@/pages/GuestPlaytestSignup';
+import GuestHomeFlow from '@/components/home/GuestHomeFlow';
+import GuestProgressTransfer from '@/components/home/GuestProgressTransfer';
 import GuestLoginModal from '@/components/GuestLoginModal';
 import ResetPasswordModal from '@/components/ResetPasswordModal';
 import HomeShellLoader from '@/components/navigation/HomeShellLoader';
@@ -55,7 +57,7 @@ function MaintenanceScreen() {
 }
 
 const AuthenticatedApp = () => {
-  const { isLoadingAuth, authError, isAuthenticated, loginModalOpen, closeLoginModal, isPasswordRecovery, clearPasswordRecovery } = useAuth();
+  const { user, isLoadingAuth, authError, isAuthenticated, loginModalOpen, closeLoginModal, isPasswordRecovery, clearPasswordRecovery } = useAuth();
 
   // Show loading spinner while checking auth
   if (isLoadingAuth) {
@@ -72,7 +74,7 @@ const AuthenticatedApp = () => {
   }
 
   // Render the main app (guests are allowed to browse)
-  return (
+  const content = (
     <>
       <GuestLoginModal open={loginModalOpen} onClose={closeLoginModal} />
       <ResetPasswordModal open={isPasswordRecovery} onSuccess={clearPasswordRecovery} />
@@ -97,6 +99,9 @@ const AuthenticatedApp = () => {
       </Routes>
     </>
   );
+  return isAuthenticated
+    ? <GuestProgressTransfer key={user.id}>{content}</GuestProgressTransfer>
+    : content;
 };
 
 
@@ -140,6 +145,7 @@ function App() {
           <NavigationTracker />
           <Routes>
             <Route path="/guest-playtest" element={<GuestPlaytestSignup />} />
+            <Route path="/guest-landing" element={<GuestHomeFlow />} />
 
             {/* Public Auth Routes - accessible without authentication */}
             <Route path="/login" element={<Navigate to="/" replace />} />

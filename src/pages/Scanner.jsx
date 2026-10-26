@@ -17,7 +17,9 @@ import ScanResults from "../components/scanner/ScanResults";
 import CameraCapture from "../components/scanner/CameraCapture";
 import { checkAndUnlockAchievements } from "../components/achievements/achievementChecker";
 import AchievementNotification from "../components/achievements/AchievementNotification";
-import ScanFeedbackNotification from "../components/notifications/ScanFeedbackNotification";
+import { useAuth } from "@/lib/AuthContext";
+import { identifyGuestPlant, confirmGuestPlant } from "@/api/guestScanService";
+import { readGuestFunnel, needsGuestAccount } from "@/lib/guestFunnelStorage";
 import { AnimatePresence, motion } from "framer-motion";
 
 import MobileBackButton from "../components/navigation/MobileBackButton";
@@ -81,6 +83,9 @@ function deriveNativeRegion(distribution) {
 
 
 export default function Scanner() {
+  const { isAuthenticated } = useAuth();
+  const [guestFiles, setGuestFiles] = useState([]);
+  const [guestRevision, setGuestRevision] = useState(null);
   const [scanning, setScanning] = useState(false);
   const [matchedPlant, setMatchedPlant] = useState(null);
   const [allScanResults, setAllScanResults] = useState([]);
@@ -112,10 +117,12 @@ export default function Scanner() {
   const [showGlobalFloralogModal, setShowGlobalFloralogModal] = useState(false);
   const [newPlantName, setNewPlantName] = useState("");
   const [globalScanFeedback, setGlobalScanFeedback] = useState(null);
-  const [guestScanFeedback, setGuestScanFeedback] = useState(null);
-  const [showGuestRegisterDialog, setShowGuestRegisterDialog] = useState(false);
   const queryClient = useQueryClient();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!isAuthenticated && needsGuestAccount(readGuestFunnel())) navigate("/Home", { replace: true });
+  }, [isAuthenticated, navigate]);
 
   useEffect(() => {
     const loadUser = async () => {
@@ -296,12 +303,14 @@ export default function Scanner() {
   const { data: plants = [] } = useQuery({
     queryKey: ['plants'],
     // listAll() - scan matching needs the complete catalog, list() truncates at 1000 rows.
-    queryFn: () => Query.Plant.listAll()
+    queryFn: () => Query.Plant.listAll(),
+    enabled: isAuthenticated,
   });
 
   const { data: genera = [] } = useQuery({
     queryKey: ['genera'],
-    queryFn: () => Query.PlantGenus.list()
+    queryFn: () => Query.PlantGenus.list(),
+    enabled: isAuthenticated,
   });
 
   const updatePlantMutation = useMutation({
@@ -499,6 +508,32 @@ export default function Scanner() {
 
     try {
       const scanLocationSnapshot = await captureScanLocationSnapshot();
+
+      if (!isAuthenticated) {
+        if (needsGuestAccount(readGuestFunnel())) {
+          navigate("/Home", { replace: true });
+          setScanning(false);
+          return;
+        }
+        setGuestFiles(itemList);
+        const result = await identifyGuestPlant(itemList, organList, scanLocationSnapshot);
+        if (result.status === "confirmed" || result.status === "claimed") {
+          navigate("/Home", { replace: true });
+          setScanning(false);
+          return;
+        }
+        if (!result.results?.length) throw new Error("Keine Pflanze erkannt. Bitte versuche es mit einem klareren Foto erneut.");
+        setImageUrl(result.imageUrls[0]);
+        setScanImageUrls(result.imageUrls);
+        setScanOrgans(organList);
+        setAllScanResults(result.results);
+        setGuestRevision(result.revision);
+        setCurrentResultIndex(0);
+        setMatchedPlant({ ...result.results[0], identified: true });
+        setPendingScanData({ plant: result.results[0], allResults: result.results });
+        setScanning(false);
+        return;
+      }
 
       console.log("📤 Starte Upload...");
       updateScanningProgress(0, "📦 Komprimiere Bild fuer eine schnelle Analyse...");
@@ -1250,7 +1285,7 @@ export default function Scanner() {
   // Ergaenzt bestehende Scan-Bilder um ein Zusatzfoto und startet einen vollstaendigen Re-Scan.
   const handleAddSupplementaryPhoto = (files, organs = []) => {
     setShowSupplementaryCamera(false);
-    const combinedItems = [...scanImageUrls, ...files].slice(0, MAX_SCAN_IMAGES);
+    const combinedItems = [...(isAuthenticated ? scanImageUrls : guestFiles), ...files].slice(0, MAX_SCAN_IMAGES);
     const combinedOrgans = [...scanOrgans, ...organs].slice(0, MAX_SCAN_IMAGES);
     identifyPlant(combinedItems, combinedOrgans);
   };
@@ -1276,8 +1311,7 @@ export default function Scanner() {
     setCurrentResultIndex(0);
     setShowRateLimitDialog(false);
     setShowCamera(false);
-    setGuestScanFeedback(null);
-    setShowGuestRegisterDialog(false);
+    setGuestFiles([]);
   };
 
   const handleConfirmSave = async () => {
@@ -1303,25 +1337,11 @@ export default function Scanner() {
         throw new Error("Kein Scan-Ergebnis zum Speichern gefunden.");
       }
 
-      if (!user?.id) {
+      if (!isAuthenticated) {
+        setIsSavingPlant(true);
+        await confirmGuestPlant(currentResultIndex, guestRevision);
         setPendingScanData(null);
-        setGuestScanFeedback({
-          type: "newDiscovery",
-          plantName: selectedPlant.species_name,
-          isInActiveZone: true,
-          rewardDetails: {
-            baseReward: 12,
-            preStreakReward: 18,
-            finalReward: 18,
-            healthStateLabel: "Preview",
-            healthStateBonus: 0,
-            zoneMultiplier: 1.5,
-            rarityMultiplier: 1,
-            noveltyMultiplier: 1,
-            careMultiplier: 1,
-            firstScanOfDayMultiplier: 1,
-          },
-        });
+        navigate("/Home");
         return;
       }
 
@@ -1392,11 +1412,9 @@ export default function Scanner() {
       }
     } catch (error) {
       console.error("Fehler beim Bestätigen des Speicherns:", error);
-      alert("Fehler beim Speichern der Pflanze. Bitte versuche es erneut.");
+      alert(error instanceof Error ? error.message : "Fehler beim Speichern der Pflanze. Bitte versuche es erneut.");
     } finally {
-      if (user?.id) {
-        setIsSavingPlant(false);
-      }
+      setIsSavingPlant(false);
     }
   };
 
@@ -1535,50 +1553,6 @@ export default function Scanner() {
             <div className={`w-full min-h-full flex flex-col items-center ${shouldTopAlignContent ? 'justify-start py-4' : 'justify-center'}`}>
       {/* Grüner Haken / Ändern Button - nur wenn pendingScanData vorhanden */}
 
-
-      <Dialog open={showGuestRegisterDialog} onOpenChange={setShowGuestRegisterDialog}>
-        <DialogContent className="sm:max-w-md overflow-hidden rounded-3xl border border-[#f0e5a5]/35 bg-black/40 backdrop-blur-xl text-stone-100 shadow-[0_24px_80px_rgba(0,0,0,0.55)]">
-          <div className="absolute inset-0 bg-gradient-to-b from-black/35 via-emerald-950/20 to-black/45 pointer-events-none" />
-          <div className="absolute inset-0 border border-[#f0e5a5]/25 rounded-3xl pointer-events-none" />
-          <div className="relative z-10">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2 text-emerald-300">
-                <Sparkles className="w-6 h-6" />
-                Speichere deine Entdeckung
-              </DialogTitle>
-              <DialogDescription className="text-base pt-4 text-stone-200">
-                Du hast eine Pflanze gefunden. Erstelle ein kostenloses Konto, damit sie Teil deiner Sammlung wird und deine Pflanze weiter wachsen kann.
-              </DialogDescription>
-            </DialogHeader>
-            <DialogFooter className="gap-2 sm:gap-0">
-              <Button
-                variant="outline"
-                onClick={() => setShowGuestRegisterDialog(false)}
-                className="border-[#f0e5a5]/35 bg-black/35 text-stone-100 hover:bg-black/55"
-              >
-                Spaeter
-              </Button>
-              {/* Registrieren/Login führt zur Hauptseite (GuestHomeFlow), die den primären
-                  Registrierungs- und Login-Flow als Modal anbietet. createPageUrl("Register")
-                  und createPageUrl("Login") dürfen hier NICHT verwendet werden – beide Seiten
-                  sind nicht in pages.config.js registriert und würden zu PageNotFound führen.
-                  Die Route /login in App.jsx leitet ebenfalls zu "/" weiter. */}
-              <Button
-                onClick={() => navigate("/")}
-                className="border border-lime-200/35 bg-gradient-to-r from-emerald-700/80 via-emerald-500/70 to-emerald-700/80 hover:brightness-110"
-              >
-                Kostenlos registrieren
-              </Button>
-              <Button
-                onClick={() => navigate("/")}
-                className="border border-[#f0e5a5]/35 bg-black/35 hover:bg-black/55"
-              >
-                Anmelden
-              </Button>
-            </DialogFooter>
-          </div>
-        </DialogContent>
-      </Dialog>
 
       {/* Blockiertes Ergebnis Dialog */}
       <Dialog open={showBlockedResultDialog} onOpenChange={setShowBlockedResultDialog}>
@@ -1734,21 +1708,6 @@ export default function Scanner() {
         }
       </AnimatePresence>
 
-      <AnimatePresence>
-        {guestScanFeedback && (
-          <ScanFeedbackNotification
-            feedback={guestScanFeedback}
-            profile={user}
-            shareSnapshotBackgroundImageUrl={user?.background_image_url || null}
-            shareSnapshotBackgroundColor={user?.background_color || null}
-            onComplete={() => {
-              setGuestScanFeedback(null);
-              setShowGuestRegisterDialog(true);
-            }}
-          />
-        )}
-      </AnimatePresence>
-
 
       <div className="w-full">
         {!scanning && !matchedPlant && (
@@ -1827,6 +1786,7 @@ export default function Scanner() {
             onChangeResult={handleChangeResult}
             latestDiscoveryId={latestDiscoveryId}
             isPendingConfirmation={!!pendingScanData}
+            confirmLabel={isAuthenticated ? "Pflanze speichern" : "Entdeckung bestaetigen"}
             onConfirmSave={handleConfirmSave}
             isSavingPlant={isSavingPlant}
             onAddSupplementaryPhoto={() => setShowSupplementaryCamera(true)}
@@ -1853,6 +1813,3 @@ export default function Scanner() {
     </>);
 
 }
-
-
-

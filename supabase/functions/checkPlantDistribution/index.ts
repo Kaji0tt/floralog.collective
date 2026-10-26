@@ -1,6 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { buildOriginDeniedResponse } from "../_shared/origin.ts";
 import { getSupabasePublishableKey } from "../_shared/supabaseKeys.ts";
+import { isInternalScanRequest } from "../_shared/internalScan.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -155,6 +156,7 @@ function normalizeRegionList(regions?: RegionKey[]): RegionKey[] {
 }
 
 async function getAuthenticatedUser(req: Request) {
+  if (isInternalScanRequest(req)) return null;
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
   const supabasePublishableKey = getSupabasePublishableKey();
 

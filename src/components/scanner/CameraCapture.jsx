@@ -525,6 +525,7 @@ export default function CameraCapture({ onCapture, onClose, maxPhotos = MAX_SCAN
         {/* Aufnahme-Button groß, grün */}
         <button
           onClick={capturePhoto}
+          aria-label="Foto aufnehmen"
           disabled={!isReady || isCompressing}
           className="w-20 h-20 rounded-full bg-green-500 hover:bg-green-600 active:bg-green-700 flex items-center justify-center shadow-xl border-4 border-white transition-all duration-150 disabled:opacity-60 disabled:cursor-not-allowed"
           style={{ boxShadow: '0 0 0 8px rgba(16,185,129,0.15)' }}

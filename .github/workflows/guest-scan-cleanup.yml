@@ -1,0 +1,39 @@
+name: Guest scan retention
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 * * * *"
+
+permissions: {}
+
+concurrency:
+  group: guest-scan-cleanup
+  cancel-in-progress: false
+
+jobs:
+  cleanup:
+    if: vars.GUEST_SCAN_CLEANUP_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    env:
+      GUEST_SCAN_ENDPOINT: ${{ vars.GUEST_SCAN_ENDPOINT }}
+      GUEST_SCAN_CLEANUP_SECRET: ${{ secrets.GUEST_SCAN_CLEANUP_SECRET }}
+    steps:
+      - name: Remove expired guest photos and receipts
+        shell: bash
+        run: |
+          node --input-type=module <<'JS'
+          const endpoint = process.env.GUEST_SCAN_ENDPOINT;
+          const secret = process.env.GUEST_SCAN_CLEANUP_SECRET;
+          if (!endpoint || !secret) throw new Error("Configure GUEST_SCAN_ENDPOINT and GUEST_SCAN_CLEANUP_SECRET");
+          const response = await fetch(endpoint, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${secret}` },
+            body: JSON.stringify({ action: "cleanup" }),
+            signal: AbortSignal.timeout(120000),
+          });
+          if (!response.ok) throw new Error(`Guest retention cleanup failed (${response.status})`);
+          const result = await response.json();
+          if (!result.success) throw new Error("Guest retention cleanup was not confirmed");
+          console.log("Guest retention cleanup completed.");
+          JS

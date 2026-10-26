@@ -13,9 +13,6 @@ import {
 import { Query } from '@/api/entities';
 import { trackCurrentUserPresence } from '@/api/onlinePresenceService';
 import { persistLastSignedInUserSnapshot } from '@/lib/lastSignedInUserStorage';
-import { updateCurrentUserProfile } from '@/api/userApi';
-import { LOGO_ACCESSORY_DEFAULTS } from '@/lib/logoAccessoryAssets';
-import { readGuestLogoCustomizationDraft, clearGuestLogoCustomizationDraft } from '@/lib/guestLogoCustomizationStorage';
 
 const getTodayKey = () => new Date().toISOString().slice(0, 10);
 const getZoneGenerationStorageKey = (authId) => `robotPlantZoneDay:${authId}`;
@@ -50,6 +47,8 @@ const withAuthBootstrapTimeout = async (operation) => {
 export const AuthProvider = ({ children }) => {
   const bootstrapInFlightRef = useRef(false);
   const initialSessionSettledRef = useRef(false);
+  const hydrateSessionRef = useRef(null);
+  const bootstrapSessionRef = useRef(null);
   const [user, setUser] = useState(null); // Current auth user
   const [profile, setProfile] = useState(null); // User profile from PublicProfile table
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -86,30 +85,6 @@ export const AuthProvider = ({ children }) => {
         }
 
         if (!isMounted) return;
-
-        const pendingGuestLogoDraft = readGuestLogoCustomizationDraft();
-        if (pendingGuestLogoDraft) {
-          const profileStillAtDefaults = (
-            userProfile?.selected_face_asset === LOGO_ACCESSORY_DEFAULTS.selected_face_asset &&
-            userProfile?.selected_border_asset === LOGO_ACCESSORY_DEFAULTS.selected_border_asset &&
-            !userProfile?.selected_border_color
-          );
-
-          if (profileStillAtDefaults) {
-            try {
-              const updatedProfile = await withAuthBootstrapTimeout(() => updateCurrentUserProfile({
-                selected_face_asset: pendingGuestLogoDraft.selected_face_asset,
-                selected_border_asset: pendingGuestLogoDraft.selected_border_asset,
-                selected_border_color: pendingGuestLogoDraft.selected_border_color ?? null,
-              }));
-              userProfile = { ...userProfile, ...updatedProfile };
-            } catch (error) {
-              console.error('[AuthContext] Failed to apply guest logo customization draft:', error);
-            }
-          }
-
-          clearGuestLogoCustomizationDraft();
-        }
 
         setProfile(userProfile);
 
@@ -162,6 +137,8 @@ export const AuthProvider = ({ children }) => {
       }
     };
 
+    hydrateSessionRef.current = hydrateAuthenticatedState;
+    bootstrapSessionRef.current = bootstrapCurrentSession;
     let timeoutId;
 
     // Listen to auth state changes
@@ -221,9 +198,10 @@ export const AuthProvider = ({ children }) => {
 
     let listenerHandle;
     let handledOAuthUrl = null;
+    let isMounted = true;
 
     const completeOAuthCallback = async (url) => {
-      if (!url?.startsWith('floralog://open') || url === handledOAuthUrl) return;
+      if (!isMounted || !url?.startsWith('floralog://open') || url === handledOAuthUrl) return;
 
       handledOAuthUrl = url;
       try {
@@ -231,17 +209,19 @@ export const AuthProvider = ({ children }) => {
         const sessionUser = authData?.session?.user || authData?.user || null;
         if (sessionUser) {
           setIsLoadingAuth(true);
-          await hydrateAuthenticatedState(sessionUser);
+          await hydrateSessionRef.current(sessionUser);
           if (isMounted) {
             setIsLoadingAuth(false);
+            setAuthError(null);
           }
         } else {
-          await bootstrapCurrentSession();
+          await bootstrapSessionRef.current();
         }
       } catch (error) {
         handledOAuthUrl = null;
         if (isMounted) {
           setIsLoadingAuth(false);
+          setAuthError({ type: 'native_oauth_error', message: 'Die Google-Anmeldung konnte nicht abgeschlossen werden. Bitte versuche es erneut.' });
         }
         console.error('[AuthContext] Native OAuth completion failed:', error);
       }
@@ -249,8 +229,8 @@ export const AuthProvider = ({ children }) => {
 
     // A cold start receives the URL before appUrlOpen can be subscribed to.
     // Read it explicitly so the OAuth exchange is not lost on the way back from Chrome.
-    CapacitorApp.getLaunchUrl().then(({ url }) => {
-      completeOAuthCallback(url);
+    CapacitorApp.getLaunchUrl().then((launch) => {
+      if (launch?.url) completeOAuthCallback(launch.url);
     }).catch((error) => {
       console.error('[AuthContext] Failed to read native launch URL:', error);
     });
@@ -258,10 +238,14 @@ export const AuthProvider = ({ children }) => {
     CapacitorApp.addListener('appUrlOpen', ({ url }) => {
       completeOAuthCallback(url);
     }).then((handle) => {
-      listenerHandle = handle;
+      if (isMounted) listenerHandle = handle;
+      else handle.remove();
+    }).catch((error) => {
+      console.error('[AuthContext] Failed to subscribe to native OAuth callback:', error);
     });
 
     return () => {
+      isMounted = false;
       listenerHandle?.remove();
     };
   }, []);

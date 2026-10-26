@@ -117,6 +117,12 @@ export const STORY_PROGRESS_CONDITIONS = {
 };
 
 export const STORY_COPY = {
+  guestFunnel: {
+    welcomeTitle: "Willkommen bei Floralog!",
+    welcomeBody: "Ich bin dein Florabot. Ich bin auf der Erde, um mehr ueber euer Oekosystem zu lernen. Wie soll dein zukuenftiger Begleiter aussehen?",
+    scanTitle: "Zeigst du mir eure Natur?",
+    scanBody: "Du kannst mir helfen, mehr ueber Pflanzen zu lernen: Fotografiere eine Pflanze in deiner Naehe. Tippe hier oder auf die Kamera, und wir entdecken sie gemeinsam!",
+  },
   guestFraming: {
     floralog: {
       sectionTitle: "Floralog",

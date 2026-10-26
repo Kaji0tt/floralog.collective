@@ -4,7 +4,8 @@ const safeStorageGet = (key) => {
   if (typeof window === "undefined") return null;
   try {
     return window.localStorage.getItem(key);
-  } catch {
+  } catch (error) {
+    console.warn("[GuestLogo] Could not read local customization:", error);
     return null;
   }
 };
@@ -13,8 +14,9 @@ const safeStorageSet = (key, value) => {
   if (typeof window === "undefined") return;
   try {
     window.localStorage.setItem(key, value);
-  } catch {
-    // Ignore storage failures (private mode, quota issues, etc.)
+  } catch (error) {
+    console.warn("[GuestLogo] Could not save local customization:", error);
+    window.dispatchEvent(new Event("guestLogoStorageFailed"));
   }
 };
 
@@ -22,8 +24,8 @@ const safeStorageRemove = (key) => {
   if (typeof window === "undefined") return;
   try {
     window.localStorage.removeItem(key);
-  } catch {
-    // Ignore storage failures.
+  } catch (error) {
+    console.warn("[GuestLogo] Could not clear local customization:", error);
   }
 };
 
@@ -34,8 +36,15 @@ export const readGuestLogoCustomizationDraft = () => {
   try {
     const parsed = JSON.parse(raw);
     if (!parsed || typeof parsed !== "object") return null;
-    return parsed;
-  } catch {
+    const faces = ["face_default", "face_bug", "face_mask", "face_smile"];
+    const borders = ["border_default", "border_hacked", "border_orbit", "border_triad"];
+    return {
+      selected_face_asset: faces.includes(parsed.selected_face_asset) ? parsed.selected_face_asset : "face_default",
+      selected_border_asset: borders.includes(parsed.selected_border_asset) ? parsed.selected_border_asset : "border_default",
+      selected_border_color: /^#[0-9a-f]{6}$/i.test(parsed.selected_border_color || "") ? parsed.selected_border_color : null,
+    };
+  } catch (error) {
+    console.warn("[GuestLogo] Invalid local customization:", error);
     return null;
   }
 };

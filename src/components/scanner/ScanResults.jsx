@@ -42,6 +42,7 @@ export default function ScanResults({
   currentUserId,
   latestDiscoveryId,
   isPendingConfirmation = false,
+  confirmLabel = "Pflanze speichern",
   onResultIndexChange,
   onConfirmSave,
   isSavingPlant = false,
@@ -60,12 +61,13 @@ export default function ScanResults({
 
   useEffect(() => {
     const loadGenera = async () => {
+      if (!currentUserId) return;
       const genusRows = await Query.PlantGenus.list();
       setGenera(genusRows || []);
     };
 
     loadGenera();
-  }, []);
+  }, [currentUserId]);
 
   useEffect(() => {
     const loadDiscovery = async () => {
@@ -87,15 +89,16 @@ export default function ScanResults({
   const [activePlayerIndex, setActivePlayerIndex] = useState(0);
 
   useEffect(() => {
+    if (!currentUserId) return;
     Query.LogoAsset.list().then(setLogoAssetsCatalog).catch(() => setLogoAssetsCatalog([]));
-  }, []);
+  }, [currentUserId]);
 
   useEffect(() => {
     let cancelled = false;
     setActivePlayerIndex(0);
 
     // Community-Scans nur moeglich, wenn die aktuell angezeigte Art bereits im Floralog existiert.
-    if (!currentPlant?.id) {
+    if (!currentUserId || !currentPlant?.id) {
       setCommunityState({ loading: false, otherPlayers: [], ownProfile: null });
       return () => { cancelled = true; };
     }
@@ -641,7 +644,7 @@ export default function ScanResults({
                         className="w-full border border-lime-200/35 bg-gradient-to-r from-emerald-700/80 via-emerald-500/70 to-emerald-700/80 hover:brightness-110 disabled:opacity-50 text-white font-semibold"
                       >
                         {isSavingPlant ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Check className="w-4 h-4 mr-2" />}
-                        {isSavingPlant ? "Wird gespeichert\u2026" : "Pflanze speichern"}
+                        {isSavingPlant ? "Wird gespeichert\u2026" : confirmLabel}
                       </Button>
                     </div>
                   ) : showBackToIntroButton ? (
@@ -665,4 +668,3 @@ export default function ScanResults({
 
   return null;
 }
-

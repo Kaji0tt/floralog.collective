@@ -11,16 +11,19 @@ import {
  * @param {{
  * navItems: Array<{
  *   label: string,
- *   onClick: () => void,
+ *   onClick?: () => void,
  *   icon: React.ComponentType<any>,
- *   gradientClass: string,
- *   shadowStyle: string,
+ *   gradientClass?: string,
+ *   shadowStyle?: string,
+ *   isDisabled?: boolean,
+ *   isActive?: boolean,
  *   showNotificationDot?: boolean,
  * }>,
  * controlsScale?: number,
  * showLabels?: boolean,
  * centerContext?: "inside" | "outside",
  * onCenterAction?: () => void,
+ * highlightCenterAction?: boolean,
  * }} props
  */
 export default function HomeBottomNavigation({

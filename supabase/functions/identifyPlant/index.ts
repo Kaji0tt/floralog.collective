@@ -1,6 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 import { buildOriginDeniedResponse } from "../_shared/origin.ts"
 import { getSupabasePublishableKey } from "../_shared/supabaseKeys.ts"
+import { isInternalScanRequest } from "../_shared/internalScan.ts"
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -51,17 +52,19 @@ Deno.serve(async (req) => {
       },
     })
 
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser()
+    if (!isInternalScanRequest(req)) {
+      const {
+        data: { user },
+        error: authError,
+      } = await supabase.auth.getUser()
 
-    if (authError || !user) {
-      console.warn("[identifyPlant] Unauthorized request", authError)
-      return new Response(
-        JSON.stringify({ error: "Unauthorized" }),
-        { status: 401, headers: { "Content-Type": "application/json", ...corsHeaders } },
-      )
+      if (authError || !user) {
+        console.warn("[identifyPlant] Unauthorized request", authError)
+        return new Response(
+          JSON.stringify({ error: "Unauthorized" }),
+          { status: 401, headers: { "Content-Type": "application/json", ...corsHeaders } },
+        )
+      }
     }
 
     const body = await req.json()

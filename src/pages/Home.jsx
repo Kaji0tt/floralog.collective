@@ -64,6 +64,7 @@ import HomeCurrencyInfoRow from "@/components/home/HomeCurrencyInfoRow";
 import PlantHeroHealthPanel from "@/components/home/PlantHeroHealthPanel";
 import GreenCareBubble from "@/components/home/GreenCareBubble";
 import GuestHomeFlow from "@/components/home/GuestHomeFlow";
+import GuestHomeLite from "@/components/home/GuestHomeLite";
 import BugReportDialog from "@/components/home/BugReportDialog";
 import ServerNewsDialog from "@/components/home/ServerNewsDialog";
 import HomeOtaGate from "@/components/home/HomeOtaGate";
@@ -4300,6 +4301,11 @@ function HomeContent() {
 
 export default function Home() {
   const isDesktopBrowser = useDesktopBrowser();
+  const { isAuthenticated } = useAuth();
+
+  if (!isAuthenticated) {
+    return <HomeOtaGate><GuestHomeLite /></HomeOtaGate>;
+  }
 
   if (isDesktopBrowser) {
     return <HomeDesktopLanding />;

@@ -153,3 +153,7 @@ entrypoint = "./functions/adminWeeklyReportSnapshot/index.ts"
 enabled = true
 verify_jwt = false
 entrypoint = "./functions/communityEventScheduler/index.ts"
+[functions.guestScan]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/guestScan/index.ts"
