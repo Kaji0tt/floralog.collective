@@ -5,10 +5,13 @@ import { formatDistanceToNow } from "date-fns";
 import { de } from "date-fns/locale";
 import { ChevronDown, Loader2 } from "lucide-react";
 import { supabase } from "@/api/supabaseClient";
-import CommunityEventGlowBorder, { COMMUNITY_EVENT_GLOW_SHADOW } from "@/components/community/CommunityEventGlowBorder";
+import CommunityEventGlowBorder from "@/components/community/CommunityEventGlowBorder";
 import {
   formatCommunityEventPeriod,
   formatCommunityEventRemaining,
+  getCommunityEventGlowProps,
+  getCommunityEventTargetLabel,
+  getCommunityEventTheme,
   useCommunityEvent,
 } from "@/lib/communityEvents";
 
@@ -51,24 +54,28 @@ export default function CommunityEventExplorerSection({ userId, isLightUi = fals
 
   const titleClass = isLightUi ? "text-stone-900" : "text-stone-100";
   const mutedClass = isLightUi ? "text-stone-500" : "text-stone-400";
+  const theme = getCommunityEventTheme(event);
+  const glowProps = getCommunityEventGlowProps(theme);
+  const mode = isLightUi ? "light" : "dark";
+  const eventIcon = event.icon_emoji || theme.emoji;
 
   return (
     <div className="mb-4">
       <div
-        className="relative overflow-hidden rounded-2xl"
-        style={{ boxShadow: COMMUNITY_EVENT_GLOW_SHADOW }}
+        className={`relative overflow-hidden rounded-2xl ${glowProps.className}`}
+        style={glowProps.style}
       >
-        <CommunityEventGlowBorder radius="1rem" borderWidth={2} />
+        <CommunityEventGlowBorder radius="1rem" borderWidth={2} theme={theme} />
         <button
           type="button"
           onClick={() => setIsOpen((prev) => !prev)}
-          className={`relative w-full rounded-2xl p-3.5 text-left ${isLightUi ? "bg-gradient-to-br from-amber-50 to-white" : "bg-gradient-to-br from-amber-900/40 via-stone-950/80 to-black/80"}`}
+          className={`relative w-full rounded-2xl p-3.5 text-left ${theme.explorerSurface[mode]}`}
           aria-expanded={isOpen}
         >
           <div className="flex items-center gap-3">
-            <span className="text-2xl leading-none">{event.icon_emoji || "🌰"}</span>
+            <span className="text-2xl leading-none">{eventIcon}</span>
             <div className="min-w-0 flex-1">
-              <p className={`text-[10px] font-semibold uppercase tracking-wide ${isLightUi ? "text-amber-700" : "text-amber-300"}`}>
+              <p className={`text-[10px] font-semibold uppercase tracking-wide ${theme.explorerLabel[mode]}`}>
                 Community Event · {formatCommunityEventPeriod(event)}
               </p>
               <p className={`truncate text-sm font-bold ${titleClass}`}>{event.title}</p>
@@ -76,13 +83,13 @@ export default function CommunityEventExplorerSection({ userId, isLightUi = fals
             <ChevronDown className={`h-4 w-4 shrink-0 transition-transform ${isOpen ? "rotate-180" : ""} ${mutedClass}`} />
           </div>
           <div className={`mt-2 flex items-center justify-between text-[11px] ${mutedClass}`}>
-            <span className={isLightUi ? "text-amber-800" : "text-amber-200"}>Dein Beitrag: {contributedCount}</span>
+            <span className={theme.explorerPersonal[mode]}>Dein Beitrag: {contributedCount}</span>
             <span>{progress} / {target} · {statusLabel}</span>
           </div>
           <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-black/25">
             <div
               className="h-full rounded-full"
-              style={{ width: `${percent}%`, background: "linear-gradient(90deg, #78350f, #d97706, #fde68a)" }}
+              style={{ width: `${percent}%`, background: theme.progressGradient }}
             />
           </div>
         </button>
@@ -103,7 +110,7 @@ export default function CommunityEventExplorerSection({ userId, isLightUi = fals
               </div>
             ) : scans.length === 0 ? (
               <p className={`px-1 py-6 text-center text-sm ${mutedClass}`}>
-                Noch keine gezählten Scans – sei der erste Florabot-Partner, der eine {event.target_genus_name || "Zielpflanze"} kartiert!
+                Noch keine gezählten Scans – sei der erste Florabot-Partner, der {getCommunityEventTargetLabel(event)} kartiert!
               </p>
             ) : (
               <div className="grid grid-cols-2 gap-2 pt-3 sm:grid-cols-3">
@@ -123,14 +130,14 @@ export default function CommunityEventExplorerSection({ userId, isLightUi = fals
                         genus_number: scan.genus_number,
                       },
                     })}
-                    className={`overflow-hidden rounded-xl border text-left transition-colors ${isLightUi ? "border-amber-200 bg-white hover:bg-amber-50" : "border-amber-200/15 bg-black/30 hover:bg-black/45"}`}
+                    className={`overflow-hidden rounded-xl border text-left transition-colors ${theme.scanCard[mode]}`}
                   >
                     <div className="relative" style={{ aspectRatio: "4/3" }}>
                       {scan.image_url ? (
                         <img src={scan.image_url} alt={scan.plant_species_name || "Scan"} className="h-full w-full object-cover" loading="lazy" />
                       ) : (
-                        <div className={`flex h-full w-full items-center justify-center text-3xl ${isLightUi ? "bg-amber-50" : "bg-amber-500/10"}`}>
-                          {event.icon_emoji || "🌰"}
+                        <div className={`flex h-full w-full items-center justify-center text-3xl ${theme.scanPlaceholder[mode]}`}>
+                          {eventIcon}
                         </div>
                       )}
                     </div>

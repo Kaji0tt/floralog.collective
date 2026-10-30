@@ -36,6 +36,7 @@ const ACTION_URL = "Achievements";
 type CommunityEvent = {
   id: string;
   title: string;
+  icon_emoji: string | null;
   target_genus_name: string | null;
   target_species_name: string | null;
   required_discoveries: number;
@@ -43,7 +44,7 @@ type CommunityEvent = {
   completed: boolean;
   start_date: string;
   end_date: string;
-  reward_tiers: Array<{ min_contributions?: number }> | null;
+  reward_tiers: Array<{ min_contributions?: number; requires_success?: boolean }> | null;
   success_sparks: number | null;
   failure_sparks: number | null;
   outcome: string | null;
@@ -88,13 +89,24 @@ function formatBerlinWeekday(value: string): string {
 
 function pluralizeTarget(event: CommunityEvent): string {
   const label = (event.target_species_name || event.target_genus_name || "Zielpflanze").trim();
-  return /e$/i.test(label) ? `${label}n` : label;
+  if (/e$/i.test(label)) return `${label}n`;
+  if (/is$/i.test(label)) return `${label}se`;
+  return label;
+}
+
+function eventIcon(event: CommunityEvent): string {
+  return event.icon_emoji?.trim() || "🌰";
+}
+
+function hasGuaranteedTier(event: CommunityEvent): boolean {
+  return (Array.isArray(event.reward_tiers) ? event.reward_tiers : []).some((tier) => tier?.requires_success === false);
 }
 
 function formatTierThresholds(event: CommunityEvent): string {
-  const mins = (Array.isArray(event.reward_tiers) ? event.reward_tiers : [])
+  const mins = [...new Set((Array.isArray(event.reward_tiers) ? event.reward_tiers : [])
+    .filter((tier) => tier?.requires_success !== false)
     .map((tier) => Number(tier?.min_contributions) || 0)
-    .filter((min) => min > 0)
+    .filter((min) => min > 0))]
     .sort((a, b) => a - b);
   if (mins.length === 0) return "";
   if (mins.length === 1) return String(mins[0]);
@@ -107,11 +119,12 @@ function buildStartCopy(event: CommunityEvent) {
   const plural = pluralizeTarget(event);
   const tiers = formatTierThresholds(event);
   return {
-    title: `🌰 Community Event: ${event.title}`,
+    title: `${eventIcon(event)} Community Event: ${event.title}`,
     body:
       `Wir Florabots brauchen eure Hilfe! Bis ${formatBerlinWeekday(event.end_date)} wollen wir gemeinsam ` +
-      `${event.required_discoveries} ${plural} kartieren. Jeder Scan zählt` +
-      (tiers ? ` – ab ${tiers} eigenen Scans warten exklusive Faces auf euch!` : "!"),
+      `${event.required_discoveries} ${plural} kartieren. Jeder Scan zählt!` +
+      (hasGuaranteedTier(event) ? " Schon dein erster Scan sichert dir garantiert ein exklusives Face." : "") +
+      (tiers ? ` Schafft ihr das Ziel, warten ab ${tiers} eigenen Scans ${hasGuaranteedTier(event) ? "weitere " : ""}exklusive Faces auf euch!` : ""),
   };
 }
 
@@ -119,7 +132,7 @@ function buildProgressCopy(event: CommunityEvent) {
   const plural = pluralizeTarget(event);
   const missing = Math.max(0, event.required_discoveries - event.current_progress);
   return {
-    title: `🌰 Zwischenstand: ${event.title}`,
+    title: `${eventIcon(event)} Zwischenstand: ${event.title}`,
     body:
       `${event.current_progress} von ${event.required_discoveries} ${plural} sind schon in unseren Datenbanken! ` +
       `Noch ${missing} fehlen – die Florabots der Heimatwelt fiebern mit. Bis ${formatBerlinWeekday(event.end_date)} ist Zeit!`,
@@ -140,17 +153,18 @@ function buildEndCopy(event: CommunityEvent) {
   const plural = pluralizeTarget(event);
   if (event.outcome === "succeeded") {
     return {
-      title: `🌰 ${event.title} abgeschlossen!`,
+      title: `${eventIcon(event)} ${event.title} abgeschlossen!`,
       body:
         `Unglaublich: ${event.current_progress} ${plural} kartiert! Unsere Heimat lernt so viel von euch. ` +
         `Alle Teilnehmenden erhalten +${event.success_sparks ?? 0} Funken ⚡ – öffne die App für deine Belohnungen.`,
     };
   }
   return {
-    title: `🌰 ${event.title} beendet`,
+    title: `${eventIcon(event)} ${event.title} beendet`,
     body:
       `${event.current_progress} von ${event.required_discoveries} ${plural} – knapp daneben! Danke für eure Daten. ` +
-      `Alle Teilnehmenden erhalten +${event.failure_sparks ?? 0} Funken ⚡ als Dankeschön.`,
+      `Alle Teilnehmenden erhalten +${event.failure_sparks ?? 0} Funken ⚡` +
+      (hasGuaranteedTier(event) ? " und ihr garantiertes Event-Face als Dankeschön." : " als Dankeschön."),
   };
 }
 

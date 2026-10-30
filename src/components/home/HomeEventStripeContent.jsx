@@ -2,25 +2,30 @@ import HomeEventStripe from "@/components/home/HomeEventStripe";
 import { trackAction } from "@/api/analyticsService";
 import {
   formatCommunityEventRemaining,
+  getCommunityEventTargetLabel,
+  getCommunityEventTheme,
   getNextCommunityEventTier,
+  pluralizeCommunityEventTarget,
   useCommunityEvent,
 } from "@/lib/communityEvents";
 
 function buildCommunityEventStripeItem({ event, phase, progress, target, contributedCount, onOpenAchievements }) {
-  if (!event) return null;
+  if (!event || phase !== "active") return null;
   const nextTier = getNextCommunityEventTier(event, contributedCount);
   const remaining = Math.max(0, target - progress);
-  const targetLabel = event.target_genus_name || event.target_species_name || "Zielpflanzen";
+  const targetLabel = getCommunityEventTargetLabel(event);
+  const targetPlural = pluralizeCommunityEventTarget(targetLabel);
+  const theme = getCommunityEventTheme(event);
 
   let description;
   if (phase === "succeeded") {
-    description = `Geschafft! Gemeinsam habt ihr ${progress} ${targetLabel}n kartiert. Die Belohnungen wurden verteilt.`;
+    description = `Geschafft! Gemeinsam habt ihr ${progress} ${targetPlural} kartiert. Die Belohnungen wurden verteilt.`;
   } else if (phase === "failed" || phase === "ended") {
-    description = `Das Event ist beendet: ${progress} von ${target} ${targetLabel}n kartiert.`;
+    description = `Das Event ist beendet: ${progress} von ${target} ${targetPlural} kartiert.`;
   } else if (remaining <= 0) {
-    description = `Ziel erreicht! Scannt weiter bis zum Ende – jede ${targetLabel} bringt euch höhere Belohnungsstufen.`;
+    description = `Ziel erreicht! Scannt weiter bis zum Ende – jeder Scan bringt euch höhere Belohnungsstufen.`;
   } else {
-    description = `Noch ${remaining} ${targetLabel}n bis zum Gemeinschaftsziel. ${event.description || ""}`.trim();
+    description = `Noch ${remaining} ${remaining === 1 ? targetLabel : targetPlural} bis zum Gemeinschaftsziel. ${event.description || ""}`.trim();
   }
 
   let personalLabel = `Dein Beitrag: ${contributedCount}`;
@@ -32,7 +37,8 @@ function buildCommunityEventStripeItem({ event, phase, progress, target, contrib
     id: `community-event-${event.id}`,
     kind: "community",
     highlight: true,
-    icon: event.icon_emoji || "🌰",
+    theme: theme.key,
+    icon: event.icon_emoji || theme.emoji,
     title: event.title,
     metaLabel: phase === "active" ? formatCommunityEventRemaining(event) : "beendet",
     description,

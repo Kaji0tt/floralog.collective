@@ -33,9 +33,9 @@ import { LockedTooltip } from "@/components/ui/locked-tooltip";
 import { getCurrentWeeklyQuest } from "@/components/quests/QuestRotationHelper";
 import { getConservationFromPlant } from "@/lib/conservationStatus";
 import { computeRarityLabel, getRarityAccentClasses } from "@/lib/plantRarity";
-import CommunityEventGlowBorder, { COMMUNITY_EVENT_GLOW_SHADOW } from "@/components/community/CommunityEventGlowBorder";
+import CommunityEventGlowBorder from "@/components/community/CommunityEventGlowBorder";
 import CommunityEventExplorerSection from "@/components/community/CommunityEventExplorerSection";
-import { useCommunityEvent } from "@/lib/communityEvents";
+import { getCommunityEventGlowProps, getCommunityEventTheme, useCommunityEvent } from "@/lib/communityEvents";
 
 // Sticky pill-tabs header: gold-gradient-bordered glass card when embedded, plain white bar as standalone page header.
 function TabsHeaderContainer({ embedded, className, children }) {
@@ -1573,13 +1573,15 @@ Viel Spaß beim Entdecken! 🌿`;
           ].map((option) => {
             const isSelected = explorerViewMode === option.id;
             const hasEventGlow = option.id === "sotw" && Boolean(communityEventForExplorer.event);
+            const eventTheme = getCommunityEventTheme(communityEventForExplorer.event);
+            const eventGlowProps = hasEventGlow ? getCommunityEventGlowProps(eventTheme) : null;
             return (
               <button
                 key={option.id}
                 type="button"
                 onClick={() => setExplorerViewMode(option.id)}
                 className={
-                  `${hasEventGlow ? "relative overflow-hidden " : ""}rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${isSelected
+                  `${hasEventGlow ? `relative overflow-hidden ${eventGlowProps.className} ` : ""}rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${isSelected
                     ? (isLightUi
                       ? "bg-white text-[#8f6b22] shadow-sm"
                       : "bg-[#f0e5a5] text-stone-950")
@@ -1587,10 +1589,10 @@ Viel Spaß beim Entdecken! 🌿`;
                       ? "text-stone-600 hover:text-stone-900"
                       : "text-stone-300 hover:text-stone-100")}`
                 }
-                style={hasEventGlow ? { boxShadow: COMMUNITY_EVENT_GLOW_SHADOW } : undefined}
+                style={eventGlowProps?.style}
               >
-                {hasEventGlow && <CommunityEventGlowBorder radius="9999px" borderWidth={1.5} />}
-                {hasEventGlow ? `🌰 ${option.label}` : option.label}
+                {hasEventGlow && <CommunityEventGlowBorder radius="9999px" borderWidth={1.5} theme={eventTheme} />}
+                {hasEventGlow ? `${communityEventForExplorer.event.icon_emoji || eventTheme.emoji} ${option.label}` : option.label}
               </button>
             );
           })}

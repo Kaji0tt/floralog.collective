@@ -16,6 +16,7 @@ import {
   TreeDeciduous, Leaf, Flower2, Sparkles, Check, Edit2, X, Users
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { COMMUNITY_EVENT_THEMES } from "@/lib/communityEvents";
 
 const LOGO_URL = "https://blauzahn.eu/PlantDexIcon.png";
 
@@ -38,6 +39,7 @@ const getDefaultSeedRewardForTab = (tab) =>
 const EMPTY_EVENT_FIELDS = {
   is_event: false,
   slug: "",
+  theme: "",
   success_sparks: 0,
   failure_sparks: 0,
   reward_tiers_json: "[]",
@@ -221,6 +223,7 @@ export default function AdminQuestCreator() {
       end_date: toDateTimeLocalValue(quest.end_date),
       is_event: !!quest.is_event,
       slug: quest.slug || "",
+      theme: quest.theme || "",
       success_sparks: quest.success_sparks ?? 0,
       failure_sparks: quest.failure_sparks ?? 0,
       reward_tiers_json: JSON.stringify(quest.reward_tiers || [], null, 2),
@@ -246,6 +249,7 @@ export default function AdminQuestCreator() {
       questData.end_date = formData.end_date ? new Date(formData.end_date).toISOString() : null;
       questData.is_event = !!formData.is_event;
       questData.slug = formData.slug?.trim() || null;
+      questData.theme = formData.theme || null;
       questData.success_sparks = Math.max(0, parseInt(formData.success_sparks) || 0);
       questData.failure_sparks = Math.max(0, parseInt(formData.failure_sparks) || 0);
       if (formData.is_event) {
@@ -259,7 +263,11 @@ export default function AdminQuestCreator() {
           alert('Reward-Stufen müssen ein JSON-Array wie [{"min_contributions":5,"reward_id":"reward_..."}] sein.');
           return;
         }
-        questData.reward_tiers = tiers.map((t) => ({ min_contributions: Number(t.min_contributions), reward_id: String(t.reward_id) }));
+        questData.reward_tiers = tiers.map((t) => ({
+          min_contributions: Number(t.min_contributions),
+          reward_id: String(t.reward_id),
+          ...(t.requires_success === false ? { requires_success: false } : {}),
+        }));
       }
     }
 
@@ -570,7 +578,7 @@ export default function AdminQuestCreator() {
                     </label>
                     {formData.is_event && (
                       <>
-                        <div className="grid grid-cols-3 gap-3">
+                        <div className="grid grid-cols-4 gap-3">
                           <div>
                             <Label>Slug</Label>
                             <Input
@@ -578,6 +586,21 @@ export default function AdminQuestCreator() {
                               onChange={(e) => setFormData({...formData, slug: e.target.value})}
                               placeholder="kastanien-kartierung-2026"
                             />
+                          </div>
+                          <div>
+                            <Label>Theme</Label>
+                            <select
+                              className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                              value={formData.theme}
+                              onChange={(e) => setFormData({...formData, theme: e.target.value})}
+                            >
+                              <option value="">Standard (Kastanie)</option>
+                              {Object.values(COMMUNITY_EVENT_THEMES).map((theme) => (
+                                <option key={theme.key} value={theme.key}>
+                                  {theme.emoji} {theme.key}{theme.blink ? " (blinkend)" : ""}
+                                </option>
+                              ))}
+                            </select>
                           </div>
                           <div>
                             <Label>Funken bei Erfolg</Label>
@@ -599,7 +622,7 @@ export default function AdminQuestCreator() {
                           </div>
                         </div>
                         <div>
-                          <Label>Reward-Stufen (JSON, kumulativ, nur bei Erfolg)</Label>
+                          <Label>Reward-Stufen (JSON, kumulativ, standardmäßig nur bei Erfolg)</Label>
                           <Textarea
                             rows={4}
                             className="font-mono text-xs"
@@ -607,7 +630,7 @@ export default function AdminQuestCreator() {
                             onChange={(e) => setFormData({...formData, reward_tiers_json: e.target.value})}
                           />
                           <p className="text-xs text-stone-500 mt-1">
-                            Format: {'[{"min_contributions": 5, "reward_id": "reward_logo_accessory_face_Mojo"}]'}. Samen-Belohnung für Events auf 0 setzen.
+                            Format: {'[{"min_contributions": 5, "reward_id": "reward_logo_accessory_face_Mojo"}]'}. Mit {'"requires_success": false'} wird die Stufe auch bei verfehltem Ziel vergeben. Samen-Belohnung für Events auf 0 setzen.
                             Funken &amp; Stufen werden vom communityEventScheduler nach Event-Ende automatisch vergeben.
                           </p>
                         </div>
@@ -926,7 +949,7 @@ export default function AdminQuestCreator() {
                                   )}
                                   {activeTab === "community" && quest.is_event && (
                                     <Badge className="bg-amber-700 text-white">
-                                      🌰 Event{quest.finalized_at ? ` · ${quest.outcome === "succeeded" ? "erfolgreich" : "verfehlt"}` : ""}
+                                      {quest.icon_emoji || "🌰"} Event{quest.finalized_at ? ` · ${quest.outcome === "succeeded" ? "erfolgreich" : "verfehlt"}` : ""}
                                     </Badge>
                                   )}
                                   {activeTab === "community" && quest.completed && (

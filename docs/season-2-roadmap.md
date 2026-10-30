@@ -119,7 +119,7 @@ entfernt ist – unabhängig von der erkannten Pflanzen-ID.
 
 **Abschluss:** `finalize_community_quest(quest_id)` (nur service_role, idempotent) nach `end_date`:
 - Erfolg (`completed`): `success_sparks` Funken + alle erreichten `reward_tiers`.
-- Misserfolg: `failure_sparks` Funken, keine Tier-Rewards.
+- Misserfolg: `failure_sparks` Funken + nur Stufen mit `"requires_success": false` (garantierte Rewards).
 - Pro Teilnehmer eine `UserNotification` (`community_event_result`) → Reward-Overlay beim nächsten
   Öffnen von Home (`CommunityEventRewardNotification`).
 
@@ -136,6 +136,13 @@ Finalisierung läuft unabhängig vom Push-Zeitfenster.
 - Quests: Event-Karte mit Zusammenfassung (Ziel, Bedingungen, Zeitraum, Belohnungen, Stufen).
 - Explorer-Log → Community: Event-Eintrag mit allen gezählten Event-Scans.
 - Admin: `AdminQuestCreator` → Tab „Community“ → Checkbox „Community Event“.
+- Themes: `CommunityQuest.theme` wählt Farben/Emoji aller Event-Flächen aus
+  `COMMUNITY_EVENT_THEMES` (`src/lib/communityEvents.js`); `blink: true` lässt Rahmen und Glow blinken.
+
+**Zweites Event: „Die Kürbis-Jagd“** (31.10.–06.11.2026, Migration
+`20261030120000_community_event_kuerbis.sql`): 25 Kürbisse (`PlantGenus.genus_name = 'Kürbis'`),
+50-m-Regel, Theme `pumpkin` (Orange/Violett, blinkend). Rewards: `face_pumpkinbot` garantiert ab
+1 Scan, bei Erfolg `face_spoonbot` ab 1 und `face_bonnybot` ab 3 Scans.
 
 ---
 

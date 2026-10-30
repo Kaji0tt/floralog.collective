@@ -7,9 +7,8 @@ import BadgeCircleIcon, {
   MUTED_CIRCLE_BORDER_GRADIENT,
   MUTED_CIRCLE_SHADOW,
 } from "@/components/home/BadgeCircleIcon";
-import CommunityEventGlowBorder, { COMMUNITY_EVENT_GLOW_SHADOW } from "@/components/community/CommunityEventGlowBorder";
-
-const COMMUNITY_PROGRESS_GRADIENT = "linear-gradient(90deg, #78350f, #d97706, #fde68a)";
+import CommunityEventGlowBorder from "@/components/community/CommunityEventGlowBorder";
+import { getCommunityEventGlowProps, getCommunityEventTheme } from "@/lib/communityEvents";
 
 const EVENT_KIND_ICONS = {
   weekly: CalendarDays,
@@ -123,11 +122,13 @@ export default function HomeEventStripe({ events = [], isLightUi = false, classN
   };
 
   const isHighlighted = Boolean(activeEvent.highlight);
+  const eventTheme = getCommunityEventTheme(activeEvent.theme);
+  const glowProps = isHighlighted ? getCommunityEventGlowProps(eventTheme, "inset 0 2px 8px rgba(0,0,0,0.8)") : null;
 
   return (
     <div
-      className={`relative w-full shrink-0 rounded-2xl shadow-[inset_0_2px_8px_rgba(0,0,0,0.8)] ${className}`}
-      style={isHighlighted ? { boxShadow: `inset 0 2px 8px rgba(0,0,0,0.8), ${COMMUNITY_EVENT_GLOW_SHADOW}` } : undefined}
+      className={`relative w-full shrink-0 rounded-2xl shadow-[inset_0_2px_8px_rgba(0,0,0,0.8)] ${glowProps?.className || ""} ${className}`}
+      style={glowProps?.style}
     >
       <div
         aria-hidden="true"
@@ -165,7 +166,7 @@ export default function HomeEventStripe({ events = [], isLightUi = false, classN
                 )}
               </BadgeCircleIcon>
               <div className="min-w-0 flex-1">
-                <p className={`text-[9px] font-medium uppercase tracking-wide ${isHighlighted ? (isLightUi ? "text-amber-700" : "text-amber-300/90") : (isLightUi ? "text-stone-500" : "text-stone-400/70")}`}>
+                <p className={`text-[9px] font-medium uppercase tracking-wide ${isHighlighted ? (isLightUi ? eventTheme.labelText.light : eventTheme.labelText.dark) : (isLightUi ? "text-stone-500" : "text-stone-400/70")}`}>
                   {kindLabel}
                   {activeEvent.isAvailable ? " · Neu" : ""}
                   {activeEvent.metaLabel ? ` · ${activeEvent.metaLabel}` : ""}
@@ -218,7 +219,7 @@ export default function HomeEventStripe({ events = [], isLightUi = false, classN
               <div className="flex flex-col gap-1">
                 <div className={`flex items-center justify-between gap-2 text-[9px] font-medium ${isLightUi ? "text-stone-500" : "text-stone-400/70"}`}>
                   {activeEvent.personalLabel ? (
-                    <span className={`truncate ${isLightUi ? "text-amber-800" : "text-amber-200/90"}`}>{activeEvent.personalLabel}</span>
+                    <span className={`truncate ${isLightUi ? eventTheme.personalText.light : eventTheme.personalText.dark}`}>{activeEvent.personalLabel}</span>
                   ) : null}
                   <span className="shrink-0">
                     {activeEvent.progressPrefix || ""}
@@ -228,7 +229,7 @@ export default function HomeEventStripe({ events = [], isLightUi = false, classN
                 <div className={`${isHighlighted ? "h-1.5" : "h-1"} w-full overflow-hidden rounded-full bg-black/20`}>
                   <div
                     className={`h-full rounded-full ${isHighlighted ? "opacity-95" : "opacity-70"}`}
-                    style={{ width: `${progressPercent}%`, background: isHighlighted ? COMMUNITY_PROGRESS_GRADIENT : MUTED_CIRCLE_BORDER_GRADIENT }}
+                    style={{ width: `${progressPercent}%`, background: isHighlighted ? eventTheme.progressGradient : MUTED_CIRCLE_BORDER_GRADIENT }}
                   />
                 </div>
               </div>
@@ -237,7 +238,7 @@ export default function HomeEventStripe({ events = [], isLightUi = false, classN
         </AnimatePresence>
       </div>
       {isHighlighted ? (
-        <CommunityEventGlowBorder radius="1rem" borderWidth={2} />
+        <CommunityEventGlowBorder radius="1rem" borderWidth={2} theme={eventTheme} />
       ) : (
         <div aria-hidden="true" className="gold-gradient-border-mask gold-gradient-border-mask-thin" style={{ background: borderGradient }} />
       )}

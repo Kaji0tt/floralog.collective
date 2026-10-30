@@ -293,6 +293,39 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Rewards referenced by a community event tier are event-exclusive, even if their
+    // asset was uploaded after the event migration ran.
+    const { data: eventQuests, error: eventQuestsError } = await adminClient
+      .from("CommunityQuest")
+      .select("slug, reward_tiers")
+      .eq("is_event", true);
+
+    if (eventQuestsError) {
+      console.warn("[syncLogoAssets] Failed to load community event tiers:", eventQuestsError);
+    } else {
+      const eventSourceByRewardId = new Map<string, string>();
+      for (const quest of eventQuests || []) {
+        const tiers = Array.isArray(quest.reward_tiers) ? quest.reward_tiers : [];
+        for (const tier of tiers) {
+          const rewardId = String(tier?.reward_id || "").trim().toLowerCase();
+          if (rewardId && quest.slug) eventSourceByRewardId.set(rewardId, `community_event:${quest.slug}`);
+        }
+      }
+
+      const syncedEventRewards = accessoryRewardRows.filter((reward) => eventSourceByRewardId.has(reward.id.toLowerCase()));
+      for (const reward of syncedEventRewards) {
+        const { error: exclusiveError } = await adminClient
+          .from("Rewards")
+          .update({ shop_hidden: true, exclusive_source: eventSourceByRewardId.get(reward.id.toLowerCase()) })
+          .eq("id", reward.id)
+          .is("exclusive_source", null);
+
+        if (exclusiveError) {
+          console.warn("[syncLogoAssets] Failed to mark event reward as exclusive:", exclusiveError);
+        }
+      }
+    }
+
     // Ensure active (non-legacy) assets have shop_hidden = false – except rewards that
     // are exclusive to a source (e.g. a community event) and must stay out of the shop.
     if (activeAssetIds.length > 0) {
