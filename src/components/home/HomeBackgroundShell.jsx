@@ -1,5 +1,6 @@
 import { useUiTheme } from "@/lib/UiThemeContext";
 import { useDeviceTiltOffset } from "@/lib/useDeviceTiltOffset";
+import ProfileEffectLayer from "@/components/effects/ProfileEffectLayer";
 
 export default function HomeBackgroundShell({
   user,
@@ -77,6 +78,11 @@ export default function HomeBackgroundShell({
           aria-hidden="true"
         />
       )}
+
+      {/* Profile effect along the viewport border (above content, never interactive). */}
+      <div className="pointer-events-none absolute inset-0 z-40">
+        <ProfileEffectLayer effect={user?.selected_profile_effect} surface="viewport" />
+      </div>
     </div>
   );
 }

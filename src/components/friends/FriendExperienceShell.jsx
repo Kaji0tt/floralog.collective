@@ -4,7 +4,6 @@ import { createPageUrl } from "@/utils";
 import { useUiTheme } from "@/lib/UiThemeContext";
 import HomeBackgroundShell from "@/components/home/HomeBackgroundShell";
 import HomeBottomNavigation from "@/components/navigation/HomeBottomNavigation";
-import HomeShellBorderGlow from "@/components/effects/HomeShellBorderGlow";
 import HomeRarityBorderGlow from "@/components/effects/HomeRarityBorderGlow";
 import { getRgbaFromRgb } from "@/lib/friendColorUtils";
 import { getNavButtonStyle, NAV_COLOR_ORDER } from "@/components/navigation/navButtonStyles";
@@ -60,6 +59,7 @@ export default function FriendExperienceShell({
     ? {
         background_image_url: friendUser.background_image_url ?? null,
         background_color: friendUser.background_color ?? averageColor ?? null,
+        selected_profile_effect: friendUser.selected_profile_effect ?? null,
       }
     : null;
 
@@ -159,7 +159,6 @@ export default function FriendExperienceShell({
               : "linear-gradient(180deg, rgba(126, 171, 98, 0.45) 0%, rgba(10, 22, 15, 0.78) 100%)",
           }}
         />
-        <HomeShellBorderGlow active={friendUser?.selected_profile_effect === "shell_border_glow"} />
         <HomeRarityBorderGlow active={friendUser?.selected_logo_effect === "rarity_border_glow"} borderColor={friendUser?.selected_border_color} />
 
         <div className="relative z-10 h-full flex flex-col px-4 md:px-8 py-4 md:py-6">

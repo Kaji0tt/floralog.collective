@@ -1,5 +1,12 @@
-import React, { useEffect, useRef, useState } from "react";
-import { AnimatePresence, motion } from "framer-motion";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+
+// One full lap of the light sweep.
+const SHIMMER_LAP_SECONDS = 8;
+const PATH_SAMPLES = 12;
+
+const SHIMMER_CONIC =
+  "conic-gradient(from 0deg, rgba(200,172,98,0.08) 0%, rgba(240,229,165,0.85) 9%, rgba(255,252,230,1) 12%, rgba(240,229,165,0.85) 15%, rgba(200,172,98,0.08) 26%, rgba(200,172,98,0.08) 50%, rgba(200,172,98,0.75) 59%, rgba(255,252,230,0.95) 62%, rgba(200,172,98,0.75) 65%, rgba(200,172,98,0.08) 76%, rgba(200,172,98,0.08) 100%)";
 
 function randomBetween(min, max) {
   return min + Math.random() * (max - min);
@@ -19,12 +26,13 @@ function randomNormal(mean, standardDeviation) {
 }
 
 /**
- * Spawns a single shimmer particle that travels along the border perimeter.
+ * Spawns a single shimmer particle that drifts along the border perimeter.
  */
 function useShellBorderSpark(index, active) {
   const [state, setState] = useState({
     visible: false,
     progress: 0,
+    travel: 0.25,
     size: 4,
     durationS: 6,
     baseGlow: 0.12,
@@ -47,11 +55,11 @@ function useShellBorderSpark(index, active) {
       if (!mountedRef.current) return;
 
       const durationS = clamp(randomNormal(7.5, 2.0), 4.5, 12.0);
-      const startProgress = Math.random();
 
       setState({
         visible: true,
-        progress: startProgress,
+        progress: Math.random(),
+        travel: randomBetween(0.15, 0.35),
         size: randomBetween(2.5, 7.5),
         durationS,
         baseGlow: randomBetween(0.08, 0.18),
@@ -99,17 +107,22 @@ function progressToPosition(progress) {
 }
 
 function ShellBorderSparkParticle({ index, active }) {
-  const { visible, progress, size, durationS, baseGlow, peakGlow, pulseTime } =
+  const { visible, progress, travel, size, durationS, baseGlow, peakGlow, pulseTime } =
     useShellBorderSpark(index, active);
 
-  const startPos = progressToPosition(progress);
-  const endPos = progressToPosition((progress + randomBetween(0.15, 0.35)) % 1);
+  // Keyframes sampled along the perimeter so a spark turning a corner follows the
+  // border instead of cutting straight across the surface.
+  const path = useMemo(
+    () => Array.from({ length: PATH_SAMPLES }, (_, step) => progressToPosition(progress + (travel * step) / (PATH_SAMPLES - 1))),
+    [progress, travel]
+  );
 
   const earlySoftTime = Math.max(0.06, pulseTime - 0.1);
   const tailTime = clamp(pulseTime + 0.15, pulseTime + 0.05, 0.92);
   const opacityTimes = [0, earlySoftTime, pulseTime, tailTime, 1];
   const opacityFrames = [0, baseGlow * 0.6, peakGlow, baseGlow * 0.4, 0];
   const scaleFrames = [0.6, 0.85, 1.15, 0.9, 0.65];
+  const pathTransition = { duration: durationS, ease: "linear" };
 
   return (
     <AnimatePresence>
@@ -119,16 +132,20 @@ function ShellBorderSparkParticle({ index, active }) {
           initial={{
             opacity: 0,
             scale: 0.3,
-            left: `${startPos.x}%`,
-            top: `${startPos.y}%`,
+            left: `${path[0].x}%`,
+            top: `${path[0].y}%`,
           }}
           animate={{
             opacity: opacityFrames,
             scale: scaleFrames,
-            left: `${endPos.x}%`,
-            top: `${endPos.y}%`,
+            left: path.map((point) => `${point.x}%`),
+            top: path.map((point) => `${point.y}%`),
           }}
-          transition={{ duration: durationS, ease: "easeInOut", times: opacityTimes }}
+          transition={{
+            default: { duration: durationS, ease: "easeInOut", times: opacityTimes },
+            left: pathTransition,
+            top: pathTransition,
+          }}
           className="absolute rounded-full pointer-events-none"
           style={{
             width: `${size}px`,
@@ -147,61 +164,69 @@ function ShellBorderSparkParticle({ index, active }) {
 }
 
 /**
- * Animated shimmer glow overlay for the home shell border.
- * Renders a rotating conic gradient that creates a sweeping light effect.
+ * Light sweep along the border. The masked ring itself stays fixed; only an oversized
+ * conic gradient behind the mask rotates (same technique as CommunityEventGlowBorder),
+ * so the border never visibly turns on non-square surfaces.
  */
-function ShellBorderShimmerOverlay({ active }) {
-  if (!active) return null;
-
+function ShellBorderShimmerOverlay({ radius, borderWidth, reduceMotion }) {
   return (
-    <div
-      className="absolute inset-0 pointer-events-none rounded-[2rem] overflow-hidden"
-      style={{ zIndex: 2 }}
-    >
-      {/* Rotating conic shimmer */}
-      <motion.div
-        className="absolute inset-[-2px] rounded-[2rem]"
-        animate={{ rotate: 360 }}
-        transition={{ duration: 8, ease: "linear", repeat: Infinity }}
+    <>
+      <div
+        className="absolute inset-0 overflow-hidden"
         style={{
-          background:
-            "conic-gradient(from 0deg, transparent 0%, rgba(240,229,165,0.35) 8%, rgba(255,252,230,0.55) 12%, rgba(240,229,165,0.35) 16%, transparent 24%, transparent 50%, rgba(200,172,98,0.28) 58%, rgba(255,252,230,0.45) 62%, rgba(200,172,98,0.28) 66%, transparent 74%, transparent 100%)",
-          mask: "linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)",
-          maskComposite: "exclude",
+          borderRadius: radius,
+          padding: borderWidth,
+          WebkitMask: "linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0)",
           WebkitMaskComposite: "xor",
-          padding: "2px",
+          mask: "linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0)",
+          maskComposite: "exclude",
         }}
-      />
+      >
+        <motion.div
+          className="absolute"
+          style={{
+            left: "50%",
+            top: "50%",
+            width: "max(250%, 600px)",
+            aspectRatio: "1 / 1",
+            x: "-50%",
+            y: "-50%",
+            background: SHIMMER_CONIC,
+          }}
+          animate={reduceMotion ? undefined : { rotate: 360 }}
+          transition={reduceMotion ? undefined : { duration: SHIMMER_LAP_SECONDS, ease: "linear", repeat: Infinity }}
+        />
+      </div>
       {/* Static ambient glow */}
       <div
-        className="absolute inset-0 rounded-[2rem]"
+        className="absolute inset-0"
         style={{
-          boxShadow:
-            "inset 0 0 18px rgba(240,229,165,0.12), 0 0 24px rgba(240,229,165,0.08), 0 0 48px rgba(200,172,98,0.05)",
+          borderRadius: radius,
+          boxShadow: "inset 0 0 18px rgba(240,229,165,0.16), inset 0 0 42px rgba(200,172,98,0.08)",
         }}
       />
-    </div>
+    </>
   );
 }
 
 /**
- * HomeShellBorderGlow – renders sparkle particles and shimmer overlay
- * around the home shell border when the "shell_border_glow" profile effect is active.
+ * HomeShellBorderGlow – light sweep + sparkle particles along the border of the
+ * surrounding `relative` container ("shell_border_glow" profile effect).
  */
-export default function HomeShellBorderGlow({ active = false, particleCount = 14 }) {
+export default function HomeShellBorderGlow({ active = false, particleCount = 14, radius = "2rem", borderWidth = 2 }) {
+  const reduceMotion = useReducedMotion();
   if (!active) return null;
 
   return (
-    <>
-      <ShellBorderShimmerOverlay active={active} />
-      <div
-        className="absolute inset-0 pointer-events-none overflow-visible rounded-[2rem]"
-        style={{ zIndex: 3 }}
-      >
-        {Array.from({ length: particleCount }, (_, idx) => (
-          <ShellBorderSparkParticle key={`shell-spark-${idx}`} index={idx} active={active} />
-        ))}
-      </div>
-    </>
+    <div aria-hidden="true" className="pointer-events-none absolute inset-0" style={{ zIndex: 3, borderRadius: radius }}>
+      <ShellBorderShimmerOverlay radius={radius} borderWidth={borderWidth} reduceMotion={reduceMotion} />
+      {!reduceMotion && (
+        <div className="absolute inset-0 overflow-visible" style={{ borderRadius: radius }}>
+          {Array.from({ length: particleCount }, (_, idx) => (
+            <ShellBorderSparkParticle key={`shell-spark-${idx}`} index={idx} active={active} />
+          ))}
+        </div>
+      )}
+    </div>
   );
 }

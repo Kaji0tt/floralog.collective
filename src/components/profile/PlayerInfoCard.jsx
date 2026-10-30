@@ -4,6 +4,7 @@ import { ArrowRight, Leaf, Loader2 } from "lucide-react";
 import { createPageUrl } from "@/utils";
 import { getPublicPlayerProfile } from "@/api/publicPlayerProfile";
 import GoldGradientCard from "@/components/home/GoldGradientCard";
+import ProfileEffectLayer from "@/components/effects/ProfileEffectLayer";
 import BadgeCircleIcon from "@/components/home/BadgeCircleIcon";
 import { formatProfileBadgeMetricValue, getProfileBadgeDefinitionById } from "@/lib/profileBadges";
 import { getUniqueBadgeById } from "@/lib/profileUniqueBadges";
@@ -62,6 +63,7 @@ export default function PlayerInfoCard({ playerAuthId, fallbackName, logo, onNav
             : undefined}
         />
       )}
+      <ProfileEffectLayer effect={profile?.selected_profile_effect} surface="card" />
       {isLoading ? (
         <div className="relative z-10 flex min-h-48 items-center justify-center">
           <Loader2 className="h-6 w-6 animate-spin text-[#f0e5a5]" />

@@ -27,7 +27,6 @@ import { useUiTheme } from "@/lib/UiThemeContext";
 import { encodeReferralCode } from "@/lib/referralCode";
 import { resolveEquippedLogoAssetsWithCatalog } from "@/lib/logoAccessoryAssets";
 import CustomLogoAvatar from "@/components/profile/CustomLogoAvatar";
-import HomeShellBorderGlow from "@/components/effects/HomeShellBorderGlow";
 import GoldGradientCard from "@/components/home/GoldGradientCard";
 import { LockedTooltip } from "@/components/ui/locked-tooltip";
 import { getCurrentWeeklyQuest } from "@/components/quests/QuestRotationHelper";
@@ -1369,7 +1368,6 @@ Viel Spaß beim Entdecken! 🌿`;
         actorBackgroundUrl: profile?.background_image_url || null,
         actorBackgroundColor: profile?.background_color || null,
         actorBorderColor: profile?.selected_border_color || '#C7AF8B',
-        actorProfileEffect: profile?.selected_profile_effect || null,
         rarityImageBorderClass: getRarityAccentClasses(rarityLabel, isLightUi).imageBorder,
         scanCount: 1,
         likedByCurrentUser: likedDiscoveryIdSet.has(entry.id),
@@ -1910,10 +1908,6 @@ Viel Spaß beim Entdecken! 🌿`;
                           className={`absolute inset-0 rounded-2xl backdrop-blur-sm ${isLightUi ? "bg-white/40" : "bg-black/20"}`}
                         />
                         <div className="relative overflow-hidden rounded-2xl bg-black/45 text-stone-100">
-                        {/* Border glow effect */}
-                        {entry.actorProfileEffect === "shell_border_glow" && (
-                          <HomeShellBorderGlow active particleCount={5} />
-                        )}
                         {/* Header bar – 2-column: plant names (left) + logo (right) */}
                         <div className="relative z-10 px-3 pt-3 pb-1 flex items-center gap-2">
                           {/* Left: plant names */}

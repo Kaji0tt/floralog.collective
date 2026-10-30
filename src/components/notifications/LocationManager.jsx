@@ -137,7 +137,11 @@ export default function LocationManager({ showInProfile = false }) {
           <div>
             <p className="font-semibold text-stone-100">Standortermittlung</p>
             <p className="text-xs text-stone-400">
-              Aktiviere den Standort für lokale Pflanzenfunde und Karte.
+              Viele Spielfunktionen benötigen deinen Standort. Scannen funktioniert auch ohne,
+              die Map und Samen-Boni für Scans sind ohne Standortermittlung allerdings nicht nutzbar.
+            </p>
+            <p className="text-xs text-stone-400 mt-1">
+              Dein Standort wird ausschließlich während des Scan-Prozesses oder beim Test der Optionen ermittelt.
             </p>
           </div>
           <label className="relative inline-flex items-center cursor-pointer">

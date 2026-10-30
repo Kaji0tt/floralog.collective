@@ -41,7 +41,7 @@ export default function CommunityEventGlowBorder({ radius = "1rem", borderWidth 
           background: resolvedTheme.conic,
         }}
         animate={reduceMotion ? undefined : { rotate: 360 }}
-        transition={reduceMotion ? undefined : { duration: resolvedTheme.blink ? 4 : 6, ease: "linear", repeat: Infinity }}
+        transition={reduceMotion ? undefined : { duration: resolvedTheme.blink ? 40 : 60, ease: "linear", repeat: Infinity }}
       />
     </motion.div>
   );

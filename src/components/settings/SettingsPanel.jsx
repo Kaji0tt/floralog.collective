@@ -487,7 +487,7 @@ export default function SettingsPanel({
           }`}>
             <div className="flex-1 min-w-0">
               <p className={`text-sm font-medium leading-snug ${uiTheme === 'light' ? 'text-stone-800' : 'text-stone-100'}`}>Lokales Tracking</p>
-              <p className={`text-xs leading-snug ${uiTheme === 'light' ? 'text-stone-600' : 'text-stone-400'}`}>Scans im lokalen Tab zeigen (20 km)</p>
+              <p className={`text-xs leading-snug ${uiTheme === 'light' ? 'text-stone-600' : 'text-stone-400'}`}>Scans im Map Tab für Freunde anzeigen.</p>
             </div>
             <label className="relative inline-flex items-center cursor-pointer flex-shrink-0">
               <input
