@@ -26,7 +26,7 @@ export default function CommunityEventGlowBorder({ radius = "1rem", borderWidth 
         zIndex: 5,
       }}
       animate={shouldBlink ? { opacity: [1, 0.2, 1] } : undefined}
-      transition={shouldBlink ? { duration: 1.1, ease: "easeInOut", repeat: Infinity } : undefined}
+      transition={shouldBlink ? { duration: 3, ease: "easeInOut", repeat: Infinity } : undefined}
       data-community-event-glow="true"
     >
       <motion.div

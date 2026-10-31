@@ -925,7 +925,7 @@ button:focus-visible {
 }
 
 .community-event-glow-blink {
-  animation: community-event-glow-blink 1.1s ease-in-out infinite;
+  animation: community-event-glow-blink 3s ease-in-out infinite;
 }
 
 @media (prefers-reduced-motion: reduce) {

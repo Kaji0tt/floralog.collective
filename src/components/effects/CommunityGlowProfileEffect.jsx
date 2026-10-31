@@ -22,7 +22,7 @@ export default function CommunityGlowProfileEffect({ themeKey, radius = "2rem", 
         className="absolute inset-0"
         style={{ borderRadius: radius, boxShadow: innerGlow }}
         animate={shouldBlink ? { opacity: [1, 0.25, 1] } : undefined}
-        transition={shouldBlink ? { duration: 1.1, ease: "easeInOut", repeat: Infinity } : undefined}
+        transition={shouldBlink ? { duration: 3, ease: "easeInOut", repeat: Infinity } : undefined}
       />
       <CommunityEventGlowBorder radius={radius} borderWidth={borderWidth} theme={theme} />
     </div>
